@@ -16,6 +16,14 @@ DUCT = 8
 SUPERSONIC_INLET = 9  # reserved (deferred)
 SUPERSONIC_OUTLET = 10  # reserved (deferred)
 
+# Acoustic-face ids (implementation-plan.md s8.3): which acoustic stamp an
+# element overrides its default CSD face with.  Only DUCT is active in v1;
+# VOLUME (storage M) and FLAME (sources S) are reserved provisions.
+ACOUSTIC_DEFAULT = 0  # contributes only through J_alg (the CSD linearization)
+ACOUSTIC_DUCT = 1  # phase-propagation stamp P(omega)
+ACOUSTIC_VOLUME = 2  # finite-volume storage stamp M (reserved)
+ACOUSTIC_FLAME = 3  # heat-release source stamp S(omega) (reserved)
+
 # Equation-kind tags (for residual-row scaling); mirror prototype KIND_*.
 KIND_MASS = 0
 KIND_PRESSURE = 1

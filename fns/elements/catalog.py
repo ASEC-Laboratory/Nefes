@@ -19,16 +19,24 @@ from .ids import (
     P_OUTLET,
     JUNCTION,
     SPLITTER,
+    ACOUSTIC_DEFAULT,
+    ACOUSTIC_DUCT,
 )
 
 
 @dataclass
 class ElementSpec:
-    """One network element: residual type + ordered float parameters."""
+    """One network element: residual type + ordered float parameters.
+
+    ``acoustic_id`` (implementation-plan.md s8.3) declares the optional acoustic
+    face that overrides the default CSD linearization; ``ACOUSTIC_DEFAULT`` means
+    the element contributes only through ``J_alg``.
+    """
 
     residual_id: int
     fparams: List[float] = field(default_factory=list)
     name: str = ""
+    acoustic_id: int = ACOUSTIC_DEFAULT
 
 
 def mass_flow_inlet(mdot, Tt, name="inlet"):
@@ -69,10 +77,16 @@ def splitter(name="splitter"):
     return ElementSpec(SPLITTER, [], name)
 
 
-def duct(name="duct"):
+def duct(length=0.0, name="duct"):
+    """A length-bearing, lossless, constant-area duct.
+
+    The mean face is equal-area continuity (length-independent); ``length`` is
+    inert in the steady residual and read only by the acoustic phase stamp
+    (theory.md s12.3).  It rides ``fparams[0]`` as ordinary acoustic metadata.
+    """
     from .ids import DUCT
 
-    return ElementSpec(DUCT, [], name)
+    return ElementSpec(DUCT, [float(length)], name, acoustic_id=ACOUSTIC_DUCT)
 
 
 def _row_kinds(rid: int, deg: int, mdot_ref, p_ref):
@@ -125,6 +139,7 @@ def build_problem_from_connectivity(
 
     degrees = [conn.degree(n) for n in range(n_nodes)]
     node_rid = np.array([el.residual_id for el in elements], dtype=np.int64)
+    node_acoustic_id = np.array([el.acoustic_id for el in elements], dtype=np.int64)
 
     # pack node float params in node order
     npar_f = []
@@ -161,6 +176,7 @@ def build_problem_from_connectivity(
         tail_node=conn.tail_node,
         head_node=conn.head_node,
         node_rid=node_rid,
+        node_acoustic_id=node_acoustic_id,
         npar_f=npar_f,
         npar_fptr=npar_fptr,
         node_row_ptr=pat.node_row_ptr,

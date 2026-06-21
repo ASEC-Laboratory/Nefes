@@ -38,7 +38,7 @@ _UI_NODE_BUILDERS = {
     "IsentropicAreaChange": lambda a: cat.isentropic_area_change(),
     "SuddenAreaChange": lambda a: cat.sudden_area_change(),
     "LossElement": lambda a: cat.loss(a["lossCoefficient"]),
-    "Duct": lambda a: cat.duct(),
+    "Duct": lambda a: cat.duct(a.get("length", 0.0)),
     "JunctionStaticP": lambda a: cat.junction(),
     "LosslessSplitter": lambda a: cat.splitter(),
 }
