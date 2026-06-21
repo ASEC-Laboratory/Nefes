@@ -54,7 +54,11 @@ class DuctAcoustics:
         return A
 
     def det(self, omega, R0, R1):
-        return np.linalg.det(self.system(omega, R0, R1))
+        # LAPACK's complex LU trips the divide-by-zero/invalid FP flags during
+        # intermediate steps even when the determinant is finite; the modal search
+        # also probes omega at the genuine det -> 0 roots.  Both are expected here.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.linalg.det(self.system(omega, R0, R1))
 
 
 def duct_modes(c, length, n_modes=4, R0=1.0, R1=1.0, u=0.0, n_grid=4000):

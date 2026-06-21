@@ -61,8 +61,10 @@ def test_zero_frequency_operator_equals_jacobian():
     diff = A0 - blocks.J_alg
     assert abs(diff).sum() == 0.0
     # the acoustic operator is finite and (away from resonance) nonsingular
-    assert np.all(np.isfinite(blocks.J_alg.toarray()))
-    assert abs(np.linalg.det(blocks.J_alg.toarray())) > 0.0
+    A = blocks.J_alg.toarray()
+    assert np.all(np.isfinite(A))
+    with np.errstate(divide="ignore", invalid="ignore"):  # benign LAPACK flags on complex det
+        assert abs(np.linalg.det(A)) > 0.0
 
 
 def test_quiescent_mean_assembles_cleanly():
