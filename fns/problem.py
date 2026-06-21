@@ -46,6 +46,10 @@ class CompiledProblem:
     res_scale: np.ndarray  # float64[n_eq]
     # per-element smoothing-eps override (< 0 -> use the global eps); see ElementSpec.eps
     node_eps: np.ndarray = None  # float64[N]
+    # per-node perturbation boundary condition (Python objects, read only above the
+    # @njit line by the perturbation layer); None / "inherit" where unset.  See
+    # fns.perturbation.boundary_bc.PerturbationBC.
+    node_bc: tuple = ()  # length N (or empty -> all inherit)
 
     @property
     def n_col(self) -> int:

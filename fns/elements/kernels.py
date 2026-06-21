@@ -15,6 +15,7 @@ from .ids import (
     MASS_FLOW_INLET,
     PT_INLET,
     P_OUTLET,
+    WALL,
     ISEN_AREA_CHANGE,
     SUDDEN_AREA_CHANGE,
     LOSS,
@@ -30,6 +31,11 @@ def node_donor(n, rid, row_ptr, col_edge, orient, npar_f, npar_fptr, tf, eps, es
     base = row_ptr[n]
     deg = row_ptr[n + 1] - base
     cp = tf[0]
+    if rid == WALL:
+        # Enthalpy-transparent: the wall offers the edge its own total enthalpy, so
+        # the smooth-upwind transport row (theta = 1/2 at mdot = 0) collapses to the
+        # interior donor -- the stagnant leg simply inherits it (theory.md s12.6).
+        return est[ES_HT, col_edge[base]]
     if rid == MASS_FLOW_INLET or rid == PT_INLET or rid == P_OUTLET:
         return cp * npar_f[npar_fptr[n] + 1]  # cp * Tt(_backflow)
     # interior: mass-weighted smooth-upwind mix of the incoming port enthalpies
@@ -58,6 +64,12 @@ def node_residual(n, rid, row_ptr, col_edge, orient, npar_f, npar_fptr, tf, eps,
         e0 = col_edge[base]
         s0 = orient[base]
         R[r0] = s0 * est[ES_MDOT, e0] - npar_f[pb + 0]
+        return
+
+    if rid == WALL:
+        e0 = col_edge[base]
+        s0 = orient[base]
+        R[r0] = s0 * est[ES_MDOT, e0]  # impermeable: no mass crosses the wall
         return
 
     if rid == PT_INLET:
