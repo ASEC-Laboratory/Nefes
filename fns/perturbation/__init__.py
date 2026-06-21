@@ -27,16 +27,18 @@ from .characteristics import (
 )
 from .operator import build_acoustic_blocks, assemble_acoustic, AcousticBlocks
 from .verify import verify_acoustic
+from .boundary_bc import PerturbationBC
+from .terminals import Terminal, find_terminals
 from .response import (
     perturbation_response,
     PerturbationResponse,
     excite_perturbation,
     PerturbationField,
-    find_terminals,
-    Terminal,
     acoustic_response,
     AcousticResponse,
 )
+from .forced import boundary_response, ForcedResponse
+from .stamps import boundary_forcing
 from . import matrices
 from .matrices import (
     tm_in_basis,
@@ -73,6 +75,11 @@ __all__ = [
     "assemble_acoustic",
     "AcousticBlocks",
     "verify_acoustic",
+    # boundary conditions + forced response
+    "PerturbationBC",
+    "boundary_response",
+    "ForcedResponse",
+    "boundary_forcing",
     # response + matrices
     "perturbation_response",
     "PerturbationResponse",

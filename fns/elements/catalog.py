@@ -17,6 +17,7 @@ from .ids import (
     MASS_FLOW_INLET,
     PT_INLET,
     P_OUTLET,
+    WALL,
     JUNCTION,
     SPLITTER,
     ACOUSTIC_DEFAULT,
@@ -45,18 +46,34 @@ class ElementSpec:
     name: str = ""
     acoustic_id: int = ACOUSTIC_DEFAULT
     eps: Optional[float] = None
+    perturbation_bc: Optional[object] = None  # PerturbationBC (None -> inherit)
 
 
-def mass_flow_inlet(mdot, Tt, name="inlet"):
-    return ElementSpec(MASS_FLOW_INLET, [float(mdot), float(Tt)], name)
+def mass_flow_inlet(mdot, Tt, name="inlet", perturbation_bc=None):
+    return ElementSpec(MASS_FLOW_INLET, [float(mdot), float(Tt)], name, perturbation_bc=perturbation_bc)
 
 
-def total_pressure_inlet(pt, Tt, name="pt-inlet"):
-    return ElementSpec(PT_INLET, [float(pt), float(Tt)], name)
+def total_pressure_inlet(pt, Tt, name="pt-inlet", perturbation_bc=None):
+    return ElementSpec(PT_INLET, [float(pt), float(Tt)], name, perturbation_bc=perturbation_bc)
 
 
-def pressure_outlet(p, Tt_backflow=300.0, name="outlet"):
-    return ElementSpec(P_OUTLET, [float(p), float(Tt_backflow)], name)
+def pressure_outlet(p, Tt_backflow=300.0, name="outlet", perturbation_bc=None):
+    return ElementSpec(P_OUTLET, [float(p), float(Tt_backflow)], name, perturbation_bc=perturbation_bc)
+
+
+def wall(name="wall", perturbation_bc=None):
+    """An impermeable single-port termination: ``mdot = 0`` on its incident edge.
+
+    The wall blocks mean flow, so the leg behind it is stagnant (``M = 0``); its
+    purpose is acoustic.  By default it closes the perturbation problem as a rigid
+    hard wall (``u' = 0``, ``R = +1``) -- which at the wall's ``M = 0`` state is
+    identical to the inherited ``mdot' = 0`` row.  Pass ``perturbation_bc`` to model
+    a non-rigid termination (e.g. a liner impedance) instead.
+    """
+    from ..perturbation.boundary_bc import PerturbationBC
+
+    bc = perturbation_bc if perturbation_bc is not None else PerturbationBC.hard_wall()
+    return ElementSpec(WALL, [], name, perturbation_bc=bc)
 
 
 def isentropic_area_change(name="iac"):
@@ -105,8 +122,8 @@ def duct(length=0.0, name="duct"):
 
 def _row_kinds(rid: int, deg: int, mdot_ref, p_ref):
     """Residual-row scale magnitudes for one element."""
-    if rid == MASS_FLOW_INLET:
-        return [mdot_ref]
+    if rid == MASS_FLOW_INLET or rid == WALL:
+        return [mdot_ref]  # WALL pins mdot = 0
     if rid in (PT_INLET, P_OUTLET):
         return [p_ref]
     # interior: mass balance + (deg-1) pressure rows
@@ -166,6 +183,9 @@ def build_problem_from_connectivity(
     # per-element smoothing-eps override (< 0 -> follow the global solve-time eps)
     node_eps = np.array([el.eps if el.eps is not None else -1.0 for el in elements], dtype=np.float64)
 
+    # per-node perturbation BC (Python objects; read only by the perturbation layer)
+    node_bc = tuple(getattr(el, "perturbation_bc", None) for el in elements)
+
     pat = build_jacobian_pattern(conn, degrees, n_solve=3)
 
     # residual scales
@@ -203,4 +223,5 @@ def build_problem_from_connectivity(
         var_scale=var_scale,
         res_scale=res_scale,
         node_eps=node_eps,
+        node_bc=node_bc,
     )

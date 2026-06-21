@@ -4,6 +4,11 @@
   `fns-flow-network` model): reservoir → feed pipe → isentropic contraction →
   tailpipe → back-pressure outlet. The two ducts are inert in the mean flow but
   carry the wave phase used by the perturbation network.
+- **`acoustic_terminations.yaml`** — a UI case demonstrating the **perturbation
+  boundary conditions**: an acoustic **excitation** reservoir feeds a duct to an
+  **impedance** liner outlet, with a side branch closed by a **wall** (a
+  quarter-wave resonator with no mean flow). Load it, `solve()` the mean flow, then
+  sweep `fns.perturbation.boundary_response(sol.problem, sol.x, omegas)`.
 - **`converging_nozzle.ipynb`** — loads the UI case, solves the steady mean flow,
   prints the converged edge states, sweeps the back pressure to show emergent
   choking (mass-flow saturation at `M = 1`), and runs the full `3 x 3`
@@ -72,6 +77,57 @@ ends in `-port-<ordinal>`; the loader keeps those ordinals and densifies each
 element's incident ports to `0..d-1`, so port-0 conventions (the LossElement
 reference area, the junction/splitter reference port) match the canvas. Element
 `type` names map to the FNS catalog: `MassFlowInlet`, `TotalPressureInlet`,
-`PressureOutlet`, `IsentropicAreaChange`, `SuddenAreaChange`, `LossElement`,
+`PressureOutlet`, `Wall`, `IsentropicAreaChange`, `SuddenAreaChange`, `LossElement`,
 `Duct`, `JunctionStaticP`, `LosslessSplitter`. Supersonic boundaries are deferred
 in v1 and raise a clear error.
+
+## Perturbation boundary conditions
+
+Each single-port element (`MassFlowInlet`, `TotalPressureInlet`, `PressureOutlet`,
+`Wall`) carries an **acoustic closure** of the linear fluctuation problem
+(theory.md §12.4): one reflection relation `w_incoming − R(ω)·w_outgoing = b(ω)`
+written on the terminal, every flavor being a choice of `R` (and an excitation
+forcing `b`).
+
+**In the UI** the surface is deliberately small — each boundary node exposes only an
+*Acoustics* group with a **Rigid** checkbox (a closed wall, `u'=0`), an **Open**
+checkbox (an ideal pressure-release open end, `p'=0`, `R=−1`) and, when neither is set,
+a **specific impedance** as `impedanceMagnitude` (|Z|/ρc) and `impedancePhase`
+(degrees). Precedence is rigid → open → impedance. Defaults: inlets/outlets default to
+**open** (`p'=0`); the `Wall` node defaults to rigid. The loader maps these to
+`PerturbationBC.hard_wall()`, `PerturbationBC.open_end()`, or
+`PerturbationBC.impedance_polar(...)`. A boundary with no acoustic fields keeps its
+default closure (`inherit` for inlets/outlets — e.g. a pressure outlet → `p'=0`).
+
+**In Python** the full `PerturbationBC` API is available (the richer closures are
+Python-only):
+
+| constructor | meaning |
+| --- | --- |
+| `PerturbationBC.inherit()` (default) | keep the linearized mean BC |
+| `.hard_wall()` | rigid, `u'=0` (`R=+1`) |
+| `.open_end()` | pressure-release, `p'=0` (`R=−1`) |
+| `.mean_flow_open_end()` | convective open end, `R=−(1−M)/(1+M)` |
+| `.anechoic()` | reflection-free (`R=0`) |
+| `.reflection(R)` | prescribed `R` (constant, `(ω,values)` table, or callable) |
+| `.impedance(Z, specific=…)` / `.impedance_polar(mag, phase_deg)` | `R=(Z−ρc)/(Z+ρc)` |
+| `.excitation(amp, family=…)` | drive an incoming acoustic/entropy wave |
+
+The `Wall` element additionally blocks the **mean** flow (`ṁ=0` on its edge). To force
+the response, attach an excitation (a Python-only closure) and solve:
+
+```python
+import numpy as np
+from fns.io import load_case
+from fns.perturbation import PerturbationBC, boundary_response
+
+net = load_case("examples/acoustic_terminations.yaml")
+net._elements[0].perturbation_bc = PerturbationBC.excitation(1.0)   # drive the reservoir
+sol = net.solve()
+fr = boundary_response(sol.problem, sol.x, np.linspace(50.0, 3000.0, 200))
+gamma_in = fr.reflection_at(0)   # input reflection g/f at the feed edge
+```
+
+The transfer/scattering-matrix analysis (`perturbation_response`) is unchanged and
+boundary-condition agnostic; `boundary_response` instead solves the network as it is
+*physically terminated*.

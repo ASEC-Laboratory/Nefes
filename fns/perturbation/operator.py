@@ -66,17 +66,24 @@ def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8):
     )
 
 
-def assemble_acoustic(omega, blocks: AcousticBlocks):
-    """Stamp the full ``A(omega) = J_alg + i*omega*M + P(omega) + S(omega)``.
+def assemble_acoustic(omega, blocks: AcousticBlocks, with_boundaries=True):
+    """Stamp the full ``A(omega) = J_alg + i*omega*M + P(omega) + S(omega) + R(omega)``.
 
     The cached ``J_alg`` is never mutated: a fresh LIL copy receives the i*omega*M
-    scaling and the omega-dependent stamps.  At ``omega = 0`` with no ducts this
-    returns exactly ``J_alg`` (the founding consistency); with ducts the phase
-    rows reduce to wave-amplitude continuity -- physically equivalent to the
-    steady duct rows.
+    scaling and the omega-dependent stamps.  At ``omega = 0`` with no ducts and only
+    inherited boundaries this returns exactly ``J_alg`` (the founding consistency);
+    with ducts the phase rows reduce to wave-amplitude continuity -- physically
+    equivalent to the steady duct rows.
+
+    ``with_boundaries`` controls the terminal reflection face ``R(omega)``
+    (``stamps.stamp_boundaries``).  The measurement driver (``response.py``) sets it
+    ``False`` because it closes every terminal itself with independent prescribed
+    incoming waves; the physical forced/stability drivers leave it ``True`` so each
+    terminal carries its declared ``PerturbationBC``.
     """
     A = (blocks.J_alg + 1j * omega * blocks.M).tolil()
     stamp_propagation(A, omega, blocks.duct_stamps, blocks.u_floor)
     stamp_sources(A, omega, blocks.prob, blocks.x_bar)
-    stamp_boundaries(A, omega, blocks.prob, blocks.x_bar)
+    if with_boundaries:
+        stamp_boundaries(A, omega, blocks.prob, blocks.x_bar)
     return A.tocsc()

@@ -42,64 +42,10 @@ import scipy.sparse.linalg as spla
 
 from .operator import build_acoustic_blocks, assemble_acoustic
 from .characteristics import dx_to_char, basis_block_from_state
+from .terminals import Terminal, find_terminals, _BOUNDARY_RIDS  # noqa: F401  (re-exported)
 from . import matrices as mat
 from ..solver.control import states_table
-from ..derive import ES_RHO, ES_C, ES_U, ES_P, ES_AREA, ES_MDOT
-from ..elements.ids import MASS_FLOW_INLET, PT_INLET, P_OUTLET
-
-_BOUNDARY_RIDS = (MASS_FLOW_INLET, PT_INLET, P_OUTLET)
-
-
-@dataclass
-class Terminal:
-    """A 1-port boundary edge where an incoming wave can be injected/read."""
-
-    node: int  # the boundary element
-    rid: int  # its residual id (one of _BOUNDARY_RIDS)
-    edge: int  # the single incident edge
-    at_tail: bool  # True if the boundary is the edge's tail (wave enters as f)
-    row: int  # the boundary element's single equation row
-    incoming: int  # acoustic wave index injected here: 0 (f) if at_tail else 1 (g)
-    outgoing: int  # the reflected/transmitted acoustic wave index read here
-    inflowing: bool  # True if the mean flow *enters* the domain here (carries entropy in)
-
-
-def find_terminals(prob, x_bar=None) -> List[Terminal]:
-    """All 1-port boundary terminals of the network (edges at a boundary node).
-
-    When ``x_bar`` is given, ``inflowing`` is set from the mean flow direction so
-    the incoming entropy excitation can be placed at genuine inlets.
-    """
-    est = states_table(prob, x_bar) if x_bar is not None else None
-    terms = []
-    for n in range(prob.n_nodes):
-        rid = int(prob.node_rid[n])
-        if rid not in _BOUNDARY_RIDS:
-            continue
-        base = int(prob.row_ptr[n])
-        deg = int(prob.row_ptr[n + 1]) - base
-        if deg != 1:
-            raise ValueError(f"boundary node {n} has degree {deg}; a 1-port must have one edge")
-        edge = int(prob.col_edge[base])
-        at_tail = int(prob.tail_node[edge]) == n
-        incoming = 0 if at_tail else 1
-        inflowing = False
-        if est is not None:
-            mdot = float(est[ES_MDOT, edge])
-            inflowing = (mdot > 0.0) if at_tail else (mdot < 0.0)
-        terms.append(
-            Terminal(
-                node=n,
-                rid=rid,
-                edge=edge,
-                at_tail=at_tail,
-                row=int(prob.node_row_ptr[n]),
-                incoming=incoming,
-                outgoing=1 - incoming,
-                inflowing=inflowing,
-            )
-        )
-    return terms
+from ..derive import ES_RHO, ES_C, ES_U, ES_P, ES_AREA, ES_MDOT  # noqa: F401
 
 
 def _edge_transforms(prob, x_bar, K):
@@ -217,7 +163,9 @@ def _build_excitation_context(prob, x_bar, omegas, forcing, *, eps, eps_fb, u_fl
     ns, n_col = int(prob.n_solve), int(prob.n_col)
     lus = []
     for omega in omegas:
-        A = assemble_acoustic(omega, blocks).tolil()
+        # The measurement driver closes *every* terminal itself (one independent
+        # incoming wave per row), so the physical boundary stamp is skipped here.
+        A = assemble_acoustic(omega, blocks, with_boundaries=False).tolil()
         for p in pres:  # prescribe *every* incoming wave; only the rhs distinguishes excitations
             A.rows[p.row] = []
             A.data[p.row] = []

@@ -25,6 +25,7 @@ import scipy.sparse as sp
 
 from .characteristics import dx_to_char
 from .verify import duct_nodes, verify_acoustic
+from .terminals import find_terminals
 from ..solver.control import states_table
 from ..derive import ES_RHO, ES_C, ES_U, ES_P, ES_AREA
 from ..elements.ids import ACOUSTIC_VOLUME, ACOUSTIC_FLAME
@@ -147,13 +148,66 @@ def stamp_sources(A, omega, prob, x_bar):
         raise NotImplementedError("flame source stamp S(omega) is a reserved v1 provision")
 
 
-def stamp_boundaries(A, omega, prob, x_bar):
-    """Terminal reflection face ``R(omega)`` (reserved; no-op in v1).
+def _terminal_reflection_row(L_e, incoming, outgoing, R):
+    """Length-3 coefficient block for ``w_incoming - R * w_outgoing`` on an edge."""
+    return L_e[incoming, :] - R * L_e[outgoing, :]
 
-    The v1 scattering driver imposes incoming waves at terminals directly, so no
-    reflection coefficient is stamped here.
+
+def stamp_boundaries(A, omega, prob, x_bar):
+    """Terminal reflection face ``R(omega)`` (theory.md s12.4) onto LIL ``A``.
+
+    Each single-port terminal carrying an explicit ``PerturbationBC`` (anything but
+    ``inherit``) has its boundary row overwritten with the reflection relation
+    ``w_incoming - R(omega) * w_outgoing = b`` (``b`` is the right-hand side built by
+    :func:`boundary_forcing`).  At a terminal that is the **tail** of its edge (an
+    inlet side) the incoming entropy wave is also seated, on that edge's transport
+    row -- always a duct *tail* edge, so it never collides with the duct stamp's
+    head-edge entropy phase (theory.md s6.2).  Terminals left at ``inherit`` keep
+    their linearized mean boundary row from ``J_alg``.
     """
-    return
+    node_bc = prob.node_bc
+    if not node_bc:
+        return
+    est = states_table(prob, x_bar)
+    K = float(prob.tf[0]) / float(prob.tf[1])
+    ns = int(prob.n_solve)
+    for t in find_terminals(prob):
+        bc = node_bc[t.node] if t.node < len(node_bc) else None
+        if bc is None or not getattr(bc, "stamps_terminal", False):
+            continue
+        e = t.edge
+        rho, c, u = float(est[ES_RHO, e]), float(est[ES_C, e]), float(est[ES_U, e])
+        p, area = float(est[ES_P, e]), float(est[ES_AREA, e])
+        m_out = (u / c) if not t.at_tail else (-u / c)  # outward-normal mean Mach
+        R = bc.reflection_coefficient(omega, rho, c, m_out)
+        if R is None:  # inherit (should not happen given stamps_terminal)
+            continue
+        L_e = dx_to_char(rho, c, u, p, area, K)
+        cols = tuple(ns * e + v for v in range(3))
+        _set_row(A, t.row, cols, _terminal_reflection_row(L_e, t.incoming, t.outgoing, R), (), ())
+        if t.at_tail:  # seat the incoming entropy on this (tail) edge's transport row
+            _set_row(A, int(prob.transport_row0) + e, cols, L_e[2, :], (), ())
+
+
+def boundary_forcing(prob, x_bar, omega):
+    """Right-hand side ``b(omega)`` for the explicitly-closed terminals.
+
+    Excitation amplitude on each excitation terminal's boundary row, and the incoming
+    entropy amplitude on each inflow-side (tail) terminal's entropy seat; zero
+    everywhere else.  Mirrors the rows :func:`stamp_boundaries` overwrites.
+    """
+    b = np.zeros(prob.n_col, dtype=np.complex128)
+    node_bc = prob.node_bc
+    if not node_bc:
+        return b
+    for t in find_terminals(prob):
+        bc = node_bc[t.node] if t.node < len(node_bc) else None
+        if bc is None or not getattr(bc, "stamps_terminal", False):
+            continue
+        b[t.row] = bc.forcing(omega)
+        if t.at_tail:
+            b[int(prob.transport_row0) + t.edge] = bc.entropy_forcing(omega)
+    return b
 
 
 def build_storage(prob, x_bar):

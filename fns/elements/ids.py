@@ -15,6 +15,7 @@ SPLITTER = 7
 DUCT = 8
 SUPERSONIC_INLET = 9  # reserved (deferred)
 SUPERSONIC_OUTLET = 10  # reserved (deferred)
+WALL = 11  # impermeable single-port termination (mdot = 0); acoustic hard wall
 
 # Acoustic-face ids (implementation-plan.md s8.3): which acoustic stamp an
 # element overrides its default CSD face with.  Only DUCT is active in v1;
@@ -34,6 +35,7 @@ FIXED_NPORTS = {
     MASS_FLOW_INLET: 1,
     PT_INLET: 1,
     P_OUTLET: 1,
+    WALL: 1,
     ISEN_AREA_CHANGE: 2,
     SUDDEN_AREA_CHANGE: 2,
     LOSS: 2,

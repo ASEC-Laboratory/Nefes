@@ -35,6 +35,7 @@ _UI_NODE_BUILDERS = {
     "MassFlowInlet": lambda a: cat.mass_flow_inlet(a["massFlowRate"], a["totalTemperature"]),
     "TotalPressureInlet": lambda a: cat.total_pressure_inlet(a["totalPressure"], a["totalTemperature"]),
     "PressureOutlet": lambda a: cat.pressure_outlet(a["pressure"], a.get("backflowTotalTemperature", 300.0)),
+    "Wall": lambda a: cat.wall(),
     "IsentropicAreaChange": lambda a: cat.isentropic_area_change(),
     "SuddenAreaChange": lambda a: cat.sudden_area_change(),
     "LossElement": lambda a: cat.loss(a["lossCoefficient"]),
@@ -43,7 +44,39 @@ _UI_NODE_BUILDERS = {
     "LosslessSplitter": lambda a: cat.splitter(),
 }
 
+# Boundary types that carry a perturbation BC group in the UI schema.
+_BOUNDARY_TYPES = {"MassFlowInlet", "TotalPressureInlet", "PressureOutlet", "Wall"}
+
 _DEFERRED_TYPES = {"SupersonicInlet", "SupersonicOutlet"}
+
+
+def _parse_perturbation_bc(attrs: dict):
+    """Build a ``PerturbationBC`` from a boundary node's UI acoustic attributes.
+
+    The UI exposes a deliberately small surface: a ``rigid`` checkbox (an infinite
+    impedance / hard wall), an ``open`` checkbox (an ideal pressure-release open end,
+    ``p'=0``) and, when neither is set, a specific acoustic impedance given by
+    ``impedanceMagnitude`` (|Z|/rho c) and ``impedancePhase`` (degrees).  ``rigid``
+    takes precedence over ``open``, which takes precedence over the impedance.  Returns
+    ``None`` when no acoustic field is present, so the element keeps its default
+    closure (``inherit`` for inlets/outlets; a hard wall for the wall element).  Richer
+    closures (reflection coefficients, excitation, mean-flow open end, frequency
+    tables) are set directly in Python via ``PerturbationBC``.
+    """
+    from ..perturbation.boundary_bc import PerturbationBC
+
+    rigid = attrs.get("rigid")
+    open_end = attrs.get("open")
+    has_impedance = "impedanceMagnitude" in attrs or "impedancePhase" in attrs
+    if rigid is None and open_end is None and not has_impedance:
+        return None  # no acoustic fields -> keep the element's default closure
+    if rigid:
+        return PerturbationBC.hard_wall()
+    if open_end:
+        return PerturbationBC.open_end()
+    magnitude = float(attrs.get("impedanceMagnitude", 1.0))
+    phase_deg = float(attrs.get("impedancePhase", 0.0))
+    return PerturbationBC.impedance_polar(magnitude, phase_deg, specific=True)
 
 
 def _port_of(handle: str) -> int:
@@ -94,6 +127,10 @@ def _build_ui_spec(node: dict):
         raise ValueError(f"unknown FNS element type {ntype!r}")
     spec = builder(attrs)
     spec.name = str(attrs.get("label") or node.get("id") or ntype)
+    if ntype in _BOUNDARY_TYPES:
+        bc = _parse_perturbation_bc(attrs)
+        if bc is not None:  # else keep the factory default (None=inherit; Wall=hard wall)
+            spec.perturbation_bc = bc
     return spec
 
 
