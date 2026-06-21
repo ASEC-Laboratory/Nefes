@@ -30,6 +30,8 @@ from .verify import verify_acoustic
 from .response import (
     perturbation_response,
     PerturbationResponse,
+    excite_perturbation,
+    PerturbationField,
     find_terminals,
     Terminal,
     acoustic_response,
@@ -74,6 +76,8 @@ __all__ = [
     # response + matrices
     "perturbation_response",
     "PerturbationResponse",
+    "excite_perturbation",
+    "PerturbationField",
     "find_terminals",
     "Terminal",
     "acoustic_response",
