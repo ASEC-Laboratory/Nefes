@@ -1,0 +1,58 @@
+# Converging nozzle -- saved from the FNetLibUI tool (model: fns-flow-network).
+#
+#   reservoir --(feed)--> IsentropicAreaChange --(throat)--> back-pressure
+#
+# This is the UI tool's native export format.  Note that edges reference PORTS
+# explicitly via sourceHandle / targetHandle (`<node>-port-<ordinal>`): port 0 is
+# the target (incoming) side of an element, port 1 the source (outgoing) side.
+
+version: 2.0.0
+model:
+  id: fns-flow-network
+  globalAttributes:
+    gasConstant: 287.0
+    heatCapacityRatio: 1.4
+    referencePressure: 101325.0
+    referenceTemperature: 300.0
+    referenceMassFlow: 5.0
+  nodes:
+    - id: TotalPressureInlet_1
+      type: TotalPressureInlet
+      attributes:
+        label: reservoir
+        index: 0
+        totalPressure: 200000.0
+        totalTemperature: 300.0
+    - id: IsentropicAreaChange_1
+      type: IsentropicAreaChange
+      attributes:
+        label: nozzle
+        index: 1
+    - id: PressureOutlet_1
+      type: PressureOutlet
+      attributes:
+        label: back-pressure
+        index: 2
+        pressure: 150000.0
+        backflowTotalTemperature: 300.0
+  edges:
+    - id: edge_1
+      source: TotalPressureInlet_1
+      target: IsentropicAreaChange_1
+      sourceHandle: TotalPressureInlet_1-port-0
+      targetHandle: IsentropicAreaChange_1-port-0
+      type: flow
+      attributes:
+        label: feed
+        index: 0
+        area: 0.020
+    - id: edge_2
+      source: IsentropicAreaChange_1
+      target: PressureOutlet_1
+      sourceHandle: IsentropicAreaChange_1-port-1
+      targetHandle: PressureOutlet_1-port-0
+      type: flow
+      attributes:
+        label: throat
+        index: 1
+        area: 0.010

@@ -36,6 +36,7 @@ However, do not assume everything in there is theoretically flawless, always do 
 ## Behavior Guidelines
 - Keep responses short. No preamble. Get to the output.
 - If a task is ambiguous, ask one clarifying question — not five.
+- Do NOT assume anything if not entirely clear - you are encouraged to ask.
 
 ## Coding style
 - Use flake8 and black, line length is 120 characters.

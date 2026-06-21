@@ -1,0 +1,276 @@
+"""Residual and Jacobian assembly.
+
+The residual kernel walks the two assembly loops (node rows via CSR, edge
+transport via CSC).  The Jacobian is the sparse complex-step seed of
+implementation-plan.md section 3.3: seed one band-1 unknown of one edge, recover
+only that edge's state, and recompute only the residual rows that depend on it
+(the two endpoint node blocks plus the transport rows of neighbouring edges),
+scattering ``Im/h`` into the fixed CSC pattern.
+"""
+
+import numpy as np
+import scipy.sparse as sp
+from numba import njit
+
+from .derive import recover_all, recover_edge, NS_EST, ES_MDOT, ES_HT
+from .smooth import smooth_step
+from .elements.kernels import node_residual, node_donor
+
+CS_H = 1e-30
+
+
+@njit(cache=True)
+def assemble_residual(
+    model_id,
+    tf,
+    ti,
+    n_elem,
+    x,
+    area,
+    row_ptr,
+    col_edge,
+    orient,
+    tail_node,
+    head_node,
+    node_rid,
+    npar_f,
+    npar_fptr,
+    node_row_ptr,
+    transport_row0,
+    eps,
+    eps_fb,
+    stab,
+    est,
+    R,
+):
+    """Fill the full residual vector R (length n_eq) and the est table."""
+    N = node_rid.shape[0]
+    E = x.shape[1]
+    recover_all(model_id, tf, ti, x, area, n_elem, est)
+
+    for n in range(N):
+        node_residual(
+            n, node_rid[n], row_ptr, col_edge, orient, npar_f, npar_fptr, tf, eps, eps_fb, stab, est, R, node_row_ptr
+        )
+
+    Hd = R[:N] * 0.0
+    for n in range(N):
+        Hd[n] = node_donor(n, node_rid[n], row_ptr, col_edge, orient, npar_f, npar_fptr, tf, eps, est)
+
+    for e in range(E):
+        theta = smooth_step(est[ES_MDOT, e], eps)
+        h_up = theta * Hd[tail_node[e]] + (1.0 - theta) * Hd[head_node[e]]
+        R[transport_row0 + e] = est[ES_HT, e] - h_up
+
+
+@njit(cache=True)
+def _find_slot(c, row, indptr, indices):
+    lo = indptr[c]
+    hi = indptr[c + 1]
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if indices[mid] < row:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo
+
+
+@njit(cache=True)
+def jacobian_fill(
+    model_id,
+    tf,
+    ti,
+    n_elem,
+    x,
+    area,
+    row_ptr,
+    col_edge,
+    orient,
+    tail_node,
+    head_node,
+    node_rid,
+    npar_f,
+    npar_fptr,
+    node_row_ptr,
+    transport_row0,
+    n_eq,
+    indptr,
+    indices,
+    eps,
+    eps_fb,
+    stab,
+    Jdata,
+):
+    """Fill the CSC ``Jdata`` array against the fixed (indptr, indices) pattern."""
+    n_solve = x.shape[0]
+    E = x.shape[1]
+    H = CS_H
+
+    xc = x.astype(np.complex128)
+    est = np.zeros((NS_EST, E), dtype=np.complex128)
+    recover_all(model_id, tf, ti, xc, area, n_elem, est)
+    Rc = np.zeros(n_eq, dtype=np.complex128)
+
+    for e in range(E):
+        nt = tail_node[e]
+        nh = head_node[e]
+        for v in range(n_solve):
+            c = n_solve * e + v
+            xc[v, e] = x[v, e] + 1j * H
+            recover_edge(model_id, tf, ti, xc[0, e], xc[1, e], xc[2, e], area[e], xc[3 : 3 + n_elem, e], est[:, e])
+
+            # (a) the two endpoint node-equation blocks
+            node_residual(
+                nt,
+                node_rid[nt],
+                row_ptr,
+                col_edge,
+                orient,
+                npar_f,
+                npar_fptr,
+                tf,
+                eps,
+                eps_fb,
+                stab,
+                est,
+                Rc,
+                node_row_ptr,
+            )
+            for r in range(node_row_ptr[nt], node_row_ptr[nt + 1]):
+                Jdata[_find_slot(c, r, indptr, indices)] = Rc[r].imag / H
+            if nh != nt:
+                node_residual(
+                    nh,
+                    node_rid[nh],
+                    row_ptr,
+                    col_edge,
+                    orient,
+                    npar_f,
+                    npar_fptr,
+                    tf,
+                    eps,
+                    eps_fb,
+                    stab,
+                    est,
+                    Rc,
+                    node_row_ptr,
+                )
+                for r in range(node_row_ptr[nh], node_row_ptr[nh + 1]):
+                    Jdata[_find_slot(c, r, indptr, indices)] = Rc[r].imag / H
+
+            # (b) transport rows of every edge incident to nt or nh (donor coupling)
+            for nd in (nt, nh):
+                for k in range(row_ptr[nd], row_ptr[nd + 1]):
+                    e2 = col_edge[k]
+                    h_t2 = node_donor(
+                        tail_node[e2],
+                        node_rid[tail_node[e2]],
+                        row_ptr,
+                        col_edge,
+                        orient,
+                        npar_f,
+                        npar_fptr,
+                        tf,
+                        eps,
+                        est,
+                    )
+                    h_h2 = node_donor(
+                        head_node[e2],
+                        node_rid[head_node[e2]],
+                        row_ptr,
+                        col_edge,
+                        orient,
+                        npar_f,
+                        npar_fptr,
+                        tf,
+                        eps,
+                        est,
+                    )
+                    theta = smooth_step(est[ES_MDOT, e2], eps)
+                    val = est[ES_HT, e2] - (theta * h_t2 + (1.0 - theta) * h_h2)
+                    Jdata[_find_slot(c, transport_row0 + e2, indptr, indices)] = val.imag / H
+
+            # restore
+            xc[v, e] = x[v, e]
+            recover_edge(model_id, tf, ti, xc[0, e], xc[1, e], xc[2, e], area[e], xc[3 : 3 + n_elem, e], est[:, e])
+
+
+# --------------------------------------------------------------------------
+# Python wrappers
+# --------------------------------------------------------------------------
+
+
+def residual(prob, x2d, eps, eps_fb, stab=0.0):
+    """Assemble the residual vector (R) for state ``x2d`` of shape (n_solve, E)."""
+    R = np.zeros(prob.n_eq, dtype=x2d.dtype)
+    est = np.zeros((NS_EST, prob.n_edges), dtype=x2d.dtype)
+    assemble_residual(
+        prob.model_id,
+        prob.tf,
+        prob.ti,
+        prob.n_elem,
+        x2d,
+        prob.area,
+        prob.row_ptr,
+        prob.col_edge,
+        prob.orient,
+        prob.tail_node,
+        prob.head_node,
+        prob.node_rid,
+        prob.npar_f,
+        prob.npar_fptr,
+        prob.node_row_ptr,
+        prob.transport_row0,
+        eps,
+        eps_fb,
+        stab,
+        est,
+        R,
+    )
+    return R
+
+
+def jacobian(prob, x2d, eps, eps_fb, stab=0.0):
+    """Assemble the sparse Jacobian (scipy CSC) for state ``x2d``."""
+    Jdata = np.zeros(len(prob.indices), dtype=np.float64)
+    jacobian_fill(
+        prob.model_id,
+        prob.tf,
+        prob.ti,
+        prob.n_elem,
+        np.ascontiguousarray(x2d),
+        prob.area,
+        prob.row_ptr,
+        prob.col_edge,
+        prob.orient,
+        prob.tail_node,
+        prob.head_node,
+        prob.node_rid,
+        prob.npar_f,
+        prob.npar_fptr,
+        prob.node_row_ptr,
+        prob.transport_row0,
+        prob.n_eq,
+        prob.indptr,
+        prob.indices,
+        eps,
+        eps_fb,
+        stab,
+        Jdata,
+    )
+    return sp.csc_matrix((Jdata, prob.indices, prob.indptr), shape=(prob.n_eq, prob.n_col))
+
+
+def jacobian_dense(prob, x2d, eps, eps_fb, stab=0.0, h=CS_H):
+    """Reference dense complex-step Jacobian (full re-eval per column)."""
+    n, E = prob.n_solve, prob.n_edges
+    J = np.zeros((prob.n_eq, n * E))
+    xc = x2d.astype(np.complex128)
+    for e in range(E):
+        for v in range(n):
+            xc[v, e] = x2d[v, e] + 1j * h
+            R = residual(prob, xc, eps, eps_fb, stab)
+            J[:, n * e + v] = R.imag / h
+            xc[v, e] = x2d[v, e]
+    return J

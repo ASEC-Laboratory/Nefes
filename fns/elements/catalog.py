@@ -1,0 +1,172 @@
+"""Element catalog and CompiledProblem builder (Python, parse-time).
+
+An ``ElementSpec`` names an element's residual id and its ordered float
+parameters (the order the @njit kernels expect).  ``build_problem`` turns a list
+of element specs plus directed edges into the immutable CompiledProblem.
+"""
+
+from dataclasses import dataclass, field
+from typing import List, Tuple
+
+import numpy as np
+
+from ..connectivity import connectivity_from_directed_edges, build_jacobian_pattern, Connectivity
+from ..problem import CompiledProblem
+from ..thermo.configure import ThermoConfig
+from .ids import (
+    MASS_FLOW_INLET,
+    PT_INLET,
+    P_OUTLET,
+    JUNCTION,
+    SPLITTER,
+)
+
+
+@dataclass
+class ElementSpec:
+    """One network element: residual type + ordered float parameters."""
+
+    residual_id: int
+    fparams: List[float] = field(default_factory=list)
+    name: str = ""
+
+
+def mass_flow_inlet(mdot, Tt, name="inlet"):
+    return ElementSpec(MASS_FLOW_INLET, [float(mdot), float(Tt)], name)
+
+
+def total_pressure_inlet(pt, Tt, name="pt-inlet"):
+    return ElementSpec(PT_INLET, [float(pt), float(Tt)], name)
+
+
+def pressure_outlet(p, Tt_backflow=300.0, name="outlet"):
+    return ElementSpec(P_OUTLET, [float(p), float(Tt_backflow)], name)
+
+
+def isentropic_area_change(name="iac"):
+    from .ids import ISEN_AREA_CHANGE
+
+    return ElementSpec(ISEN_AREA_CHANGE, [], name)
+
+
+def sudden_area_change(name="sac"):
+    from .ids import SUDDEN_AREA_CHANGE
+
+    return ElementSpec(SUDDEN_AREA_CHANGE, [], name)
+
+
+def loss(K, name="loss"):
+    from .ids import LOSS
+
+    return ElementSpec(LOSS, [float(K)], name)
+
+
+def junction(name="junction"):
+    return ElementSpec(JUNCTION, [], name)
+
+
+def splitter(name="splitter"):
+    return ElementSpec(SPLITTER, [], name)
+
+
+def duct(name="duct"):
+    from .ids import DUCT
+
+    return ElementSpec(DUCT, [], name)
+
+
+def _row_kinds(rid: int, deg: int, mdot_ref, p_ref):
+    """Residual-row scale magnitudes for one element."""
+    if rid == MASS_FLOW_INLET:
+        return [mdot_ref]
+    if rid in (PT_INLET, P_OUTLET):
+        return [p_ref]
+    # interior: mass balance + (deg-1) pressure rows
+    return [mdot_ref] + [p_ref] * (deg - 1)
+
+
+def build_problem(
+    thermo: ThermoConfig,
+    elements: List[ElementSpec],
+    edges: List[Tuple[int, int, float]],
+    mdot_ref: float,
+    p_ref: float,
+    h_ref: float,
+) -> CompiledProblem:
+    """Assemble a CompiledProblem from elements and directed (tail, head, area) edges.
+
+    Ports are auto-assigned in attachment order.  Use
+    ``build_problem_from_connectivity`` to supply explicit ports (e.g. a UI
+    export where the port ordinals carry meaning).
+    """
+    n_nodes = len(elements)
+    directed = [(t, h) for (t, h, _a) in edges]
+    area = np.array([a for (_t, _h, a) in edges], dtype=np.float64)
+    conn = connectivity_from_directed_edges(n_nodes, directed)
+    return build_problem_from_connectivity(thermo, elements, conn, area, mdot_ref, p_ref, h_ref)
+
+
+def build_problem_from_connectivity(
+    thermo: ThermoConfig,
+    elements: List[ElementSpec],
+    conn: Connectivity,
+    area: np.ndarray,
+    mdot_ref: float,
+    p_ref: float,
+    h_ref: float,
+) -> CompiledProblem:
+    """Assemble a CompiledProblem from elements and a prebuilt Connectivity.
+
+    The connectivity carries explicit per-edge ports (``tail_port``/
+    ``head_port``), so port-ordering conventions are preserved exactly.
+    """
+    n_nodes = len(elements)
+    area = np.ascontiguousarray(area, dtype=np.float64)
+
+    degrees = [conn.degree(n) for n in range(n_nodes)]
+    node_rid = np.array([el.residual_id for el in elements], dtype=np.int64)
+
+    # pack node float params in node order
+    npar_f = []
+    npar_fptr = np.zeros(n_nodes + 1, dtype=np.int64)
+    for n, el in enumerate(elements):
+        npar_f.extend(el.fparams)
+        npar_fptr[n + 1] = npar_fptr[n] + len(el.fparams)
+    npar_f = np.array(npar_f, dtype=np.float64)
+
+    pat = build_jacobian_pattern(conn, degrees, n_solve=3)
+
+    # residual scales
+    res_scale = []
+    for n, el in enumerate(elements):
+        res_scale.extend(_row_kinds(el.residual_id, degrees[n], mdot_ref, p_ref))
+    res_scale.extend([h_ref] * conn.n_edges)
+    res_scale = np.array(res_scale, dtype=np.float64)
+
+    var_scale = np.array([mdot_ref, p_ref, h_ref], dtype=np.float64)
+
+    return CompiledProblem(
+        model_id=thermo.model_id,
+        tf=thermo.tf,
+        ti=thermo.ti,
+        n_elem=thermo.n_elem,
+        n_solve=3 + thermo.n_elem,
+        n_nodes=n_nodes,
+        n_edges=conn.n_edges,
+        n_eq=pat.n_eq,
+        area=area,
+        row_ptr=conn.row_ptr,
+        col_edge=conn.col_edge,
+        orient=conn.orient.astype(np.int64),
+        tail_node=conn.tail_node,
+        head_node=conn.head_node,
+        node_rid=node_rid,
+        npar_f=npar_f,
+        npar_fptr=npar_fptr,
+        node_row_ptr=pat.node_row_ptr,
+        transport_row0=pat.transport_row0,
+        indptr=pat.indptr,
+        indices=pat.indices,
+        var_scale=var_scale,
+        res_scale=res_scale,
+    )
