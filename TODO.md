@@ -1,4 +1,5 @@
 ## Major issues
+- What are we missing in terms of network input verification? One example here is which elements allow area change across them, and which elements do not. We should ensure consistency of area changes.
 
 ## Minor issues
 
@@ -14,3 +15,6 @@ Proper fix: give the perturbation linearization its own sharp smoothing, decoupl
 
 ## To verify
 - Quiescent analysis capability
+
+## To brainstorm
+- Area change el

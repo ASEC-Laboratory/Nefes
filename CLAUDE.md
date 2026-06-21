@@ -40,3 +40,4 @@ However, do not assume everything in there is theoretically flawless, always do 
 
 ## Coding style
 - Use flake8 and black, line length is 120 characters.
+- Numpy style docstring for all user-facing routines and classes.
