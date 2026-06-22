@@ -98,7 +98,10 @@ def build_duct_stamps(prob, x_bar, K, u_floor=1e-8):
                 u=u,
                 row_f=r0,
                 row_g=r0 + 1,
-                row_h=int(prob.transport_row0) + e1,
+                # entropy phase relation lives on the *downstream* edge's transport row
+                # (head for forward/quiescent flow, tail under backflow), leaving the
+                # genuine-inflow edge's transport row free for the boundary entropy seat.
+                row_h=int(prob.transport_row0) + (e0 if u < -u_floor else e1),
                 cols0=tuple(ns * e0 + v for v in range(3)),
                 cols1=tuple(ns * e1 + v for v in range(3)),
             )

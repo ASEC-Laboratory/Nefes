@@ -118,9 +118,16 @@ def test_scattering_preset_runs():
 def test_shape_validation():
     freqs = np.linspace(50, 1500, 16)
     with pytest.raises(ValueError):
-        plot_complex_matrix(np.zeros((16, 3, 2), dtype=complex), freqs)  # non-square
+        plot_complex_matrix(np.zeros((16, 3), dtype=complex), freqs)  # not (n_freq, n_row, n_col)
     with pytest.raises(ValueError):
         plot_complex_matrix(_rand_matrix(16, 3), np.linspace(0, 1, 8))  # freq mismatch
+
+
+def test_rectangular_matrix_supported():
+    # a rectangular (n_freq, n_row, n_col) stack -- e.g. a multiport scattering matrix -- plots
+    freqs = np.linspace(50, 1500, 16)
+    fig = plot_complex_matrix(np.zeros((16, 5, 4), dtype=complex), freqs)
+    assert isinstance(fig, go.Figure)
 
 
 # -- edge-subscripted, direction-aware labels -------------------------------

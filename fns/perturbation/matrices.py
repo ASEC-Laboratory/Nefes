@@ -99,6 +99,37 @@ def scattering_labels(ua, ca, ub, cb, n=3, u_floor=1e-8):
     return incoming, outgoing
 
 
+def multiport_partition(stations, n=3, u_floor=1e-8):
+    """Per-terminal incoming/outgoing characteristic split for a whole network.
+
+    A multiport scattering matrix maps the *incoming* waves of every terminal (those
+    propagating into the domain) to the *outgoing* ones, so each terminal edge is split
+    with :func:`partition` according to its mean state and which face it is.
+
+    Parameters
+    ----------
+    stations : sequence of (u, c, side)
+        One entry per terminal: mean axial velocity ``u`` and sound speed ``c`` of its
+        incident edge, and ``side`` -- ``'a'`` if the terminal is the edge *tail*
+        (inflow) or ``'b'`` if the *head* (outflow).
+    n : int, optional
+        Characteristic count per edge (3 for inert flow).
+    u_floor : float, optional
+        Speed below which a station is treated as quiescent.
+
+    Returns
+    -------
+    incoming, outgoing : list of (station_index, char_index)
+        Terminal-major ordering of the network's incoming and outgoing waves.
+    """
+    incoming, outgoing = [], []
+    for k, (u, c, side) in enumerate(stations):
+        inc, out = partition(u, c, side, n, u_floor)
+        incoming += [(k, int(i)) for i in inc]
+        outgoing += [(k, int(i)) for i in out]
+    return incoming, outgoing
+
+
 def tm_to_sm(T_char, ua, ca, ub, cb, u_floor=1e-8):
     """Scattering matrix from a characteristic-basis transfer matrix.
 

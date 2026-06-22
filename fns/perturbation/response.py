@@ -67,6 +67,7 @@ def _edge_transforms(prob, x_bar, K):
 
 
 def _select_forcing(terms: List[Terminal], forcing: Optional[Sequence[int]]) -> List[Terminal]:
+    """The terminals to *drive* (default: all).  Every terminal is neutralized regardless."""
     if forcing is None:
         sel = list(terms)
     else:
@@ -76,8 +77,8 @@ def _select_forcing(terms: List[Terminal], forcing: Optional[Sequence[int]]) -> 
             if nd not in by_node:
                 raise ValueError(f"forcing location {nd} is not a 1-port terminal")
             sel.append(by_node[nd])
-    if len(sel) != 2:
-        raise ValueError(f"v1 scattering forces exactly 2 terminals; got {len(sel)} (pass `forcing=(node_a, node_b)`)")
+    if len(sel) < 2:
+        raise ValueError(f"scattering needs at least 2 driven terminals; got {len(sel)}")
     return sel
 
 
@@ -85,6 +86,9 @@ def _select_forcing(terms: List[Terminal], forcing: Optional[Sequence[int]]) -> 
 # Extends with reacting scalars (e.g. {"scalar:Z": (3,)}) without touching the
 # driver: a family contributes one prescribed incoming wave per inlet it lives on.
 _CHAR_OF_FAMILY = {"acoustic": (0, 1), "entropy": (2,)}
+
+# Wave symbol per characteristic index, for multiport scattering labels.
+_CHAR_SYM = ("f", "g", "h")
 
 
 def _validate_excite(excite):
@@ -115,18 +119,40 @@ class _Prescription:
     char: int  # characteristic index (0/1 acoustic, 2 entropy)
 
 
-def _prescriptions(prob, sel) -> List[_Prescription]:
-    """Every incoming wave of the forced terminals, in canonical order.
+def _seats_entropy(t, est, u_floor):
+    """Whether an incoming entropy wave enters the domain at terminal ``t``.
 
-    Acoustic waves sit on each terminal's boundary row; the incoming entropy wave
-    sits on the inlet edge's transport (nodal-energy) row -- always a duct *tail*
-    edge, so it never collides with the duct stamp's head-edge entropy-phase
-    relation (theory.md s6.2).  Entropy seats are always included (pinned to zero
-    when not driven) so nothing floats at an inflow boundary.
+    Decided by the mean flow direction (not the element type): entropy is incoming
+    wherever the convected wave propagates *into* the domain.  :func:`matrices.partition`
+    settles this from the wave-speed sign, including the genuine inlet/outlet of a
+    reversed-flow boundary and the quiescent fallback (entropy pinned downstream at
+    ``|u| < u_floor``, so a quiescent *tail* seats it).
     """
-    pres = [_Prescription(t.node, "acoustic", t.row, t.edge, t.incoming) for t in sel]
-    for t in sel:
-        if t.at_tail:  # inflow seat carries an incoming entropy wave
+    u, c = float(est[ES_U, t.edge]), float(est[ES_C, t.edge])
+    incoming, _ = mat.partition(u, c, "a" if t.at_tail else "b", u_floor=u_floor)
+    return 2 in incoming
+
+
+def _prescriptions(prob, terms, est, u_floor) -> List[_Prescription]:
+    """Every incoming wave of *all* terminals, in canonical order.
+
+    Acoustic waves sit on each terminal's boundary row; the incoming entropy wave sits
+    on the **genuine-inflow** edge's transport (nodal-energy) row.  For forward flow that
+    is a duct *tail* edge; under boundary flow reversal it is the reversed terminal's edge
+    (a duct *head*), which is free precisely because the duct stamp puts its entropy-phase
+    relation on the *downstream* edge (theory.md s6.2).  Entropy seats are always included
+    (pinned to zero when not driven) so nothing floats at an inflow boundary.
+
+    This runs over the network's *full* terminal set so that **every** terminal is turned
+    into a pure source (its incoming wave prescribed); the subset that is actually *driven*
+    with a unit amplitude is chosen later from ``forcing``.  Neutralizing every boundary --
+    not just the driven ones -- is what makes the measured matrices boundary-independent: a
+    terminal left at its (reflecting) inherited mean BC would close a spurious cavity and
+    inject resonances.
+    """
+    pres = [_Prescription(t.node, "acoustic", t.row, t.edge, t.incoming) for t in terms]
+    for t in terms:
+        if _seats_entropy(t, est, u_floor):  # the genuine-inflow terminal carries incoming entropy
             pres.append(_Prescription(t.node, "entropy", int(prob.transport_row0) + t.edge, t.edge, 2))
     return pres
 
@@ -145,11 +171,13 @@ class _ExcitationContext:
     L: List[np.ndarray]
     est: np.ndarray
     K: float
-    sel: List[Terminal]
-    prescriptions: List[_Prescription]
+    sel: List[Terminal]  # the terminals driven with a unit amplitude (subset of all)
+    terminals: List[Terminal]  # every terminal of the network (all neutralized)
+    prescriptions: List[_Prescription]  # every terminal's incoming wave (all neutralized)
     lus: list  # per-omega LU factorizations of the prescribed A(omega)
     n_solve: int
     n_col: int
+    u_floor: float  # speed below which a station is treated as quiescent
 
 
 def _build_excitation_context(prob, x_bar, omegas, forcing, *, eps, eps_fb, u_floor) -> _ExcitationContext:
@@ -157,9 +185,11 @@ def _build_excitation_context(prob, x_bar, omegas, forcing, *, eps, eps_fb, u_fl
     omegas = np.asarray(omegas, dtype=float)
     blocks = build_acoustic_blocks(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor)
     K = float(prob.tf[0]) / float(prob.tf[1])
+    est = states_table(prob, x_bar)
     L = _edge_transforms(prob, x_bar, K)
-    sel = _select_forcing(find_terminals(prob, x_bar), forcing)
-    pres = _prescriptions(prob, sel)
+    all_terms = find_terminals(prob, x_bar)
+    sel = _select_forcing(all_terms, forcing)
+    pres = _prescriptions(prob, all_terms, est, u_floor)  # neutralize *every* terminal into a pure source
     ns, n_col = int(prob.n_solve), int(prob.n_col)
     lus = []
     for omega in omegas:
@@ -172,7 +202,7 @@ def _build_excitation_context(prob, x_bar, omegas, forcing, *, eps, eps_fb, u_fl
             for v in range(3):
                 A[p.row, ns * p.edge + v] = L[p.edge][p.char, v]
         lus.append(spla.splu(sp.csc_matrix(A)))
-    return _ExcitationContext(omegas, L, states_table(prob, x_bar), K, sel, pres, lus, ns, n_col)
+    return _ExcitationContext(omegas, L, est, K, sel, all_terms, pres, lus, ns, n_col, float(u_floor))
 
 
 def _validate_modes(modes):
@@ -194,6 +224,13 @@ def _driven_prescriptions(ctx: _ExcitationContext, node, modes) -> List[_Prescri
         matches = [p for p in ctx.prescriptions if p.node == node and p.kind == fam]
         if not matches:
             raise ValueError(f"terminal {node} carries no incoming {fam} wave to drive")
+        if fam == "entropy":  # entropy does not convect at a quiescent station (tau_0 -> inf)
+            for p in matches:
+                if abs(float(ctx.est[ES_U, p.edge])) < ctx.u_floor:
+                    raise ValueError(
+                        f"entropy excitation is undefined at quiescent terminal {node} (mean u ~ 0): "
+                        "the entropy wave does not convect, so it has no response; use excite=('acoustic',)"
+                    )
         driven.extend(matches)
     return driven
 
@@ -371,11 +408,11 @@ def perturbation_response(
     _validate_excite(excite)
     ctx = _build_excitation_context(prob, x_bar, omegas, forcing, eps=eps, eps_fb=eps_fb, u_floor=u_floor)
 
-    # One driven excitation per (terminal, family): all acoustic first, then the
-    # incoming entropy at each inflow seat -> canonical column order (f, g, h).
+    # One driven excitation per (terminal, family): all acoustic first, then the incoming
+    # entropy at each genuine-inflow seat -> canonical column order (f, g, h).
     excitations = [(t.node, "acoustic") for t in ctx.sel]
     if "entropy" in excite:
-        entropy_nodes = [t.node for t in ctx.sel if t.at_tail]
+        entropy_nodes = [t.node for t in ctx.sel if _seats_entropy(t, ctx.est, ctx.u_floor)]
         if not entropy_nodes:
             raise ValueError("entropy excitation requested but no inflow terminal found to seat it")
         excitations += [(nd, "entropy") for nd in entropy_nodes]
@@ -399,6 +436,7 @@ def perturbation_response(
         forcing=ctx.sel,
         forcing_kinds=forcing_kinds,
         cidx=cidx,
+        terminals=ctx.terminals,
     )
 
 
@@ -415,6 +453,7 @@ class PerturbationResponse:
     forcing: List[Terminal]
     forcing_kinds: list
     cidx: tuple = (0, 1, 2)  # characteristic indices spanned by the driven waves
+    terminals: Optional[List[Terminal]] = None  # all terminals (for the multiport matrix)
 
     @property
     def n(self) -> int:
@@ -438,17 +477,44 @@ class PerturbationResponse:
 
     _DIAGONAL_BASES = ("char", "riemann")  # flavors that do not mix characteristics
 
+    def _assert_in_series(self, T, Wa, Wb, a, b, tol=1e-6):
+        """Raise unless ``T`` reproduces every forced field, i.e. ``a`` and ``b`` are in series.
+
+        A transfer matrix ``v_b = T v_a`` exists only when the wave state at ``a``
+        *determines* the state at ``b`` -- true for edges in series, false for edges
+        on opposite sides of an internal branch point (a splitter/junction), where
+        the redistribution depends on the other branches.  With more than ``self.n``
+        independent forcings the least-squares ``T`` then fails to reproduce the data;
+        a per-frequency relative residual flags it.
+        """
+        resid = np.linalg.norm(T @ Wa - Wb, axis=(1, 2))
+        scale = np.linalg.norm(Wb, axis=(1, 2))
+        rel = resid / np.where(scale > 0.0, scale, 1.0)
+        if np.max(rel) > tol:
+            raise ValueError(
+                f"no transfer matrix exists between edges {a} and {b}: they straddle an internal "
+                f"branch point (max relative residual {np.max(rel):.2e}), so the wave state at one "
+                "edge does not determine the other. Use multiport_scattering_matrix() instead."
+            )
+
     def transfer_matrix(self, a, b, basis="char"):
         """Transfer matrix ``T_ba`` mapping the driven waves at ``a`` to those at ``b``.
 
         The dimension is ``self.n`` (2 for the default acoustic excitation, 3 with
         entropy).  Read along each edge's own arrow; ``basis`` selects the variable
         flavor (``characteristics.BASIS_LABELS``).  Shape ``(n_omega, n, n)``.
+
+        Raises
+        ------
+        ValueError
+            If ``a`` and ``b`` lie on opposite sides of an internal branch point, where
+            no transfer matrix exists (use :meth:`multiport_scattering_matrix`).
         """
         ci = list(self.cidx)
         Wa = self._waves(a)[:, ci, :]  # (n_omega, n, n_force) over driven characteristics
         Wb = self._waves(b)[:, ci, :]
-        T = Wb @ np.linalg.inv(Wa)  # square and well-conditioned (every incoming wave prescribed)
+        T = Wb @ np.linalg.pinv(Wa)  # pinv: >= n_force forcings (= n for a 2-terminal net)
+        self._assert_in_series(T, Wa, Wb, a, b)
         if basis == "char":
             return T
         if self.n < self.n_char and basis not in self._DIAGONAL_BASES:
@@ -494,6 +560,70 @@ class PerturbationResponse:
         ua, ca = float(self.est[ES_U, a]), float(self.est[ES_C, a])
         ub, cb = float(self.est[ES_U, b]), float(self.est[ES_C, b])
         return mat.scattering_labels(ua, ca, ub, cb, self.n)
+
+    # -- multiport (whole-network terminal) scattering matrix ---------------
+
+    def _multiport_io(self):
+        """Ordered ``(node, edge, char)`` tags of the multiport incoming and outgoing waves.
+
+        Incoming follows the driver's excitation order (the matrix columns); outgoing is
+        terminal-major from :func:`matrices.multiport_partition`, restricted to the driven
+        characteristic set ``cidx`` (the matrix rows).
+        """
+        if not self.terminals:
+            raise ValueError("multiport scattering needs the full terminal set; build via perturbation_response")
+        driven_nodes = {t.node for t in self.forcing}
+        all_nodes = {t.node for t in self.terminals}
+        if driven_nodes != all_nodes:
+            raise ValueError(
+                "multiport scattering needs every terminal driven; rebuild with the default forcing=None "
+                f"(driven {sorted(driven_nodes)} of {sorted(all_nodes)})"
+            )
+        ci = set(self.cidx)
+        incoming = [(t.node, t.edge, (t.incoming if fam == "acoustic" else 2)) for fam, t in self.forcing_kinds]
+        stations = [
+            (float(self.est[ES_U, t.edge]), float(self.est[ES_C, t.edge]), "a" if t.at_tail else "b")
+            for t in self.terminals
+        ]
+        _inc, out = mat.multiport_partition(stations, self.n_char)
+        outgoing = [(self.terminals[k].node, self.terminals[k].edge, ch) for (k, ch) in out if ch in ci]
+        return incoming, outgoing
+
+    def multiport_scattering_matrix(self):
+        """Whole-network scattering matrix mapping every terminal's incoming wave to every outgoing one.
+
+        The rigorous boundary-independent descriptor of a network with more than two
+        terminals (where pairwise edge transfer matrices across a branch do not exist).
+        Generally **rectangular**: with entropy the incoming set is ``#terminals +
+        #inflow-terminals`` and the outgoing set ``#terminals + #outflow-terminals``
+        (acoustic-only it is the square ``N x N``, ``N = #terminals``).  Columns follow the
+        excitation order, rows are terminal-major; both are tagged by
+        :meth:`multiport_scattering_labels`.
+
+        Returns
+        -------
+        ndarray
+            Shape ``(n_omega, n_outgoing, n_incoming)``.
+
+        Raises
+        ------
+        ValueError
+            If the network was not driven at every terminal (rebuild with ``forcing=None``).
+        """
+        incoming, outgoing = self._multiport_io()
+        S = np.zeros((self.omegas.size, len(outgoing), len(incoming)), dtype=np.complex128)
+        for r, (_node, edge, ch) in enumerate(outgoing):
+            S[:, r, :] = self._waves(edge)[:, ch, :]  # outgoing amplitude per driven (unit-incoming) case
+        return S
+
+    def multiport_scattering_labels(self):
+        """Per-wave symbols ``("f@n0", ...)`` for the multiport columns (incoming) and rows (outgoing)."""
+        incoming, outgoing = self._multiport_io()
+
+        def sym(node, _edge, ch):
+            return f"{_CHAR_SYM[ch]}@n{node}"
+
+        return [sym(*w) for w in incoming], [sym(*w) for w in outgoing]
 
     # -- notebook plotting (edge-aware labels) ------------------------------
 
@@ -569,6 +699,32 @@ class PerturbationResponse:
             S, x, labels=self._basis_labels(basis), edges=(a, b), partition=self.scattering_labels(a, b), **kwargs
         )
 
+    def plot_multiport_scattering_matrix(self, freqs=None, **kwargs):
+        """Plot the whole-network multiport scattering matrix with terminal-tagged labels.
+
+        Wraps :meth:`multiport_scattering_matrix` and labels every entry by its own
+        terminal-subscripted waves (e.g. ``f@n0 → g@n0`` for the inlet reflection,
+        ``f@n0 → f@n7`` for transmission to terminal 7).
+
+        Parameters
+        ----------
+        freqs : array_like, optional
+            x-axis values (default: ``self.omegas`` in rad/s).  Pass
+            ``self.omegas / (2*np.pi)`` for frequency in Hz.
+        **kwargs
+            Forwarded to :func:`fns.plotting.plot_scattering_matrix`.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+        """
+        from ..plotting import plot_scattering_matrix as _plot
+
+        S = self.multiport_scattering_matrix()
+        incoming, outgoing = self.multiport_scattering_labels()
+        x = self.omegas if freqs is None else freqs
+        return _plot(S, x, row_labels=outgoing, col_labels=incoming, **kwargs)
+
     # -- acoustics-only convenience (entropy dropped) -----------------------
 
     def _acoustic_cols(self):
@@ -584,11 +740,13 @@ class PerturbationResponse:
         not the entropy wave is also driven (no entropy-noise contamination).
         """
         cols = self._acoustic_cols()
-        if len(cols) != 2:
-            raise ValueError(f"expected 2 acoustic forcings, found {len(cols)}")
-        Wa = self._waves(a)[:, :2, :][:, :, cols]  # (n_omega, 2, 2)
+        if len(cols) < 2:
+            raise ValueError(f"expected >= 2 acoustic forcings, found {len(cols)}")
+        Wa = self._waves(a)[:, :2, :][:, :, cols]  # (n_omega, 2, n_acoustic)
         Wb = self._waves(b)[:, :2, :][:, :, cols]
-        return Wb @ np.linalg.inv(Wa)
+        T = Wb @ np.linalg.pinv(Wa)  # pinv: >= 2 acoustic forcings on a multi-terminal net
+        self._assert_in_series(T, Wa, Wb, a, b)
+        return T
 
     def acoustic_scattering_matrix(self, a, b):
         """2x2 acoustic scattering matrix, incoming ``(f_a, g_b)`` -> outgoing ``(g_a, f_b)``.

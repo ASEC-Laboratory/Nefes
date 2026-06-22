@@ -19,6 +19,7 @@ from fns.solver.control import states_table
 from fns.derive import ES_C, ES_U, ES_RHO, ES_AREA
 from fns.perturbation import (
     perturbation_response,
+    excite_perturbation,
     find_terminals,
     build_acoustic_blocks,
     assemble_acoustic,
@@ -50,6 +51,58 @@ def _cascade(pt_in, p_out, L1=0.7, L2=1.1, A1=0.05, A2=0.03):
         cat.pressure_outlet(p_out, 300.0),
     ]
     edges = [(0, 1, A1), (1, 2, A1), (2, 3, A2), (3, 4, A2)]
+    prob = cat.build_problem(CFG, net, edges, 10.0, 101325.0, CP * 300.0)
+    res = solve(prob)
+    assert res.converged
+    return prob, res
+
+
+def _tree_3term(pt_in=110000.0, p_out=101325.0, a_branch=0.03):
+    """Inlet -> duct -> splitter -> two outlets: 3 terminals, a tree (no internal loop).
+
+    Edges: 0 (inlet->duct), 1 (duct->splitter), 2 / 3 (the two splitter branches).  With
+    equal outlet pressures the branches are symmetric, so both genuinely flow outward.
+    """
+    net = [
+        cat.total_pressure_inlet(pt_in, 300.0),
+        cat.duct(1.0),
+        cat.splitter(),
+        cat.pressure_outlet(p_out, 300.0),
+        cat.pressure_outlet(p_out, 300.0),
+    ]
+    edges = [(0, 1, 0.05), (1, 2, 0.05), (2, 3, a_branch), (2, 4, a_branch)]
+    prob = cat.build_problem(CFG, net, edges, 10.0, 101325.0, CP * 300.0)
+    res = solve(prob)
+    assert res.converged
+    return prob, res
+
+
+def _diamond(pt_in=110000.0, p_out=101325.0):
+    """Inlet -> duct -> splitter -> (two ducts) -> junction -> duct -> outlet.
+
+    One inlet, one outlet, but the two parallel branches recombine -> an internal
+    acoustic loop; two excitations still fully determine its 2x2 terminal matrix.
+    """
+    net = [
+        cat.total_pressure_inlet(pt_in, 300.0),
+        cat.duct(0.5),
+        cat.splitter(),
+        cat.duct(0.7),
+        cat.duct(1.1),
+        cat.junction(),
+        cat.duct(0.5),
+        cat.pressure_outlet(p_out, 300.0),
+    ]
+    edges = [
+        (0, 1, 0.05),
+        (1, 2, 0.05),
+        (2, 3, 0.025),
+        (2, 4, 0.025),
+        (3, 5, 0.025),
+        (4, 5, 0.025),
+        (5, 6, 0.05),
+        (6, 7, 0.05),
+    ]
     prob = cat.build_problem(CFG, net, edges, 10.0, 101325.0, CP * 300.0)
     res = solve(prob)
     assert res.converged
@@ -186,19 +239,143 @@ def test_terminal_detection():
     assert not by_node[2].inflowing
 
 
-def test_three_terminals_rejected():
+def test_three_terminals_multiport():
+    """A 3-terminal tree: every terminal is neutralized, so the multiport SM is well posed.
+
+    Acoustic-only it is the square ``3 x 3`` (one incoming/outgoing wave per terminal);
+    with entropy it is the rectangular ``5 x 4`` (incoming ``f@in, g@out, g@out, h@in``;
+    outgoing ``g@in, f@out, h@out, f@out, h@out``).  A tree with all terminals anechoic has
+    no resonant poles, so the magnitude is bounded and its peak does not grow under grid
+    refinement -- the spurious comb from a stray reflecting terminal is gone.
+    """
+    prob, res = _tree_3term()
+    om = 2 * np.pi * np.linspace(20.0, 1500.0, 400)
+    r = perturbation_response(prob, res.x, om)  # acoustic-only; default forcing drives all 3
+    S = r.multiport_scattering_matrix()
+    inc, out = r.multiport_scattering_labels()
+    assert S.shape == (om.size, 3, 3)
+    assert len(inc) == 3 and len(out) == 3
+
+    S_fine = perturbation_response(prob, res.x, 2 * np.pi * np.linspace(20.0, 1500.0, 1600))
+    S_fine = S_fine.multiport_scattering_matrix()
+    assert np.abs(S).max() < 1.5  # lossless tree, anechoic everywhere -> no blow-up
+    assert abs(np.abs(S).max() - np.abs(S_fine).max()) < 0.05 * np.abs(S_fine).max()  # no hidden sharp peak
+
+    rf = perturbation_response(prob, res.x, om[:5], excite=FULL)  # rectangular with entropy
+    assert rf.multiport_scattering_matrix().shape == (5, 5, 4)
+
+
+def test_branched_entropy_excitation_convects_in_series():
+    """Entropy excitation on a branched net convects through the in-series inlet duct.
+
+    On the tree's inlet duct (edges 0->1) the 3x3 transfer matrix must show the entropy wave
+    convecting with phase ``exp(-i w L / u)`` and staying decoupled from the acoustics (a pure
+    duct), exactly as on a standalone duct -- the branch downstream does not change that.
+    """
+    prob, res = _tree_3term()
+    L = 1.0  # the inlet duct length in _tree_3term
+    u = float(states_table(prob, res.x)[ES_U, 0])
+    T = perturbation_response(prob, res.x, OM, excite=FULL).transfer_matrix(0, 1)  # in-series, 3x3
+    assert T.shape == (OM.size, 3, 3)
+    assert np.allclose(T[:, 2, 2], np.exp(-1j * OM * L / u), atol=1e-7)  # entropy convection phase
+    for i, j in [(0, 2), (1, 2), (2, 0), (2, 1)]:  # acoustic <-> entropy decoupled on a pure duct
+        assert np.allclose(T[:, i, j], 0.0, atol=1e-7)
+
+
+def test_transfer_matrix_in_series_well_defined():
+    """On a 3-terminal net the in-series duct transfer matrix is unique (pinv over 3 forcings)."""
+    prob, res = _tree_3term()
+    r = perturbation_response(prob, res.x, OM)  # 3 forcings -> Wa is (2, 3), pinv path
+    T = r.transfer_matrix(0, 1)  # edges 0, 1 are the two ends of the inlet duct (in series)
+    assert T.shape == (OM.size, 2, 2)
+    assert np.allclose(T, r.acoustic_transfer_matrix(0, 1), atol=1e-9)  # consistent reconstruction
+
+
+def test_transfer_matrix_across_branch_raises():
+    """Edges on opposite sides of the splitter have no transfer matrix -> a clear error."""
+    prob, res = _tree_3term()
+    r = perturbation_response(prob, res.x, OM)
+    with pytest.raises(ValueError, match="straddle an internal branch"):
+        r.transfer_matrix(2, 3)  # the two splitter branches
+
+
+def test_branched_single_in_out_two_excitations():
+    """A 1-inlet/1-outlet net with a recombining internal loop is fully set by 2 excitations."""
+    prob, res = _diamond()
+    assert len(find_terminals(prob, res.x)) == 2
+    om = 2 * np.pi * np.linspace(20.0, 1500.0, 400)
+    r = perturbation_response(prob, res.x, om)
+    S = r.multiport_scattering_matrix()
+    assert S.shape == (om.size, 2, 2)
+    assert np.abs(S).max() < 1.5  # lossless + anechoic: bounded despite the internal loop
+    assert r.transfer_matrix(0, 1).shape == (om.size, 2, 2)  # in-series duct still well defined
+
+
+def test_entropy_quiescent_rejected():
+    """Entropy excitation is undefined at a quiescent terminal (no convection); acoustic is fine."""
+    net = [cat.mass_flow_inlet(0.0, 300.0), cat.duct(1.0), cat.pressure_outlet(101325.0, 300.0)]
+    prob = cat.build_problem(CFG, net, [(0, 1, 0.05), (1, 2, 0.05)], 10.0, 101325.0, CP * 300.0)
+    res = solve(prob)
+    assert res.converged
+    with pytest.raises(ValueError, match="quiescent"):
+        perturbation_response(prob, res.x, OM, excite=FULL)
+    assert perturbation_response(prob, res.x, OM).transfer_matrix(0, 1).shape == (OM.size, 2, 2)
+
+
+def test_reversed_duct_supported():
+    """A reversed-flow boundary is handled by reading genuine inlet/outlet from the mean flow.
+
+    A negative-mass-flow inlet runs the duct backward, so node 2 (geometric outlet) is the
+    genuine inlet.  The entropy seat and the duct entropy-phase row follow the flow, giving
+    correct physics: lossless acoustics and entropy convecting from the genuine inlet at the
+    mean speed ``|u|`` (phase ``exp(-i w L / |u|)``).
+    """
+    L = 1.0
+    net = [cat.mass_flow_inlet(-0.05, 300.0), cat.duct(L), cat.pressure_outlet(101325.0, 300.0)]
+    prob = cat.build_problem(CFG, net, [(0, 1, 0.05), (1, 2, 0.05)], 10.0, 101325.0, CP * 300.0)
+    res = solve(prob)
+    assert res.converged
+    u = float(states_table(prob, res.x)[ES_U, 0])
+    assert u < 0.0  # the duct runs backward
+    om = 2.0 * np.pi * np.linspace(20.0, 1500.0, 64)
+    r = perturbation_response(prob, res.x, om, excite=FULL)
+    assert np.abs(r.multiport_scattering_matrix()).max() < 1.0 + 1e-6  # lossless
+    # entropy driven at the genuine inlet (node 2) convects to edge 0 at speed |u|
+    fld = excite_perturbation(prob, res.x, om, node=2, modes=("entropy",))
+    ratio = fld.waves(0)[:, 2, 0] / fld.waves(1)[:, 2, 0]
+    assert np.allclose(ratio, np.exp(-1j * om * L / abs(u)), atol=1e-3)
+
+
+def test_branched_reversal_well_posed():
+    """A 3-terminal net with one reversed outlet stays well posed (no floating-entropy blow-up)."""
     net = [
-        cat.total_pressure_inlet(110000.0, 300.0),
+        cat.mass_flow_inlet(0.05, 300.0),
+        cat.duct(0.6),
         cat.splitter(),
+        cat.duct(0.7),
         cat.pressure_outlet(101325.0, 300.0),
-        cat.pressure_outlet(101325.0, 300.0),
+        cat.duct(0.9),
+        cat.pressure_outlet(101300.0, 300.0),  # lower pressure -> backflow in the other branch
     ]
-    edges = [(0, 1, 0.05), (1, 2, 0.03), (1, 3, 0.03)]
+    edges = [(0, 1, 0.05), (1, 2, 0.05), (2, 3, 0.03), (3, 4, 0.03), (2, 5, 0.03), (5, 6, 0.03)]
     prob = cat.build_problem(CFG, net, edges, 10.0, 101325.0, CP * 300.0)
     res = solve(prob)
     assert res.converged
-    with pytest.raises(ValueError, match="exactly 2 terminals"):
-        perturbation_response(prob, res.x, OM)
+    assert float(states_table(prob, res.x)[ES_U, 2]) < 0.0  # the (101325) branch reverses
+    Sc = perturbation_response(prob, res.x, 2 * np.pi * np.linspace(20.0, 1500.0, 400)).multiport_scattering_matrix()
+    Sf = perturbation_response(prob, res.x, 2 * np.pi * np.linspace(20.0, 1500.0, 3200)).multiport_scattering_matrix()
+    # bounded and refinement-stable -> no spurious resonance from a floating incoming entropy
+    assert np.abs(Sc).max() < 1.5
+    assert abs(np.abs(Sc).max() - np.abs(Sf).max()) < 0.05 * np.abs(Sf).max()
+
+    # entropy excitation is also well posed here: entropy enters at *both* genuine inlets
+    # (the forward inlet and the reversed branch) and leaves at the single genuine outlet.
+    rf = perturbation_response(prob, res.x, 2 * np.pi * np.linspace(20.0, 1500.0, 400), excite=FULL)
+    Srect = rf.multiport_scattering_matrix()
+    inc, out = rf.multiport_scattering_labels()
+    assert Srect.shape == (400, 4, 5) and np.abs(Srect).max() < 1.5
+    assert sum(s.startswith("h@") for s in inc) == 2  # two genuine inlets carry incoming entropy
+    assert sum(s.startswith("h@") for s in out) == 1  # one genuine outlet carries outgoing entropy
 
 
 def test_verifier_rejects_reverse_wired_duct():

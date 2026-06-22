@@ -14,6 +14,11 @@ v1 (subsonic, flow-aligned ducts) requires, for every DUCT node:
 * a positive ``length``;
 * a strictly **subsonic** mean state on both incident edges (supersonic acoustic
   propagation is deferred with the supersonic mean flow).
+
+Boundary flow reversal (the mean flow entering at a head terminal or leaving at a
+tail) is supported: genuine inlet/outlet are read from the mean flow direction, so
+the entropy seat and the duct entropy-phase row follow the flow rather than the
+element geometry (see ``response._seats_entropy`` and ``stamps.build_duct_stamps``).
 """
 
 from ..solver.control import states_table

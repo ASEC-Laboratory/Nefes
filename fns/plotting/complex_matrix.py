@@ -48,20 +48,24 @@ def _entry_title(row_labels, col_labels, i, j):
     return f"{col_labels[j]}→{row_labels[i]}"
 
 
-def _axis_labels(N, labels, row_labels, col_labels, edges):
+def _axis_labels(nrow, ncol, labels, row_labels, col_labels, edges):
     """Resolve per-row and per-column entry labels.
 
     Explicit ``row_labels``/``col_labels`` win.  Otherwise, with ``edges=(a, b)``
     the column variables are subscripted by the input edge ``a`` and the row
     variables by the output edge ``b`` (``f`` -> ``f_a`` / ``f_b``).  With neither,
-    a single ``labels`` set is shared by both axes.
+    a single ``labels`` set is shared by both axes.  A shared symbol set only makes
+    sense for a square matrix; a rectangular one without explicit labels falls back
+    to numeric indices.
     """
     if row_labels is not None or col_labels is not None:
         return row_labels, col_labels
-    base = labels if labels is not None else _DEFAULT_LABELS.get(N)
+    if nrow != ncol:
+        return None, None
+    base = labels if labels is not None else _DEFAULT_LABELS.get(nrow)
     if edges is not None:
         a, b = edges
-        syms = base if base is not None else [str(k + 1) for k in range(N)]
+        syms = base if base is not None else [str(k + 1) for k in range(nrow)]
         return [_sub(s, b) for s in syms], [_sub(s, a) for s in syms]
     return base, base
 
@@ -87,8 +91,8 @@ def _normalize(matrices, freqs, names):
     matrices = _as_list(matrices)
     matrices = [np.asarray(M) for M in matrices]
     for M in matrices:
-        if M.ndim != 3 or M.shape[1] != M.shape[2]:
-            raise ValueError(f"each matrix must be (n_freq, N, N); got shape {M.shape}")
+        if M.ndim != 3:
+            raise ValueError(f"each matrix must be (n_freq, n_row, n_col); got shape {M.shape}")
     freqs = _as_list(freqs)
     if len(freqs) == 1 and len(matrices) > 1:
         freqs = freqs * len(matrices)
@@ -158,14 +162,14 @@ def plot_complex_matrix(
         each entry at 0 and scales to its own peak.
     """
     matrices, freqs, names = _normalize(matrices, freqs, names)
-    N = matrices[0].shape[1]
-    if any(M.shape[1] != N for M in matrices):
-        raise ValueError("all overlaid matrices must have the same size")
-    row_labels, col_labels = _axis_labels(N, labels, row_labels, col_labels, edges)
+    nrow, ncol = matrices[0].shape[1], matrices[0].shape[2]
+    if any(M.shape[1:] != (nrow, ncol) for M in matrices):
+        raise ValueError("all overlaid matrices must have the same shape")
+    row_labels, col_labels = _axis_labels(nrow, ncol, labels, row_labels, col_labels, edges)
     if entries is None:
-        entries = [(i, j) for i in range(N) for j in range(N)]
+        entries = [(i, j) for i in range(nrow) for j in range(ncol)]
     if layout == "auto":
-        layout = "flat" if N <= 2 else "grid"
+        layout = "flat" if max(nrow, ncol) <= 2 else "grid"
     if showlegend is None:
         showlegend = len(matrices) > 1
 
@@ -176,8 +180,8 @@ def plot_complex_matrix(
         fig = _flat_axes(entries, row_labels, col_labels, x_title, ph_title, height, width)
         _draw_flat(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegend, mag_range)
     elif layout == "grid":
-        fig = _grid_axes(N, entries, row_labels, col_labels, x_title, ph_title, height, width)
-        _draw_grid(fig, matrices, freqs, names, N, entries, ph_scale, unwrap, showlegend, mag_range)
+        fig = _grid_axes(nrow, ncol, entries, row_labels, col_labels, x_title, ph_title, height, width)
+        _draw_grid(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegend, mag_range)
     else:
         raise ValueError(f"unknown layout {layout!r}; choose 'auto', 'flat' or 'grid'")
 
@@ -244,30 +248,30 @@ def _draw_flat(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegen
 # -- grid layout: an N x N matrix of (magnitude-over-phase) cells -----------
 
 
-def _grid_axes(N, entries, row_labels, col_labels, x_title, ph_title, height, width):
+def _grid_axes(nrow, ncol, entries, row_labels, col_labels, x_title, ph_title, height, width):
     titles = []
-    for i in range(N):
-        for j in range(N):  # magnitude sub-row: titled by entry
+    for i in range(nrow):
+        for j in range(ncol):  # magnitude sub-row: titled by entry
             titles.append(_entry_title(row_labels, col_labels, i, j) if (i, j) in entries else "")
-        titles += [""] * N  # phase sub-row
+        titles += [""] * ncol  # phase sub-row
     fig = make_subplots(
-        rows=2 * N,
-        cols=N,
+        rows=2 * nrow,
+        cols=ncol,
         shared_xaxes=True,
         subplot_titles=titles,
         vertical_spacing=0.04,
         horizontal_spacing=0.05,
     )
-    for i in range(N):
+    for i in range(nrow):
         fig.update_yaxes(title_text="|·|", row=2 * i + 1, col=1)
         fig.update_yaxes(title_text=ph_title, row=2 * i + 2, col=1)
-    for c in range(1, N + 1):
-        fig.update_xaxes(title_text=x_title, row=2 * N, col=c)
-    fig.update_layout(height=height or 230 * N, width=width)
+    for c in range(1, ncol + 1):
+        fig.update_xaxes(title_text=x_title, row=2 * nrow, col=c)
+    fig.update_layout(height=height or 230 * nrow, width=width)
     return fig
 
 
-def _draw_grid(fig, matrices, freqs, names, N, entries, ph_scale, unwrap, showlegend, mag_range=None):
+def _draw_grid(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegend, mag_range=None):
     colors = cycle(COLORWAY)
     first = entries[0]
     for M, fr, nm in zip(matrices, freqs, names):
