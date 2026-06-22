@@ -121,10 +121,22 @@ def multiport_partition(stations, n=3, u_floor=1e-8):
     -------
     incoming, outgoing : list of (station_index, char_index)
         Terminal-major ordering of the network's incoming and outgoing waves.
+
+    Notes
+    -----
+    A **quiescent** terminal (``|u| < u_floor``, e.g. the dead leg behind a wall) carries
+    no convected-wave port: the entropy/scalar waves (indices ``>= 2``) neither enter nor
+    leave when there is no mean flow, so they are dropped from both sets there.  The two
+    acoustic waves always propagate and are kept.  (:func:`partition` itself must pin the
+    convected waves downstream to stay square for the 2-port path, so the quiescent drop
+    is applied here, where the rectangular multiport layout allows it.)
     """
     incoming, outgoing = [], []
     for k, (u, c, side) in enumerate(stations):
         inc, out = partition(u, c, side, n, u_floor)
+        if abs(u) < u_floor:  # no convection -> convected waves have no port at this terminal
+            inc = tuple(i for i in inc if i < 2)
+            out = tuple(i for i in out if i < 2)
         incoming += [(k, int(i)) for i in inc]
         outgoing += [(k, int(i)) for i in out]
     return incoming, outgoing

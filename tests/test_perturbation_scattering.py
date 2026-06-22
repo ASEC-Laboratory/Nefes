@@ -77,6 +77,29 @@ def _tree_3term(pt_in=110000.0, p_out=101325.0, a_branch=0.03):
     return prob, res
 
 
+def _wall_branch(pt_in=110000.0, p_out=101325.0):
+    """Inlet -> duct -> splitter -> (duct -> outlet) and a side duct -> wall (dead leg).
+
+    The wall blocks mean flow, so the side branch (edges 4, 5) is a quiescent dead leg
+    (a closed side-branch); all the mean flow takes the outlet branch.  Terminals: the
+    inlet (node 0), the outlet (node 4), and the wall (node 6).
+    """
+    net = [
+        cat.total_pressure_inlet(pt_in, 300.0),
+        cat.duct(0.6),
+        cat.splitter(),
+        cat.duct(0.7),
+        cat.pressure_outlet(p_out, 300.0),
+        cat.duct(0.4),
+        cat.wall(),
+    ]
+    edges = [(0, 1, 0.05), (1, 2, 0.05), (2, 3, 0.03), (3, 4, 0.03), (2, 5, 0.03), (5, 6, 0.03)]
+    prob = cat.build_problem(CFG, net, edges, 10.0, 101325.0, CP * 300.0)
+    res = solve(prob)
+    assert res.converged
+    return prob, res
+
+
 def _diamond(pt_in=110000.0, p_out=101325.0):
     """Inlet -> duct -> splitter -> (two ducts) -> junction -> duct -> outlet.
 
@@ -309,6 +332,45 @@ def test_branched_single_in_out_two_excitations():
     assert S.shape == (om.size, 2, 2)
     assert np.abs(S).max() < 1.5  # lossless + anechoic: bounded despite the internal loop
     assert r.transfer_matrix(0, 1).shape == (om.size, 2, 2)  # in-series duct still well defined
+
+
+def test_wall_terminated_branch_multiport():
+    """A branch closed by a wall is a quiescent dead leg, yet the multiport SM stays well posed.
+
+    Acoustically the wall is just another anechoic port (in the measurement convention), so the
+    3 x 3 acoustic multiport is bounded and refinement-stable.  The dead-leg entropy is decoupled
+    (no convection at ``u = 0``) and does **not** contaminate the acoustic block.  With entropy the
+    quiescent wall carries no convected-wave port -- it contributes only its acoustic reflection,
+    never an ``h`` wave -- so the rectangular SM has no entropy row/column at the wall terminal.
+    """
+    prob, res = _wall_branch()
+    est = states_table(prob, res.x)
+    assert abs(float(est[ES_U, 5])) < 1e-9  # the side branch behind the wall is a quiescent dead leg
+
+    om = 2 * np.pi * np.linspace(20.0, 1500.0, 400)
+    r = perturbation_response(prob, res.x, om)  # acoustic-only; all 3 terminals driven
+    Sa = r.multiport_scattering_matrix()
+    inc, out = r.multiport_scattering_labels()
+    assert Sa.shape == (om.size, 3, 3) and len(inc) == 3 and len(out) == 3
+    assert np.abs(Sa).max() < 1.5  # lossless, anechoic everywhere -> bounded (no quarter-wave pole)
+
+    Sf_fine = perturbation_response(prob, res.x, 2 * np.pi * np.linspace(20.0, 1500.0, 3200))
+    Sf_fine = Sf_fine.multiport_scattering_matrix()
+    assert abs(np.abs(Sa).max() - np.abs(Sf_fine).max()) < 0.05 * np.abs(Sf_fine).max()  # no hidden peak
+
+    # driving the entropy wave too must leave the acoustic block bit-for-bit unchanged: the
+    # quiescent dead-leg entropy is decoupled and never folds back into the acoustics.
+    rf = perturbation_response(prob, res.x, om, excite=FULL)
+    Sfull = rf.multiport_scattering_matrix()
+    finc, fout = rf.multiport_scattering_labels()
+    acoustic_sub = Sfull[:, [[0], [1], [3]], [0, 1, 2]]  # rows g@n0,f@n4,f@n6 x cols f@n0,g@n4,g@n6
+    assert np.allclose(Sa, acoustic_sub, atol=1e-10)
+
+    # the quiescent wall (node 6) carries no entropy port: no h@n6 in either set.
+    assert "h@n6" not in finc and "h@n6" not in fout
+    assert finc == ["f@n0", "g@n4", "g@n6", "h@n0"]  # entropy enters only at the flowing inlet
+    assert fout == ["g@n0", "f@n4", "h@n4", "f@n6"]  # entropy leaves only at the flowing outlet
+    assert Sfull.shape == (om.size, 4, 4) and np.isfinite(Sfull).all()
 
 
 def test_entropy_quiescent_rejected():
