@@ -27,6 +27,7 @@ from .stamps import (
     build_source_stamps,
     build_tm_stamps,
     build_storage,
+    heat_addition_edges,
     stamp_propagation,
     stamp_sources,
     stamp_transfer_matrix,
@@ -114,6 +115,11 @@ def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8, isen
     M = build_storage(prob, x_bar)
     duct_stamps = build_duct_stamps(prob, x_bar, u_floor)
     source_stamps, flame_edges = build_source_stamps(prob, x_bar, u_floor)
+    if isentropic:
+        # a passive heat-adding element must also keep its downstream energy row physical
+        # under the entropy pin, or its jump degrades to mass-flux continuity
+        est = states_table(prob, x_bar, caloric=True)
+        flame_edges = frozenset(set(flame_edges) | heat_addition_edges(prob, est))
     tm_stamps = build_tm_stamps(prob, x_bar, u_floor)
     return AcousticBlocks(
         J_alg=J.tocsc(),

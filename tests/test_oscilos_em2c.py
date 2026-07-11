@@ -177,7 +177,8 @@ def test_the_dump_plane_carries_the_passive_damping():
     _, borda = dominant_mode(em2c_combustor(active=False)[0])
     _, lossless = dominant_mode(em2c_combustor(active=False, expansion="isentropic")[0])
     assert borda < -10.0
-    assert abs(lossless) < 1.0
+    # neutral up to the Mach-order terms of the temperature jump (~0.2 % of the mode)
+    assert abs(lossless) < 2.0
 
 
 def test_the_flame_pulls_the_frequency_up_and_adds_damping(active_solution):

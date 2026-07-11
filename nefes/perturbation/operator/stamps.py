@@ -41,7 +41,7 @@ from .matrices import partition
 from .verify import duct_nodes, verify_acoustic
 from .terminals import find_terminals
 from ...solver.report import states_table
-from ...assembly.recover import ES_RHO, ES_C, ES_U, ES_P, ES_AREA, ES_MDOT, ES_T
+from ...assembly.recover import ES_RHO, ES_C, ES_U, ES_P, ES_AREA, ES_MDOT, ES_T, ES_HT
 from ...elements.ids import (
     CAVITY,
     FLAME_HEAT_RELEASE,
@@ -671,9 +671,14 @@ def stamp_isentropic(A, prob, est, skip_edges=()):
     with this constraint, so the operator keeps its size and the *same* solver / contour
     machinery applies unchanged.
 
-    ``skip_edges`` are left physical (not pinned): the energy/transport rows an active
-    flame writes its heat-release source onto.  Dropping convected
-    entropy in the ducts while keeping the flame's energy jump is the standard
+    ``skip_edges`` are left physical (not pinned): the energy rows downstream of heat
+    addition, both an active flame's source row and the steady energy jump of a passive
+    one (:func:`heat_addition_edges`).  A heat-adding interface shedding a temperature
+    spot is where the entropy fluctuation scales as ``u'/u_bar``, so its convective flux
+    survives the zero-Mach limit: pinning that row would silently replace the
+    zero-Mach velocity-continuity jump with a mass-flux-continuity jump and detune every
+    resonance the temperature discontinuity participates in.  Dropping convected
+    entropy in the ducts while keeping the heat-addition energy jump is the standard
     "acoustic network with a compact flame" model -- the flame still adds heat, but the
     entropy spot it sheds is not convected.
 
@@ -697,6 +702,55 @@ def stamp_isentropic(A, prob, est, skip_edges=()):
         cols = tuple(ns * e + v for v in range(3))
         # transport row of edge e becomes  h_e = L_e[2, :] . dx_e = 0
         _set_row(A, tr0 + e, cols, L_e[2, :].astype(np.complex128), (), ())
+
+
+def heat_addition_edges(prob, est, rel_tol=1e-3):
+    """Downstream edges of elements that add heat to the through-flow.
+
+    Scans every two-port element for a total-enthalpy jump between its inflow and outflow
+    edge at the mean state.  Every adiabatic element (area changes, orifices, valves,
+    lossy or not) conserves the total enthalpy exactly, so a jump marks steady heat
+    addition (or removal): the interface converts a mass-flow fluctuation into a
+    temperature spot whose density contribution scales as ``u'/u_bar``, and that spot's
+    convective flux survives the zero-Mach limit.  The edge's energy row must therefore
+    stay physical under the isentropic reduction (see :func:`stamp_isentropic`).  Active
+    flames are caught independently through their dynamic source; this catches the
+    passive ones, whose steady energy jump would otherwise be overwritten by the entropy
+    pin.  An equilibrium (reacting) flame conserves the total enthalpy and is not flagged
+    here; its temperature jump rides on the composition scalars, which the reduction
+    already keeps.
+
+    Parameters
+    ----------
+    prob : CompiledProblem
+        The compiled network.
+    est : ndarray
+        Edge-state table from :func:`~nefes.assembly.recover.states_table`.
+    rel_tol : float, optional
+        Total-enthalpy-jump threshold, relative to the squared inflow sound speed (a
+        specific-enthalpy scale that stays positive for every gas model); far above a
+        converged solve's residual, far below any heating element's jump.
+
+    Returns
+    -------
+    set of int
+        Downstream (outflow) edge indices of the detected heat-adding elements.
+    """
+    edges = set()
+    for n in range(int(prob.n_nodes)):
+        base = int(prob.row_ptr[n])
+        deg = int(prob.row_ptr[n + 1]) - base
+        if deg != 2:
+            continue
+        ports = [(int(prob.col_edge[base + i]), int(prob.orient[base + i])) for i in range(2)]
+        outs = [e for e, s in ports if s * float(est[ES_MDOT, e]) > 0.0]
+        ins = [e for e, s in ports if s * float(est[ES_MDOT, e]) <= 0.0]
+        if len(outs) != 1 or len(ins) != 1:
+            continue
+        ht_in, ht_out = float(est[ES_HT, ins[0]]), float(est[ES_HT, outs[0]])
+        if abs(ht_out - ht_in) > rel_tol * float(est[ES_C, ins[0]]) ** 2:
+            edges.add(outs[0])
+    return edges
 
 
 def boundary_forcing(prob, x_bar, omega):

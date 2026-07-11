@@ -122,6 +122,9 @@ The economy of the method is best seen as a ledger of which rows the base Jacobi
 
 The isentropic reduction deserves a remark, because it is the default for a purely acoustic study.
 Pinning the entropy amplitude to zero on every edge, $\widehat{\varrho}' = \widehat{p}'/\overline{c}^{\,2}$, removes the convected wave and leaves a two-amplitude $(f, g)$ acoustics; this is *exact* for the acoustic spectrum of a flow with no entropy sources, and it is what one wants when comparing against classical duct-acoustic results.
+One class of edges is exempt from the pin: the energy rows immediately downstream of heat addition, active or steady.
+A heat-adding interface converts a mass-flow fluctuation into a temperature spot whose amplitude scales as $\widehat{u}/\overline{u}$, so the spot's convective flux survives the zero-Mach limit; pinning that row would silently replace the zero-Mach jump (continuous $\widehat{p}$ and $\widehat{u}$, plus the heat-release source) with mass-flux continuity, where $\widehat{u}$ jumps by the density ratio, and detune every resonance the temperature discontinuity participates in.
+Keeping the heat-addition energy rows physical while dropping the convected wave everywhere else is the standard "acoustic network with a compact flame" model; such elements are detected at build time by their mean total-enthalpy jump, which every adiabatic element conserves exactly (test: `test_passive_temperature_jump_keeps_the_zero_mach_velocity_continuity`).
 It should be noted, however, that the reduction discards the entropy wave altogether, so it misses the indirect combustion noise that an entropy spot generates on reaching a compact nozzle — a distinction taken up quantitatively in [identification](identification.md) and [analyses](analyses.qmd).
 
 ## Transfer and scattering matrices

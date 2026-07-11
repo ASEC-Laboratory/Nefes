@@ -672,3 +672,58 @@ def test_eigenmodes_warns_without_frequency_dependence():
     assert sol.converged
     with pytest.warns(EigenmodeWarning):
         eigenmodes(sol.problem, sol.x, (100.0, 500.0))
+
+
+def test_passive_temperature_jump_keeps_the_zero_mach_velocity_continuity():
+    # A closed-open tube split by a compact steady heat source.  In the zero-Mach limit the
+    # jump carries continuous p' and u' (the entropy spot the flame sheds holds the density
+    # balance), so the resonances solve
+    #     xi cos(w tau_1) cos(w tau_2) + sin(w tau_1) sin(w tau_2) = 0,
+    # with xi = rho_1 c_1 / (rho_2 c_2).  The isentropic reduction must reproduce these:
+    # pinning the entropy on the flame's downstream edge instead would silently turn the
+    # jump into mass-flux continuity (u' jumping by rho_1/rho_2) and detune every mode.
+    theta = 3.0
+    t_cold = 300.0
+    l_cold, l_hot, area = 0.3, 0.5, 2.0e-3
+    c_cold = np.sqrt(GAMMA * R_AIR * t_cold)
+    c_hot = c_cold * np.sqrt(1.0 + theta)
+    mdot = 1.2 * 1.0e-3 * c_cold * area  # cold-side Mach about 1e-3
+    cp = GAMMA * R_AIR / (GAMMA - 1.0)
+    qdot = mdot * cp * theta * t_cold
+
+    net = Network(CFG, p_ref=101325.0, T_ref=t_cold, mdot_ref=mdot)
+    net.add(cat.mass_flow_inlet(mdot, t_cold, perturbation_bc=PerturbationBC.hard_wall()))
+    net.add(cat.duct(l_cold))
+    net.add(cat.heat_release_flame(qdot))
+    net.add(cat.duct(l_hot))
+    net.add(cat.pressure_outlet(101325.0, perturbation_bc=PerturbationBC.open_end()))
+    for a, b in [(0, 1), (1, 2), (2, 3), (3, 4)]:
+        net.connect(a, b, area)
+    sol = net.solve()
+    assert sol.converged
+
+    # first two analytic roots by bisection on the pole-free numerator
+    xi = np.sqrt(1.0 + theta)
+    tau1, tau2 = l_cold / c_cold, l_hot / c_hot
+
+    def numerator(f):
+        w = 2.0 * np.pi * f
+        return xi * np.cos(w * tau1) * np.cos(w * tau2) + np.sin(w * tau1) * np.sin(w * tau2)
+
+    roots = []
+    grid = np.arange(10.0, 900.0, 1.0)
+    vals = numerator(grid)
+    for i in np.nonzero(np.sign(vals[:-1]) != np.sign(vals[1:]))[0][:2]:
+        lo, hi = grid[i], grid[i + 1]
+        for _ in range(60):
+            mid = 0.5 * (lo + hi)
+            if np.sign(numerator(mid)) == np.sign(numerator(lo)):
+                lo = mid
+            else:
+                hi = mid
+        roots.append(0.5 * (lo + hi))
+
+    res = eigenmodes(sol.problem, sol.x, (10.0, 900.0), isentropic=True)
+    _match(res.freqs, roots, rtol=3e-3)
+    # the ideal modes are neutral; only the Mach-order terms may damp them
+    assert np.all(np.abs(res.growth_rates) < 2.0 * np.pi * 2.0)
