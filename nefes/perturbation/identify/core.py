@@ -25,7 +25,10 @@ diagnostic: it is rank-deficient exactly when the measurement cannot separate th
 
 The recovered response is returned as a real-frequency table plus, by default, its rational
 continuation (:class:`~nefes.perturbation.continuation.RationalFit`) so it drops straight back
-into the element / dynamic source and the stability eigensolver.
+into the element / dynamic source and the stability eigensolver.  When the recovered response
+is finite-memory (a flame, a compact element), refitting the returned table with
+:func:`~nefes.elements.dynamic_source.fit_impulse_response` gives a continuation with no poles
+at all, which is preferable for stability work.
 """
 
 from __future__ import annotations

@@ -56,6 +56,25 @@ def test_continuation_is_analytic(N):
     assert Tc(np.array([500.0 + 5.0j])).shape == (1, N, N)  # off the real axis: no raise
 
 
+def test_impulse_continuation_of_a_finite_memory_scattering_matrix_is_exact():
+    # entries built from finite-memory responses continue off the real axis exactly
+    rng = np.random.default_rng(4)
+    dt = 0.5 / FREQS.max()
+    h = rng.standard_normal((2, 2, 7)) * 0.3 + 0.5 * np.eye(2)[..., None]
+    lags = np.arange(7) * dt
+
+    def exact(f):
+        return (h * np.exp(-2j * np.pi * np.asarray(f, complex)[..., None, None, None] * lags)).sum(-1)
+
+    S = ScatteringMatrix(FREQS, exact(FREQS), basis="char", ports=(PA, PB))
+    Sc = S.continue_(method="impulse", duration=6.0 * dt, smoothing=0.0)
+    assert Sc.analytic and Sc.max_fit_error() < 1e-10
+    z = np.array([400.0 - 20.0j, 900.0 + 10.0j])
+    assert _rel(Sc(z), exact(z)) < 1e-9
+    with pytest.raises(ValueError):
+        S.continue_(method="nope")
+
+
 def test_constant_matrix_broadcasts():
     M = np.eye(3, dtype=complex)
     T = TransferMatrix(FREQS, M, basis="char", ports=(PA, PB))

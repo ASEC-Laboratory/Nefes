@@ -4,8 +4,9 @@ A great deal of the perturbation layer speaks in **complex matrices of frequency
 a 2-port transfer matrix ``T(f)``, a scattering matrix ``S(f)``, a multiport response.
 :class:`TransferMatrix` and :class:`ScatteringMatrix` wrap such a table (shape
 ``(n_f, N, N)``) with the operations that recur: evaluate / re-interpolate on a new grid,
-**analytically continue** it off the real axis (per-entry :class:`~nefes.perturbation.continuation.RationalFit`,
-so it is usable in the stability eigenproblem), convert between variable **flavors**
+**analytically continue** it off the real axis (per-entry, via an impulse-response fit or a
+rational fit -- see :meth:`FreqMatrix.continue_`; do this in *scattering* form, whose entries
+are finite-memory responses), convert between variable **flavors**
 (``characteristics.basis_matrix``) and between the transfer and scattering forms, and plot.
 
 These are the objects a user constructs to feed a
@@ -202,25 +203,47 @@ class FreqMatrix:
         fr = np.asarray(freqs, dtype=float).ravel()
         return type(self)(fr, self(fr), basis=self.basis, ports=self.ports)
 
-    def continue_(self, **fit_kwargs):
-        """A copy that evaluates at **complex** frequency via a per-entry rational fit.
+    def continue_(self, method="rational", **fit_kwargs):
+        """A copy that evaluates at **complex** frequency via a per-entry fit.
 
-        Each entry is fitted with :class:`~nefes.perturbation.continuation.RationalFit` (AAA),
-        so the result is analytic off the real axis and usable in the stability
-        eigenproblem.  ``fit_kwargs`` are forwarded to ``RationalFit`` (e.g. ``rtol`` near
-        the noise floor of measured data, or ``delay="auto"`` -- the default here -- to peel
-        a transport lag before fitting).
+        Continue in **scattering** form, not transfer form.  The entries of a scattering
+        matrix are causal responses of outgoing waves to incoming ones, so for a compact
+        element they die out after a finite time and both fit methods below describe them
+        faithfully.  The entries of a *transfer* matrix are an algebraic rearrangement of
+        those responses: they mix delays of both signs (a plain duct already has
+        ``cosh``/``sinh`` entries that grow off the real axis in both directions) and the
+        rearrangement divides by the transmission response, creating genuine poles.  So:
+        :meth:`TransferMatrix.to_scattering` first, continue there, and convert back --
+        the conversions preserve analyticity.
+
+        ``method="impulse"`` fits each entry with
+        :func:`~nefes.elements.dynamic_source.fit_impulse_response` (recommended for
+        finite-memory entries; requires ``duration``, accepts ``dt`` and ``smoothing``):
+        the continuation is a finite sum of delays with no poles anywhere.
+        ``method="rational"`` (default, and the choice for entries with a genuine
+        resonance) fits with :class:`~nefes.perturbation.continuation.RationalFit` (AAA);
+        ``fit_kwargs`` are forwarded (e.g. ``rtol`` near the noise floor of measured
+        data, or ``delay="auto"`` -- the default here -- to peel a transport lag before
+        fitting).
         """
-        from .continuation import RationalFit
-
-        fit_kwargs.setdefault("delay", "auto")
         if self.freqs.size < 2:
-            raise ValueError("need at least two frequency samples to build a rational continuation")
+            raise ValueError("need at least two frequency samples to build a continuation")
+        if method == "impulse":
+            from ..elements.dynamic_source import fit_impulse_response
+
+            entry_fit = lambda values: fit_impulse_response(self.freqs, values, **fit_kwargs)  # noqa: E731
+        elif method == "rational":
+            from .continuation import RationalFit
+
+            fit_kwargs.setdefault("delay", "auto")
+            entry_fit = lambda values: RationalFit(self.freqs, values, **fit_kwargs)  # noqa: E731
+        else:
+            raise ValueError(f"method must be 'impulse' or 'rational'; got {method!r}")
         N = self.n
         fits = np.empty((N, N), dtype=object)
         for i in range(N):
             for j in range(N):
-                fits[i, j] = RationalFit(self.freqs, self.data[:, i, j], **fit_kwargs)
+                fits[i, j] = entry_fit(self.data[:, i, j])
         out = self._new(self.data)
         out._fits = fits
         return out
@@ -231,10 +254,14 @@ class FreqMatrix:
         return self._fits is not None
 
     def max_fit_error(self) -> float:
-        """Largest per-entry rational-fit error on the grid (0 before :meth:`continue_`)."""
+        """Largest per-entry fit error on the grid (0 before :meth:`continue_`)."""
         if self._fits is None:
             return 0.0
-        return float(max(self._fits[i, j].max_error() for i in range(self.n) for j in range(self.n)))
+
+        def entry_error(fit):
+            return fit.max_error() if hasattr(fit, "max_error") else fit.max_misfit
+
+        return float(max(entry_error(self._fits[i, j]) for i in range(self.n) for j in range(self.n)))
 
     # -- flavor change ----------------------------------------------------
     def to_basis(self, basis):

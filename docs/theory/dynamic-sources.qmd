@@ -166,9 +166,44 @@ A measured or simulated flame response arrives not as a formula but as a table o
 As a raw table it is defined only on the real axis, interpolating magnitude and phase between its samples, and it deliberately refuses a complex-frequency argument.
 This is sufficient for a forced response and for the real-axis Nyquist stability driver, both of which evaluate only on the real axis, but it is *not* sufficient for the contour eigensolver of [analyses](analyses.qmd), which searches the complex plane for the roots of $\det\mathbf{A}(\omega)$ and therefore needs an analytic function (tests: `test_tabulated_recovers_samples_and_rejects_complex`, `test_stability_rejects_nonanalytic_transfer`).
 
-The bridge is analytic continuation by a barycentric rational fit, given by the AAA algorithm [@nakatsukasa_2018], which represents the samples as a rational function — analytic everywhere except at its isolated poles — so that the same object serves both the real-axis sweep and the complex-plane search.
+The bridge is analytic continuation, and its correct form follows from the physics of the response rather than from a fitting preference.
+A table of numbers does not determine its own extension off the real axis; one must first say what *kind* of function the response is, and the two physically meaningful answers give the two continuations below.
+If the response to a brief disturbance dies out after a finite time — true of a flame, which forgets a velocity disturbance after a finite convective time, and of any compact element without an internal resonator — the transfer function is a finite sum of pure delays, entire in the complex plane, and the impulse-response fit of the next subsection is the faithful continuation; this is the recommended default.
+If instead the response *rings* — a cavity damper, a resonant end plate — its transfer function genuinely has poles, and the rational fit further below is the honest description.
+
+## The impulse-response model
+
+System identification from a broadband simulation or experiment delivers a flame response most naturally as the discrete impulse response $h_j$, the heat-release response to a unit velocity impulse $j\,\Delta t$ seconds earlier [@polifke_2020].
+Its frequency response is the finite sum
+
+$$
+\mathcal{F}(f) \;=\; \sum_{j} h_j\, e^{-\mathrm{i}\,2\pi f\, j\,\Delta t},
+$$ {#eq-fir}
+
+whose zero-frequency gain is $\sum_j h_j$ and whose longest lag is $J\,\Delta t$.
+A finite sum of exponentials is *entire*: it has no poles anywhere in the complex-frequency plane, so it continues into the eigensolver's search region exactly, at any growth rate, with no fitted poles to place and none to avoid.
+The $n$–$\tau$ model is its one-coefficient limit (tests: `test_fir_single_spike_is_an_n_tau`, `test_fir_is_entire_and_matches_its_definition_off_the_real_axis`).
+
+When the data arrive as frequency samples rather than as an impulse response, the coefficients $h_j$ are recovered by `fit_impulse_response`: a least squares on the samples with a penalty on the second difference of $h_j$, so the fit follows the trend of the data rather than every measurement wiggle, over a memory length the user states from the physics (a few times the largest transport delay, readable as the slope of the phase).
+By default the sample spacing is set from the top of the tabulated band, $\Delta t = 1/(2 f_{\max})$, so the fit carries no frequency content the data cannot constrain (tests: `test_fit_impulse_response_recovers_a_known_response_exactly`, `test_fit_impulse_response_continues_off_the_real_axis_exactly`, `test_fit_impulse_response_smooths_noisy_data`).
+
+Because the response is sampled, @eq-fir repeats with period $1/\Delta t$, and only frequencies below the Nyquist limit $1/(2\Delta t)$ are resolved (test: `test_fir_is_periodic_at_the_sampling_rate`).
+The [BRS combustor benchmark](../validation/benchmarks.md) uses this form: its flame response is published only as a figure, and reconstructing the impulse response behind that figure, rather than fitting a rational function to it, is what makes the intrinsic mode of the rig computable [@emmert_2017].
+
+The same reasoning extends to measured transfer and scattering *matrices*.
+The entries of a scattering matrix are causal responses of outgoing waves to incoming ones, so for a compact element they are finite-memory and continue entry by entry with the impulse-response fit.
+The entries of a *transfer* matrix are an algebraic rearrangement of those responses and do not share the property: they mix delays of both signs (a plain duct already has $\cosh$/$\sinh$ entries that grow off the real axis in both directions), and the rearrangement divides by the transmission response, creating genuine poles.
+Measured matrix data should therefore be converted to scattering form, continued there, and converted back — the conversions preserve analyticity (test: `test_impulse_continuation_of_a_finite_memory_scattering_matrix_is_exact`).
+
+## The rational alternative
+
+For a response with a genuine resonance, the barycentric rational fit given by the AAA algorithm [@nakatsukasa_2018] represents the samples as a rational function — analytic everywhere except at its isolated poles — so that the same object serves both the real-axis sweep and the complex-plane search.
 Two refinements make the fit trustworthy near the real axis: the pure transport lag is estimated and *peeled* before fitting, since a delay $e^{-\mathrm{i}\omega\tau}$ is entire and carries no poles, and re-applied analytically on evaluation — the descriptor form of an analytic delay times a low-order rational remainder — and spurious Froissart-doublet poles introduced by the fit are detected and removed.
 The resulting continuation exposes its poles and zeros for diagnosis, and warns when a pole falls inside the frequency–growth window the stability search will scan (tests: `test_descriptor_analytic_and_max_delay`, `test_fit_is_analytic_and_feeds_dynamic_sources`).
+
+That warning is not a formality, and it is why the rational fit is the second choice rather than the default.
+A rational fit of samples taken on the real axis places its poles near the sampled interval, because that is where the data constrains it; a mode sitting ten or twenty hertz off the real axis is then read out of the region where the fit is least trustworthy, and a fit of noisy data can scatter artificial poles into the search window outright.
+A finite-memory response has no such hazard — its continuation has no poles to place — which is why the impulse-response route is preferred whenever the physics permits it.
 
 ## The reacting-acoustics caveat
 

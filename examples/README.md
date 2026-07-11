@@ -103,7 +103,8 @@ A reader new to the tool is best served by starting in **`getting-started/`** an
   is not; sweeps the inlet-outlet scattering matrix over frequency for several `N`, shows the
   ~`O(1/N)` convergence, and drives `grid_refine` / `auto_refine`.
 - **`analytic_continuation.ipynb`** — continuing a **tabulated** transfer function / reflection
-  coefficient off the real frequency axis, as the eigensolver requires.
+  coefficient off the real frequency axis, as the eigensolver requires: the impulse-response
+  fit for finite-memory responses (the recommended route) and the rational fit for resonant ones.
 - **`compositional_noise.ipynb`** — **compositional (indirect) noise** at a choked nozzle.
   Validates the inert acoustic limit against Marble–Candel and a resolved nozzle, then shows
   the inherited / resolved routes carry the composition → acoustic coupling `R_xi` that the
@@ -145,6 +146,18 @@ A reader new to the tool is best served by starting in **`getting-started/`** an
   separates the damping (the **dump plane**, not the flame, is the main sink), shows the shed
   **entropy wave is a spectator** at a pressure-release outlet, and maps the flame-lag stability
   band the operating point sits below.
+- **`brs_combustor.ipynb`** — the **TUM BRS swirl burner** of Emmert et al., where the published
+  spectrum is a *mix* of acoustic and **intrinsic (ITA)** modes. The flame response is published
+  only as a figure, so it is digitized (`data/brs_ftf.csv`) and rebuilt as the **finite impulse
+  response** it came from — entire, hence exact under analytic continuation, where a rational fit
+  of the same samples would litter the search box with poles. Reproduces the reference's three
+  quantitative figures against published eigenvalues extracted from their vector twins
+  (`data/brs_published_*.csv`): the three-system spectrum (full / pure acoustic / pure ITA, with
+  the dominant modes at `43.2 / 105.7 / 319.5 Hz` against `42.4 / 111.0 / 315.6`), the modulation
+  sweep that assigns each full-system mode to its acoustic or intrinsic parent, and the reflection
+  sweep ending in the **paradox**: making the exit *less* reflective drives the intrinsic mode
+  unstable (`+23.7 Hz` growth at the anechoic end, published `+23.0`). Along the way it documents
+  a reversed phase axis and a missing FTF normalization factor in the printed reference.
 
 ## `validation/`
 

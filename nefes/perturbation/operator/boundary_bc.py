@@ -107,9 +107,11 @@ def _eval(value, freq):
     A raw ``(freqs, values)`` table is a real-grid interpolant -- fine for a real-frequency
     sweep (the forced response, the Nyquist driver), but **not analytic**, so it cannot be
     evaluated at the complex frequencies the stability eigenproblem visits.  Asking for a
-    complex ``freq`` raises a pointed error; wrap the table with
-    :func:`~nefes.perturbation.continuation.rational_fit` to get an analytically-continuable
-    coefficient usable for stability.
+    complex ``freq`` raises a pointed error; convert the table first.  For a termination
+    whose reflection dies out after a finite time (an open or choked end, a nozzle),
+    :func:`~nefes.elements.dynamic_source.fit_impulse_response` gives a continuation with
+    no poles; for a resonant termination (a cavity damper, a resonant liner), use
+    :func:`~nefes.perturbation.continuation.rational_fit`.
     """
     if value is None:
         return 0.0 + 0.0j
@@ -121,8 +123,9 @@ def _eval(value, freq):
             raise TypeError(
                 "a tabulated reflection/impedance table (freqs, values) cannot be evaluated at a "
                 "complex frequency (real-grid interpolation is not analytic). Use it for the forced "
-                "response / Nyquist sweep, or wrap it with nefes.perturbation.rational_fit(freqs, values) "
-                "for the stability eigenproblem."
+                "response / Nyquist sweep, or convert it for the stability eigenproblem: "
+                "nefes.elements.fit_impulse_response(freqs, values, duration=...) for a finite-memory "
+                "termination, or nefes.perturbation.rational_fit(freqs, values) for a resonant one."
             )
         xs, ys = np.asarray(value[0], dtype=float), np.asarray(value[1], dtype=complex)
         re = np.interp(fc.real, xs, ys.real)

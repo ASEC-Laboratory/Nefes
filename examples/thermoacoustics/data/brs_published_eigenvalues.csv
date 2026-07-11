@@ -1,0 +1,35 @@
+# Published eigenvalues of the BRS combustor network model.
+# Source: T. Emmert, "Intrinsic Thermoacoustic Feedback of Premixed Flames" (Dr.-Ing.
+# dissertation, TU Muenchen), Figure 4.2, the one-to-one counterpart of Figure 4
+# of Emmert, Bomberg, Jaensch & Polifke, Proc. Combust. Inst. 36 (2017) 3835-3842.
+# The dissertation figure is vector graphics; coordinates are read from the drawing
+# commands with the axis gridlines as calibration (residual < 0.01 Hz), so unlike a
+# raster digitization the values carry no pixel quantization.
+# Growth rate follows the reference's convention sigma/(2*pi) with s = sigma + j*omega.
+system,growth_hz,frequency_hz
+full,-91.18,0.01
+full,-69.15,0.01
+full,-8.16,42.42
+full,-2.02,111.04
+full,-60.59,157.88
+full,-44.18,238.54
+full,-26.58,314.28
+full,-6.34,315.58
+full,-56.03,373.40
+full,-67.50,437.86
+full,-76.36,498.35
+full,-82.33,559.01
+full,-86.02,621.40
+full,-84.94,686.33
+acoustic,-0.06,54.51
+acoustic,3.13,320.51
+ita,-22.10,105.21
+ita,-62.62,156.28
+ita,-50.20,231.27
+ita,-46.65,292.44
+ita,-59.09,355.92
+ita,-57.73,421.50
+ita,-60.93,490.32
+ita,-66.36,557.80
+ita,-71.64,628.88
+ita,-77.43,701.30

@@ -2,7 +2,7 @@
 
 Where [verification](verification.md) checks that the framework solves its equations correctly, this document checks that those equations reproduce established results: named cases from the literature and from analytic theory that a compressible-network and thermoacoustic solver is expected to recover.
 Each benchmark states the case, the reference it is compared against, and the quantitative agreement obtained, with the test that performs the comparison.
-The cases span the framework's main claims: a steady compressible network, a self-excited thermoacoustic instability, indirect combustion noise, and a canonical acoustic two-port.
+The cases span the framework's main claims: a steady compressible network, a self-excited thermoacoustic instability, the separation of acoustic from intrinsic modes, indirect combustion noise, and a canonical acoustic two-port.
 
 ## Greyvenstein & Laurie compressed-air network
 
@@ -39,6 +39,38 @@ The entropy wave the flame sheds leaves through the pressure-release outlet with
 The comparison is like-for-like only once two conventions of [@li_oscilos_2017] are matched: its calorically perfect gas with $\gamma = 1.4$ held on both sides of the flame, and its treatment of the flame plane as a Borda–Carnot expansion followed by constant-area heat addition.
 Both are stated in its source, and nothing else about the Nefes model is fitted to it.
 The example notebook `examples/thermoacoustics/em2c_combustor.ipynb` walks the case through.
+
+## BRS combustor: acoustic and intrinsic thermoacoustic modes
+
+The two thermoacoustic cases above check frequencies and growth rates against a flame whose response is prescribed in closed form.
+This case checks something the others cannot: that the framework recovers the *kind* of each mode, separating the acoustic resonances of the geometry from the intrinsic (ITA) modes sustained by a feedback loop closing through the flame alone [@bomberg_2015].
+The configuration is the perfectly premixed swirl-stabilized BRS test rig of [@komarek_polifke_2010], analysed as a network by [@emmert_2017], who report three dominant modes near $42$, $111$ and $315\;\mathrm{Hz}$, of which two are acoustic and one is intrinsic, together with the result that lowering the reflection at the combustor exit stabilizes the acoustic modes while *destabilizing* the intrinsic one.
+
+The reference's network table fixes the mean state completely, and it is over-determined in a way that confirms the reading: for a calorically perfect gas its quoted impedance ratio is $\xi = \sqrt{1 + \theta}$, its area ratios and plenum radius imply the rig's $90 \times 90\;\mathrm{mm}$ chamber, and its density and sound speed put the rig at one atmosphere.
+Nefes solves the network from the mass flow and the heat power and returns $\theta = 5.5898$ against the stated $5.59$ and an inlet Mach number of $0.00110$ against $0.0011$ (test: `test_mean_flow_reproduces_the_reported_operating_point`).
+
+The one quantity the reference does not state in numbers is the flame transfer function, which it publishes only as a figure.
+The curves of that figure are traced and shipped as `examples/thermoacoustics/data/brs_ftf.csv`, and the response is reconstructed as the finite impulse response the reference says it is, using the model of [dynamic sources](../theory/dynamic-sources.qmd).
+The recovery is confirmed against an independent record of the same quantity: the reference's dissertation prints the impulse response itself as a vector-graphics stem plot, whose exact sample values ship as `examples/thermoacoustics/data/brs_impulse_response.csv`; the two records agree in gain to an rms of $0.006$ and in phase within two printed pixels, both show the positive axial lobe followed by the negative swirl lobe that [@komarek_polifke_2010] describe for this burner, and the response peaks at the $4.8\;\mathrm{ms}$ convective delay the dissertation itself quotes (tests: `test_the_impulse_response_has_the_shape_of_a_swirl_flame`, `test_the_reconstructed_response_reproduces_the_digitized_curve`, `test_the_digitized_curve_agrees_with_the_reference_impulse_response`).
+
+The comparison targets are the eigenvalues of the reference's own figures, read from their vector twins in the dissertation, where the coordinates come from the drawing commands rather than from pixels; they ship as `examples/thermoacoustics/data/brs_published_*.csv`.
+
+With the flame passive the network has exactly the two acoustic modes the reference expects — the Helmholtz mode of plenum and swirler tube and the quarter wave of the hot chamber — at $54.4$ and $320.4\;\mathrm{Hz}$ against the published $54.5$ and $320.5$, both near-neutral as ideal lossless modes must be (test: `test_the_passive_network_matches_the_published_acoustic_modes`).
+Activating the flame damps both and adds a mode near $106\;\mathrm{Hz}$ with no passive counterpart anywhere near it: the intrinsic mode (test: `test_the_flame_adds_one_mode_that_the_passive_network_does_not_have`).
+The three dominant modes come out at $43.2$, $105.7$ and $319.5\;\mathrm{Hz}$ against the published $42.4$, $111.0$ and $315.6$, all stable, with the intrinsic mode the least damped and marginally so; the Helmholtz and intrinsic growth rates land within $2.5\;\mathrm{Hz}$ of the published values, and the near-degenerate pair at $315\;\mathrm{Hz}$ — an avoided crossing whose splitting is hypersensitive to the flame response — is compared through its robust mean (tests: `test_three_dominant_modes_match_the_published_frequencies`, `test_the_robust_growth_rates_match_the_published_values`, `test_the_near_degenerate_pair_matches_in_its_mean`, `test_the_intrinsic_mode_is_the_least_damped`).
+
+The reference's pure intrinsic system — the burner mouth and flame between anechoic ends — is solved as a network of its own, and its dominant eigenvalue lands on the published square at $105.2\;\mathrm{Hz}$, $-22.1\;\mathrm{Hz}$ growth within a few hertz (test: `test_the_pure_ita_network_matches_the_dispersion_relation`).
+Its scalar dispersion relation surfaced an inconsistency in the printed reference worth recording: solved as printed with the paper's own flame response, the relation predicts an *unstable* pure intrinsic mode, contradicting the paper's own all-stable figure.
+The scalar equations hold for a heat release normalized by the flame-side velocity, while the published FTF is normalized at the burner mouth; the area ratio $\alpha_2$ bridges the two, and with it the published intrinsic spectrum is recovered (test: `test_the_pure_ita_relation_needs_the_normalization_bridge`).
+Nefes assembles the jump conditions from the conservation laws, so the consistent coupling is automatic.
+
+The residual is attributed rather than absorbed.
+Reading the published figure to one pixel leaves $0.135\;\mathrm{rad}$ of phase uncertainty, which moves the intrinsic mode by about $\pm 4\;\mathrm{Hz}$; re-running with the dissertation's exact impulse response puts it at $110.8\;\mathrm{Hz}$, $-2.1\;\mathrm{Hz}$ against the published $111.0$, $-2.0$, so the visible offset is the figure-reading of the FTF and nothing else.
+Shrinking the mean flow twentyfold, which removes the Mach-number terms the reference omits, moves every mode by less than a hertz (test: `test_the_mach_number_terms_do_not_carry_the_comparison`).
+
+The reference's closing paradox is reproduced quantitatively: sweeping the outlet reflection from a perfectly reflecting open end toward an anechoic termination stabilizes the acoustic modes while driving the intrinsic mode unstable, with the neutral crossing near $|R| = 0.92$ and the anechoic endpoint at $+23.7\;\mathrm{Hz}$ growth against the published $+23.0$ (tests: `test_reducing_the_outlet_reflection_destabilizes_the_intrinsic_mode`, `test_reducing_the_outlet_reflection_stabilizes_the_acoustic_mode`, `test_the_anechoic_outlet_endpoint_matches_the_published_track`).
+
+The example notebook `examples/thermoacoustics/brs_combustor.ipynb` reproduces the reference's three quantitative figures — the three-system spectrum, the modulation sweep that assigns each full-system mode to its acoustic or intrinsic parent, and the reflection sweep — overlaid on the published eigenvalues, including the digitization and its uncertainty.
 
 ## Indirect combustion noise
 

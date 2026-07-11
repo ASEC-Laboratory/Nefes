@@ -42,10 +42,11 @@ def plot_fit(
 
     Parameters
     ----------
-    fit : RationalFit or callable
+    fit : TransferFunction or callable
         The continuation to draw.  A :class:`~nefes.perturbation.continuation.RationalFit`
-        carries its own ``freqs``/``values`` (drawn as markers); any other callable is
-        drawn as a line only (pass ``freqs`` to set the grid).
+        or a :func:`~nefes.elements.dynamic_source.fit_impulse_response` result carries
+        its own ``freqs``/``values`` (drawn as markers); any other callable is drawn as a
+        line only (pass ``freqs`` to set the grid).
     freqs : array_like, optional
         Evaluation grid [Hz] for the fit line; default a dense grid spanning the data
         band (optionally widened by ``extend``).

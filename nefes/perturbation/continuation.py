@@ -9,14 +9,28 @@ for ``det A(omega) = 0`` off the real axis), so it needs the response as a funct
 can be evaluated at a complex frequency -- and a grid interpolant (linear, spline,
 magnitude/phase) is not analytic, so it cannot.
 
-This module closes that gap.  :class:`RationalFit` fits the tabulated samples with a
-**barycentric rational function** (the AAA algorithm, Nakatsukasa--Sete--Trefethen 2018,
-via :class:`scipy.interpolate.AAA`).  A rational function is analytic everywhere except
-at its poles, so it continues off the real axis for free: the same object that
-reproduces the data on the grid is also a legal ``S(omega)`` / ``R(omega)`` for the
-contour eigensolver.  Because it is a :class:`~nefes.elements.dynamic_source.TransferFunction`
-with :attr:`analytic` ``True``, it drops straight into
-:func:`~nefes.elements.dynamic_source.heat_release_response` /
+Two routes close that gap, and the choice follows from the physics of the response:
+
+* If the response to a brief disturbance **dies out after a finite time** -- true of
+  flames and of compact elements without an internal resonator -- fit it with
+  :func:`~nefes.elements.dynamic_source.fit_impulse_response`.  The result is a finite
+  sum of pure delays, which evaluates at any complex frequency with **no poles
+  anywhere**, so nothing artificial can sit inside a stability search window.  This is
+  the recommended default.
+* If the response **rings** -- a cavity damper, a resonant end plate, anything with an
+  internal resonator whose decay outlasts a reasonable memory length -- its transfer
+  function genuinely has poles, and a rational fit is the honest description.  That is
+  what this module provides.
+
+:class:`RationalFit` fits the tabulated samples with a **barycentric rational function**
+(the AAA algorithm, Nakatsukasa--Sete--Trefethen 2018, via :class:`scipy.interpolate.AAA`).
+A rational function is analytic everywhere except at its poles, so it continues off the
+real axis: the same object that reproduces the data on the grid is also a legal
+``S(omega)`` / ``R(omega)`` for the contour eigensolver.  The price is that a fit of
+noisy data can scatter *artificial* poles near the search region -- check them with
+:meth:`RationalFit.poles_in_region` before trusting an eigenvalue.  Because it is a
+:class:`~nefes.elements.dynamic_source.TransferFunction` with :attr:`analytic` ``True``,
+it drops straight into :func:`~nefes.elements.dynamic_source.heat_release_response` /
 :func:`~nefes.elements.dynamic_source.mass_flow_response`, and -- being a plain
 ``freq -> complex`` callable -- into :meth:`~nefes.perturbation.operator.boundary_bc.PerturbationBC.reflection`.
 
@@ -80,6 +94,11 @@ class RationalFit(TransferFunction):
     eigenproblem.  It is also a bare ``freq -> complex`` callable, so it serves equally as
     a boundary reflection coefficient
     (:meth:`~nefes.perturbation.operator.boundary_bc.PerturbationBC.reflection`).
+
+    Reach for this when the response has a genuine resonance.  For a response that dies
+    out after a finite time (a flame, a compact element), prefer
+    :func:`~nefes.elements.dynamic_source.fit_impulse_response`, whose continuation has
+    no poles to place and none to avoid.
 
     Parameters
     ----------

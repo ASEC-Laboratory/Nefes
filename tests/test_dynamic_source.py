@@ -19,6 +19,9 @@ from nefes.elements.dynamic_source import (
     Constant,
     n_tau,
     n_tau_lowpass2,
+    finite_impulse_response,
+    fit_impulse_response,
+    FiniteImpulseResponse,
     tabulated,
     constant,
     as_transfer,
@@ -67,6 +70,100 @@ def test_ntau_complex_frequency_is_analytic():
 def test_constant_broadcasts():
     F = constant(0.5 + 0.2j)(np.zeros(4))
     assert F.shape == (4,) and np.allclose(F, 0.5 + 0.2j)
+
+
+def test_fir_single_spike_is_an_n_tau():
+    # one non-zero coefficient at lag j*dt is exactly the n-tau model
+    F = finite_impulse_response([0.0, 0.0, 1.4], 1.0e-3)
+    f = np.array([0.0, 137.0, 421.5])
+    assert np.allclose(F(f), n_tau(1.4, 2.0e-3)(f))
+    assert F.max_delay == pytest.approx(2.0e-3)
+
+
+def test_fir_zero_frequency_gain_is_the_sum_of_the_coefficients():
+    h = [0.1, 0.5, -0.3, 0.2]
+    F = finite_impulse_response(h, 0.5e-3)
+    assert complex(F(0.0)).real == pytest.approx(sum(h))
+    assert complex(F(0.0)).imag == pytest.approx(0.0)
+
+
+def test_fir_is_entire_and_matches_its_definition_off_the_real_axis():
+    # a finite sum of exponentials has no poles: it evaluates anywhere in the plane
+    rng = np.random.default_rng(3)
+    h, dt = rng.normal(size=9), 0.8e-3
+    F = finite_impulse_response(h, dt)
+    z = np.array([120.0 - 40.0j, -30.0 + 15.0j, 500.0 + 0.0j])
+    want = np.array([sum(h[j] * np.exp(-2j * np.pi * zi * j * dt) for j in range(9)) for zi in z])
+    got = F(z)
+    assert np.allclose(got, want)
+    assert np.all(np.isfinite(got))
+    assert F.analytic is True
+
+
+def test_fir_is_periodic_at_the_sampling_rate():
+    # a sampled response repeats every 1/dt, so the Nyquist limit is where it aliases
+    F = finite_impulse_response([0.2, 0.7, -0.1, 0.05], 1.0e-3)
+    assert F.nyquist == pytest.approx(500.0)
+    assert np.allclose(F(np.array([80.0])), F(np.array([80.0 + 1000.0])))
+
+
+def test_fir_broadcasts_and_rejects_bad_input():
+    F = finite_impulse_response(np.ones(5), 1e-3)
+    assert F(np.zeros((3, 2))).shape == (3, 2)
+    with pytest.raises(ValueError):
+        FiniteImpulseResponse([], 1e-3)
+    with pytest.raises(ValueError):
+        FiniteImpulseResponse([1.0], 0.0)
+
+
+def test_fit_impulse_response_recovers_a_known_response_exactly():
+    # samples of a finite-memory response determine its coefficients uniquely
+    h_true = np.array([0.0, 0.3, 0.9, 0.4, -0.2])
+    F_true = finite_impulse_response(h_true, 1.0e-3)
+    f = np.linspace(0.0, 500.0, 41)
+    F = fit_impulse_response(f, F_true(f), duration=4.0e-3, smoothing=0.0)
+    assert F.dt == pytest.approx(1.0e-3)  # default dt from the band edge
+    assert np.allclose(F.h, h_true, atol=1e-12)
+    assert F.rms_misfit < 1e-12 and F.max_misfit < 1e-12
+
+
+def test_fit_impulse_response_continues_off_the_real_axis_exactly():
+    # the fit and the underlying response share the same analytic continuation
+    h_true = np.array([0.1, 0.6, -0.3, 0.15])
+    F_true = finite_impulse_response(h_true, 0.5e-3)
+    f = np.linspace(0.0, 1000.0, 60)
+    F = fit_impulse_response(f, F_true(f), duration=1.5e-3, smoothing=0.0)
+    z = np.array([120.0 - 40.0j, 300.0 + 25.0j])
+    assert np.allclose(F(z), F_true(z), atol=1e-10)
+
+
+def test_fit_impulse_response_smooths_noisy_data():
+    # the second-difference penalty keeps the response from chasing measurement noise
+    rng = np.random.default_rng(7)
+    F_true = finite_impulse_response([0.0, 0.4, 1.0, 0.5, 0.1], 1.0e-3)
+    f = np.linspace(0.0, 500.0, 120)
+    noisy = F_true(f) + 0.03 * (rng.standard_normal(f.size) + 1j * rng.standard_normal(f.size))
+    rough = fit_impulse_response(f, noisy, duration=8.0e-3, smoothing=0.0)
+    smooth = fit_impulse_response(f, noisy, duration=8.0e-3, smoothing=1.0e-2)
+    curvature = lambda F: float(np.abs(np.diff(F.h, 2)).max())  # noqa: E731
+    assert curvature(smooth) < curvature(rough)
+    # smoothing trades a little misfit for that regularity, but stays near the noise floor
+    assert smooth.rms_misfit < 3.0 * rough.rms_misfit
+
+
+def test_fit_impulse_response_rejects_ill_posed_input():
+    f = np.linspace(0.0, 500.0, 30)
+    v = np.exp(-2j * np.pi * f * 2.0e-3)
+    with pytest.raises(ValueError):  # sample spacing too coarse for the tabulated band
+        fit_impulse_response(f, v, duration=4.0e-3, dt=2.0e-3)
+    with pytest.raises(ValueError):  # memory shorter than one sample spacing
+        fit_impulse_response(f, v, duration=0.2e-3)
+    with pytest.raises(ValueError):  # negative frequencies
+        fit_impulse_response(-f, v, duration=4.0e-3)
+    with pytest.raises(ValueError):  # mismatched lengths
+        fit_impulse_response(f[:-1], v, duration=4.0e-3)
+    with pytest.raises(ValueError):  # dt not inferable from a zero-only grid
+        fit_impulse_response([0.0], [1.0], duration=4.0e-3)
 
 
 def test_lowpass2_matches_the_delayed_second_order_filter():

@@ -32,8 +32,10 @@ graphs and user input use frequency, not angular frequency).  The perturbation
 assembler evaluates ``F(omega / 2 pi)``.  For a stability analysis the frequency is
 **complex**, so a transfer function must be analytically continuable
 (:attr:`TransferFunction.analytic`); the closed-form models are, a table interpolated
-on a real grid is not (use it for the forced response, or make use of the bundled
-RationalFit to fit a closed-form model to the data).
+on a real grid is not.  Use the table for the forced response, and for stability work
+convert it: :func:`fit_impulse_response` (the recommended route -- a response that dies
+out in finite time continues off the real axis with no poles at all) or, for a response
+with a genuine resonance, :func:`~nefes.perturbation.continuation.rational_fit`.
 """
 
 from __future__ import annotations
@@ -232,6 +234,80 @@ class NTauLowpass2(TransferFunction):
         return f"NTauLowpass2(n={self.n!r}, tau={self.tau!r}, fc={self.fc!r}, zeta={self.zeta!r})"
 
 
+class FiniteImpulseResponse(TransferFunction):
+    """A flame response given by its impulse response ``h`` sampled every ``dt`` seconds.
+
+    ``F(f) = sum_j h_j e^{-i 2 pi f j dt}``, the frequency response of the discrete impulse
+    response ``h_0, h_1, ...``.  This is the form a flame response takes when it is
+    identified from a broadband simulation or experiment: the coefficients ``h_j`` are the
+    heat-release response to a unit velocity impulse ``j dt`` seconds earlier, and their
+    sum is the zero-frequency gain ``F(0)``.
+
+    A finite sum of exponentials is *entire* -- it has no poles anywhere -- so unlike a
+    rational fit of the same data it continues into the whole complex-frequency plane and
+    is safe to hand to the stability eigenproblem at any growth rate.
+
+    Parameters
+    ----------
+    h : array_like
+        Real impulse-response coefficients ``h_j``, ``j = 0 .. J``, in order of increasing
+        lag.  ``sum(h)`` is the zero-frequency gain.
+    dt : float
+        Sampling interval [s] of the impulse response (``> 0``).  Frequencies above the
+        Nyquist limit ``1 / (2 dt)`` are aliased, as for any sampled response.
+
+    Attributes
+    ----------
+    h, dt : ndarray, float
+        The coefficients and their spacing.
+    lags : ndarray
+        The lag ``j dt`` [s] of each coefficient.
+
+    See Also
+    --------
+    fit_impulse_response : build this object from tabulated frequency samples.
+    NTau : the single-lag limit, ``h`` a lone spike.
+    Tabulated : a response held as frequency samples, usable only on the real axis.
+    nefes.perturbation.continuation.rational_fit : the alternative for a resonant response.
+
+    Examples
+    --------
+    A single spike reproduces the ``n-tau`` model:
+
+    >>> import numpy as np
+    >>> F = finite_impulse_response([0.0, 0.0, 1.4], 1.0e-3)
+    >>> abs(complex(F(0.0)))
+    1.4
+    >>> bool(np.isclose(complex(F(250.0)), 1.4 * np.exp(-2j * np.pi * 250.0 * 2.0e-3)))
+    True
+    """
+
+    analytic = True
+
+    def __init__(self, h, dt):
+        self.h = np.asarray(h, dtype=float).ravel()
+        self.dt = float(dt)
+        if self.h.size == 0:
+            raise ValueError("the impulse response must have at least one coefficient")
+        if self.dt <= 0.0:
+            raise ValueError(f"the sampling interval dt must be positive; got {dt}")
+        self.lags = np.arange(self.h.size) * self.dt
+        self.max_delay = float(self.lags[-1])
+
+    @property
+    def nyquist(self) -> float:
+        """Highest frequency [Hz] the sampled response resolves, ``1 / (2 dt)``."""
+        return 0.5 / self.dt
+
+    def __call__(self, f):
+        f = np.asarray(f, dtype=np.complex128)
+        phase = np.multiply.outer(f, self.lags)  # (..., J+1)
+        return (self.h * np.exp(-2j * np.pi * phase)).sum(axis=-1)
+
+    def __repr__(self):
+        return f"FiniteImpulseResponse({self.h.size} coefficients, dt={self.dt!r} s, F(0)={self.h.sum():.4g})"
+
+
 class Tabulated(TransferFunction):
     """A measured transfer function interpolated from a table ``F(freqs) = values``.
 
@@ -239,10 +315,13 @@ class Tabulated(TransferFunction):
     cannot be evaluated at the complex frequencies the stability eigenproblem visits
     (:attr:`analytic` is ``False``).  Use it for the forced response / scattering sweep,
     which stay on the real axis.  For **stability** analysis from the same tabulated data,
-    fit it with :func:`~nefes.perturbation.continuation.rational_fit`
-    (:class:`~nefes.perturbation.continuation.RationalFit`): a barycentric rational fit is
-    analytic off the real axis, so it drops straight into the eigensolver.  A closed-form
-    model (:class:`NTau`) fitted by hand works too.
+    fit it with :func:`fit_impulse_response`: a response that dies out after a finite time
+    (a flame, or any compact element without an internal resonator) becomes a
+    :class:`FiniteImpulseResponse`, which continues off the real axis exactly and with no
+    poles.  Reserve :func:`~nefes.perturbation.continuation.rational_fit` for a response
+    with a genuine resonance (a cavity damper, a resonant end plate), whose long ringing a
+    finite impulse response would truncate.  A closed-form model (:class:`NTau`) fitted by
+    hand works too.
 
     Magnitude and (unwrapped) phase are interpolated separately so the gain stays
     non-negative and the phase reads smoothly; outside the tabulated band the value
@@ -296,7 +375,9 @@ class Tabulated(TransferFunction):
             raise ValueError(
                 "a tabulated transfer function cannot be evaluated at a complex frequency "
                 "(real-grid interpolation is not analytic). Use it for the forced response, "
-                "or supply a closed-form model (e.g. n_tau) for the stability eigenproblem."
+                "or convert it for the stability eigenproblem: fit_impulse_response(freqs, "
+                "values, duration=...) for a finite-memory response, rational_fit for a "
+                "resonant one, or a closed-form model (e.g. n_tau)."
             )
         fr = np.asarray(f.real if np.iscomplexobj(f) else f, dtype=float)
         mag = self._interp1(self._mag, fr)
@@ -400,6 +481,152 @@ def constant(value) -> Constant:
     Constant
     """
     return Constant(value)
+
+
+def finite_impulse_response(h, dt) -> FiniteImpulseResponse:
+    """A response given by its sampled impulse response (see :class:`FiniteImpulseResponse`).
+
+    Parameters
+    ----------
+    h : array_like
+        Real impulse-response coefficients, in order of increasing lag.
+    dt : float
+        Sampling interval [s] of the impulse response.
+
+    Returns
+    -------
+    FiniteImpulseResponse
+
+    See Also
+    --------
+    n_tau : the single-lag limit.
+    fit_impulse_response : build the coefficients from tabulated frequency samples.
+    """
+    return FiniteImpulseResponse(h, dt)
+
+
+def fit_impulse_response(freqs, values, *, duration, dt=None, smoothing=1.0e-4) -> FiniteImpulseResponse:
+    """Fit tabulated frequency-response samples with a finite impulse response.
+
+    This is the recommended bridge from measured (or digitized) frequency-response data
+    to the stability eigenproblem.  It assumes the underlying response to a brief
+    disturbance dies out within ``duration`` seconds -- true of flames (which forget a
+    velocity disturbance after a finite convective time) and of compact elements without
+    an internal resonator.  Under that assumption the transfer function is a finite sum
+    of pure delays, which evaluates at *any* complex frequency with no poles anywhere,
+    so the returned :class:`FiniteImpulseResponse` drops straight into the eigensolver.
+    For a response with a genuine resonance (a cavity damper, a resonant end plate),
+    whose ringing outlasts any reasonable ``duration``, use
+    :func:`~nefes.perturbation.continuation.rational_fit` instead.
+
+    The coefficients solve a least-squares problem on the samples with a smoothness
+    penalty on the second difference of the impulse response, so the fit follows the
+    trend of the data rather than every measurement wiggle.  By default the sample
+    spacing ``dt`` is set from the top of the tabulated band, ``dt = 1 / (2 max f)``,
+    so the fit carries no frequency content the data cannot constrain.
+
+    Parameters
+    ----------
+    freqs : array_like
+        Tabulated frequencies [Hz], non-negative, not necessarily uniform.
+    values : array_like
+        Complex response samples at ``freqs``.
+    duration : float
+        Memory length [s] of the fitted impulse response; the response is assumed zero
+        after this time.  Physically: a few times the largest transport delay in the
+        data (readable as the slope of the phase).  Too short truncates the response;
+        too long is harmless but leans on the smoothness penalty.
+    dt : float, optional
+        Sample spacing [s] of the impulse response.  Default ``1 / (2 max(freqs))``,
+        which places the resolvable-frequency limit at the edge of the tabulated band.
+        A larger ``dt`` cannot represent the top of the band and is rejected.  If the
+        response still carries appreciable gain at the top of the band, halve the
+        default: exactly at the resolvable limit every basis term turns real, so the
+        band edge is matched only loosely at the default spacing, while a finer ``dt``
+        restores it (the smoothness penalty governs whatever the data does not
+        constrain).
+    smoothing : float, optional
+        Weight of the second-difference penalty (default ``1e-4``).  Increase for a
+        smoother response on noisy data; ``0`` disables the penalty (the problem must
+        then be overdetermined by the samples alone).
+
+    Returns
+    -------
+    FiniteImpulseResponse
+        The fitted response, with extra attributes: ``rms_misfit`` and ``max_misfit``
+        (root-mean-square and largest absolute deviation from the supplied samples) and
+        ``freqs``/``values`` (the samples themselves, so
+        :func:`~nefes.plotting.plot_fit` can overlay fit and data).
+
+    Raises
+    ------
+    ValueError
+        On empty/mismatched input, non-finite samples, ``duration`` shorter than one
+        sample spacing, or ``dt`` too coarse for the tabulated band.
+
+    See Also
+    --------
+    FiniteImpulseResponse : the returned object and its evaluation rule.
+    Tabulated : keep the raw table for real-axis work (forced response, Nyquist sweep).
+    nefes.perturbation.continuation.rational_fit : the alternative for a resonant response.
+
+    Examples
+    --------
+    Recover a single-lag response from its own samples:
+
+    >>> import numpy as np
+    >>> f = np.linspace(0.0, 500.0, 60)
+    >>> data = 1.4 * np.exp(-2j * np.pi * f * 2.0e-3)
+    >>> F = fit_impulse_response(f, data, duration=5.0e-3, smoothing=0.0)
+    >>> bool(abs(complex(F(100.0)) - 1.4 * np.exp(-2j * np.pi * 100.0 * 2.0e-3)) < 1e-6)
+    True
+    >>> F.rms_misfit < 1e-6
+    True
+    """
+    f = np.asarray(freqs, dtype=float).ravel()
+    v = np.asarray(values, dtype=np.complex128).ravel()
+    if f.size == 0 or f.shape != v.shape:
+        raise ValueError("freqs and values must be non-empty 1-D arrays of equal length")
+    if not (np.all(np.isfinite(f)) and np.all(np.isfinite(v))):
+        raise ValueError("freqs and values must be finite")
+    if np.any(f < 0.0):
+        raise ValueError("freqs must be non-negative")
+    f_top = float(f.max())
+    if dt is None:
+        if f_top <= 0.0:
+            raise ValueError("dt cannot be inferred from a zero-frequency-only table; pass dt explicitly")
+        dt = 0.5 / f_top
+    dt = float(dt)
+    if dt <= 0.0:
+        raise ValueError(f"the sample spacing dt must be positive; got {dt}")
+    if f_top * dt > 0.5 * (1.0 + 1e-9):
+        raise ValueError(
+            f"dt={dt:g} s cannot represent the tabulated band: its resolvable-frequency limit "
+            f"{0.5 / dt:g} Hz lies below the highest tabulated frequency {f_top:g} Hz"
+        )
+    n = int(round(duration / dt)) + 1
+    if n < 2:
+        raise ValueError(f"duration={duration!r} s is shorter than one sample spacing dt={dt:g} s")
+    smoothing = float(smoothing)
+    if smoothing < 0.0:
+        raise ValueError(f"smoothing must be non-negative; got {smoothing}")
+
+    lags = np.arange(n) * dt
+    basis = np.exp(-2j * np.pi * np.outer(f, lags))
+    blocks_lhs = [basis.real, basis.imag]
+    blocks_rhs = [v.real, v.imag]
+    if smoothing > 0.0 and n >= 3:
+        curvature = np.diff(np.eye(n), n=2, axis=0)
+        blocks_lhs.append(np.sqrt(smoothing) * curvature)
+        blocks_rhs.append(np.zeros(n - 2))
+    h, *_ = np.linalg.lstsq(np.vstack(blocks_lhs), np.concatenate(blocks_rhs), rcond=None)
+
+    fitted = FiniteImpulseResponse(h, dt)
+    misfit = basis @ h - v
+    fitted.rms_misfit = float(np.sqrt(np.mean(np.abs(misfit) ** 2)))
+    fitted.max_misfit = float(np.abs(misfit).max())
+    fitted.freqs, fitted.values = f, v  # the fitted samples, kept for plot overlays
+    return fitted
 
 
 def tabulated(freqs, values, **kwargs) -> Tabulated:

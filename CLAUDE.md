@@ -27,7 +27,8 @@ Source of truth lives under `docs/`; read it before designing, and sanity-check 
 - `docs/validation/` — validation map, verification checks, and literature benchmarks.
 
 When you implement, modify, or remove a feature, update the associated documentation; create one if none exists and you judge it necessary.
-In all forms of documentation, including docstrings and comments, do NOT use software engineering jargon except for commonly known concepts/terms and when it is absolutely necessary to do so.
+For plots in notebook environment, always use plotly with the bundled Nefes theme.
+In all forms of documentation, including docstrings and comments, do NOT use any specific jargon (e.g. software engineering, control engineering) except for commonly known concepts/terms and when it is absolutely necessary to do so.
 
 ## Notation
 
