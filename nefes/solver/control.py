@@ -179,7 +179,21 @@ def initial_guess(prob, mdot0=None, p0=None, h0=None, z0=None):
     network usually needs **per-edge** ``h0``/``z0``: an unburnt air edge and a
     burnt edge sit at very different ``(h_t, Z)``, so a single uniform guess can
     leave a frozen ``h -> T`` inversion or an equilibrium solve far from any root.
+    When the caller supplies no composition for a reacting network, this returns the
+    same feed-mixing seed :func:`solve` uses (via :func:`auto_initial_guess`) rather
+    than a zero-composition guess, which a reacting closure cannot evaluate (a mixture
+    of zero total mass has no temperature).
     """
+    # A reacting network seeded with zero composition is not evaluable -- the closure
+    # divides by the mixture's total moles -- so unless the caller pins the composition
+    # (z0), fall back to the physically-seeded per-edge guess solve() itself uses.
+    if prob.model_id == EQ_KERNEL and z0 is None:
+        x = auto_initial_guess(prob, mdot0=mdot0, p0=p0)
+        if h0 is not None:
+            x[2, :] = h0
+        if getattr(prob, "marker_row", -1) >= 0 and prob.marker_seed is not None:
+            x[prob.marker_row, :] = prob.marker_seed  # match solve()'s flood-fill marker seed
+        return x
     mdot_ref, p_ref, h_ref = prob.var_scale[0], prob.var_scale[1], prob.var_scale[2]
     x = np.zeros((prob.n_solve, prob.n_edges))
     x[0, :] = 0.05 * mdot_ref if mdot0 is None else mdot0
