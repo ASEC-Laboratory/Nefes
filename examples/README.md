@@ -2,6 +2,7 @@
 
 The notebooks are grouped by the layer they exercise.
 A reader new to the tool is best served by starting in **`getting-started/`** and then moving to whichever layer matches their interest.
+Each notebook opens with its network topology drawn by the **Nemo** UI, then builds and solves it entirely through the public `nefes` API (`Network`/`Solution`, `nefes.parameter_study`, and the acoustic analyses as `Solution` methods).
 
 - **`getting-started/`** — first contact: load a case, solve the mean flow, serialize a result.
 - **`flow/`** — non-reacting steady mean flow on larger networks, plus element infrastructure.
@@ -78,7 +79,7 @@ A reader new to the tool is best served by starting in **`getting-started/`** an
 
 - **`perturbation_boundary_conditions.ipynb`** — exercises **every** named `PerturbationBC`
   closure on a single driven duct, checking each against its analytic value (diagonal
-  reflections, the `excitation` source term, the entropy→acoustic coupling `R_s` of the
+  reflections, the `driven=` source term, the entropy→acoustic coupling `R_s` of the
   `choked_nozzle` / `constant_mass_flow` outlets, and the default `inherit`).
 - **`frequency_dependent_reflection.ipynb`** — a terminal's `PerturbationBC` carries a
   reflection coefficient `R` that is a **constant**, a **table** interpolated in frequency,
@@ -172,15 +173,19 @@ A reader new to the tool is best served by starting in **`getting-started/`** an
 
 ## Running the notebooks
 
-Each notebook prepends the repo root to `sys.path` (walking up until it finds the `nefes`
-package), so no install of `nefes` is needed — just run it with a Python that has the project
-dependencies (`numpy`, `scipy`, `numba`, `pyyaml`) plus the notebook stack and Plotly. Install
-those with the `jupyter` extra (`pip install -e ".[jupyter]"`) or use the conda env, then:
+The notebooks run against the **installed** `nefes` package (no `sys.path` bootstrapping): install
+it in editable mode with the `jupyter` extra, or use the conda env, then launch Jupyter:
 
 ```bash
+pip install -e ".[jupyter]"   # or: conda env create -f environment.yml
 conda activate nefes
 jupyter lab examples/getting-started/converging_nozzle.ipynb
 ```
+
+Every notebook imports `nefes` and reaches only its public surface; state is read by name off the
+`Solution`, and the acoustic analyses are `Solution` methods (`sol.eigenmodes(...)`,
+`sol.forced_response(...)`, ...). The topology figure each notebook shows is a rendered PNG
+committed next to it (`<name>_topology.png`), produced from the network by the Nemo UI.
 
 ## Rendering into the documentation site
 
@@ -213,8 +218,8 @@ Plotly with the Nefes theme (`use_nefes_theme()`); matplotlib is not rendered.
 Or solve a UI case in two lines:
 
 ```python
-from nefes.io import load_case
-sol = load_case("examples/getting-started/converging_nozzle.yaml").solve()
+import nefes
+sol = nefes.load_case("examples/getting-started/converging_nozzle.yaml").solve()
 print(sol.edge(1))   # throat state: mdot, M, p, p_t, T, ...
 ```
 
