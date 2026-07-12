@@ -351,60 +351,74 @@ def _ke_inner_state(frozen, tf, ti, xi, h, p, cache):
 
 @njit(cache=True)
 def _ke_root_real(frozen, tf, ti, xi_r, mdot_r, p_r, ht_r, area_r, cache):
-    """Real root ``h`` of ``G(h) = h_t - 1/2 (mdot/(rho(h) A))^2 - h`` (monotone).
+    """Real static enthalpy ``h_s = h_t - 1/2 (mdot/(rho A))^2`` from the density root.
 
-    ``G`` decreases in ``h`` (a lower static enthalpy is colder, so denser, so
-    slower, so less kinetic energy), giving a single root.  ``G(h_t) <= 0`` brackets
-    it from above; the lower bracket is expanded until ``G > 0``, then a
-    bisection-safeguarded secant converges it.  All inputs are real parts.
+    Recovers the static state by solving for **density**, mirroring the perfect-gas path
+    (:func:`nefes.thermo.perfect_gas.pg_solve_density`) rather than searching in enthalpy.  With
+    ``k = 1/2 (mdot/A)^2`` the residual is
+
+    .. code-block:: text
+
+        F(rho) = rho - rho_eq(h_t - k/rho^2, p),
+
+    where ``rho_eq(h, p)`` is the closure density at static enthalpy ``h``.  ``F`` is strictly
+    increasing (a denser state is colder, so the closure predicts a still-denser state, but more
+    slowly than ``rho`` itself grows) with ``F -> +inf`` as ``rho -> inf`` and ``F < 0`` at the
+    zero-velocity density, so the subsonic root **always exists and always brackets** -- the
+    recovery cannot fail on a bad iterate (an over-flux iterate simply yields a dense, formally
+    supersonic state that the choking complementarity resolves elsewhere).  The returned static
+    enthalpy leaves the downstream state recovery and complex-step attachment unchanged.  All
+    inputs are real parts.
     """
     flux = mdot_r / area_r
     k = 0.5 * flux * flux  # kinetic energy = k / rho^2
 
-    h_hi = ht_r
-    rho_hi = _ke_inner_state(frozen, tf, ti, xi_r, h_hi, p_r, cache)[1]
-    g_hi = -k / (rho_hi * rho_hi)  # = G(h_t)
-    if g_hi >= -1e-300:  # quiescent / vanishing flux: the root is h_t itself
-        return h_hi
+    # Zero-velocity density (all total enthalpy is static): the lower bracket.
+    rho_lo = _ke_inner_state(frozen, tf, ti, xi_r, ht_r, p_r, cache)[1]
+    if k / (rho_lo * rho_lo) <= 1e-300:  # quiescent / vanishing flux: h_s = h_t
+        return ht_r
 
-    delta = k / (rho_hi * rho_hi)
-    if delta < 1.0:
-        delta = 1.0
-    h_lo = ht_r - delta
-    g_lo = 1.0
+    # F(rho_lo) < 0: the implied static state h_t - k/rho_lo^2 is colder, hence denser than rho_lo.
+    h = ht_r - k / (rho_lo * rho_lo)
+    f_lo = rho_lo - _ke_inner_state(frozen, tf, ti, xi_r, h, p_r, cache)[1]
+    if f_lo >= 0.0:  # degenerate closure response; fall back to the quiescent state
+        return ht_r
+
+    # Expand the upper bracket until F > 0 (guaranteed: F -> +inf as rho -> inf).
+    rho_hi = 2.0 * rho_lo
+    fb = 0.0
     bracketed = False
     for _ in range(200):
-        rho_lo = _ke_inner_state(frozen, tf, ti, xi_r, h_lo, p_r, cache)[1]
-        g_lo = ht_r - k / (rho_lo * rho_lo) - h_lo
-        if g_lo > 0.0:
+        h = ht_r - k / (rho_hi * rho_hi)
+        fb = rho_hi - _ke_inner_state(frozen, tf, ti, xi_r, h, p_r, cache)[1]
+        if fb > 0.0:
             bracketed = True
             break
-        delta *= 2.0
-        h_lo = ht_r - delta
+        rho_hi *= 2.0
     if not bracketed:
-        raise ValueError("kinetic-energy bracket expansion failed")
+        raise ValueError("kinetic-energy density bracket expansion failed")
 
-    a = h_lo  # G(a) > 0
-    ga = g_lo
-    b = h_hi  # G(b) < 0
-    gb = g_hi
-    h = 0.5 * (a + b)
+    a = rho_lo  # F(a) < 0
+    fa = f_lo
+    b = rho_hi  # F(b) > 0
+    rho = 0.5 * (a + b)
     for _ in range(100):
-        rho = _ke_inner_state(frozen, tf, ti, xi_r, h, p_r, cache)[1]
-        g = ht_r - k / (rho * rho) - h
-        if g > 0.0:
-            a = h
-            ga = g
+        h = ht_r - k / (rho * rho)
+        f = rho - _ke_inner_state(frozen, tf, ti, xi_r, h, p_r, cache)[1]
+        if f < 0.0:
+            a = rho
+            fa = f
         else:
-            b = h
-            gb = g
-        h_new = a - ga * (b - a) / (gb - ga)  # secant from the straddling pair
-        if not (a < h_new < b):
-            h_new = 0.5 * (a + b)
-        if abs(h_new - h) <= 1e-13 * (abs(h) + 1.0):
-            return h_new
-        h = h_new
-    return h
+            b = rho
+            fb = f
+        rho_new = a - fa * (b - a) / (fb - fa)  # secant from the straddling pair
+        if not (a < rho_new < b):
+            rho_new = 0.5 * (a + b)
+        if abs(rho_new - rho) <= 1e-13 * (abs(rho) + 1.0):
+            rho = rho_new
+            break
+        rho = rho_new
+    return ht_r - k / (rho * rho)
 
 
 def _attach_ke_state(frozen, tf, ti, xi, mdot, p, ht, area, cache, h_s):
