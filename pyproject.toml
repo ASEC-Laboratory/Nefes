@@ -32,8 +32,8 @@ viz = ["plotly>=5.0"]
 jupyter = ["nefes[viz]", "jupyterlab>=4.0", "notebook>=7.0", "ipykernel>=6.0", "nbformat>=5.1", "nbclient>=0.6"]
 # Test suite: pytest plus everything the plotting and notebook-execution tests import.
 test = ["nefes[jupyter]", "pytest>=7.0"]
-# Developer tooling: the full test suite plus the formatter and linter.
-dev = ["nefes[test]", "flake8>=6.0", "black>=24.0"]
+# Developer tooling: the full test suite plus the formatter, linter, and the commit-time gate.
+dev = ["nefes[test]", "flake8>=6.0", "black>=24.0", "isort>=5.13", "pre-commit>=3.5"]
 # Documentation site: quartodoc renders the API pages from docstrings and the example gallery
 # executes notebooks, so it pulls the notebook stack too. The Quarto CLI itself is external and
 # installed separately (https://quarto.org).
@@ -49,6 +49,13 @@ include = ["nefes*"]
 [tool.black]
 line-length = 120
 target-version = ["py311", "py312"]
+
+[tool.isort]
+# The "black" profile makes isort's output agree with black (trailing commas, parenthesized
+# multi-line imports), so the two never fight over the same file.
+profile = "black"
+line_length = 120
+skip = ["scratch"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

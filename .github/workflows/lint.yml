@@ -1,0 +1,25 @@
+name: lint
+
+# Backstop that a local pre-commit bypass (git commit --no-verify) cannot skip:
+# any push or pull request is rejected unless the code is black-formatted and flake8-clean.
+on:
+  push:
+  pull_request:
+
+jobs:
+  format-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pinned to the same versions as .pre-commit-config.yaml so CI and local commits agree.
+      - name: Install formatter and linter
+        run: python -m pip install isort==8.0.1 black==26.5.1 flake8==7.3.0
+      - name: isort --check-only
+        run: isort --check-only --diff .
+      - name: black --check
+        run: black --check .
+      - name: flake8
+        run: flake8

@@ -1,0 +1,18 @@
+# Formatting and lint gate run on every commit: black reformats, then flake8 checks.
+# A commit that leaves unformatted or lint-failing code is rejected.
+# Install once per clone: `pre-commit install` (pre-commit ships in the `dev` extra).
+# Tool versions here are pinned to match the CI lint job so local and remote agree.
+repos:
+  - repo: https://github.com/PyCQA/isort
+    rev: 8.0.1
+    hooks:
+      - id: isort
+  - repo: https://github.com/psf/black
+    rev: 26.5.1
+    hooks:
+      - id: black
+        language_version: python3
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
