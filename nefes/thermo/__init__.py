@@ -46,6 +46,8 @@ from .api import (
     thermo_update,
     PERFECT_GAS,
     EQ_KERNEL,
+    EQ_FROZEN,
+    EQ_MARKER,
     EQ_TABLE,
     MODE_STATE,
     MODE_SPECIES,
@@ -56,7 +58,7 @@ from .api import (
     W_OUT,
     N_THERMO_OUT,
 )
-from .configure import ThermoConfig, perfect_gas
+from .configure import ThermoConfig, perfect_gas, equilibrium
 from .perfect_gas import pg_solve_density, pg_update
 
 __all__ = [
@@ -95,6 +97,8 @@ __all__ = [
     "thermo_update",
     "PERFECT_GAS",
     "EQ_KERNEL",
+    "EQ_FROZEN",
+    "EQ_MARKER",
     "EQ_TABLE",
     "MODE_STATE",
     "MODE_SPECIES",
@@ -106,6 +110,7 @@ __all__ = [
     "N_THERMO_OUT",
     "ThermoConfig",
     "perfect_gas",
+    "equilibrium",
     "pg_solve_density",
     "pg_update",
 ]

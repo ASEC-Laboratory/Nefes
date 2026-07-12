@@ -24,7 +24,9 @@ element is present.
 
 from .operator.characteristics import (
     char_to_dx,
+    char_to_dq,
     dx_to_char,
+    edge_caloric,
     edge_transforms,
     basis_matrix,
     basis_block_from_state,
@@ -85,7 +87,14 @@ from .fields.power import (
     modal_energy_balance,
     ModalEnergyBalance,
 )
-from .continuation import RationalFit, rational_fit, continuation_warning
+from .continuation import (
+    RationalFit,
+    rational_fit,
+    continuation_warning,
+    fit_impulse_response,
+    finite_impulse_response,
+    FiniteImpulseResponse,
+)
 from .stability.contour import Contour, ellipse_contour, circle_contour, beyn, winding_count, lu_logdet_phase
 from .stability.eigenmodes import eigenmodes, EigenmodeResult, EigenmodeWarning, build_operator
 from .stability.trajectory import eigenvalue_trajectory, TrajectoryResult, TrajectoryBranch, TrajectoryWarning
@@ -108,7 +117,9 @@ verify_perturbation = verify_acoustic
 __all__ = [
     # characteristic maps + flavors
     "char_to_dx",
+    "char_to_dq",
     "dx_to_char",
+    "edge_caloric",
     "edge_transforms",
     "basis_matrix",
     "basis_block_from_state",
@@ -169,6 +180,9 @@ __all__ = [
     "RationalFit",
     "rational_fit",
     "continuation_warning",
+    "fit_impulse_response",
+    "finite_impulse_response",
+    "FiniteImpulseResponse",
     # acoustic-power diagnostics
     "acoustic_intensity",
     "acoustic_energy_density",
