@@ -22,6 +22,7 @@ from ..operator.operator import build_acoustic_blocks, assemble_acoustic
 from ..operator.stamps import boundary_forcing
 from ..operator.characteristics import edge_transforms, basis_block_from_state
 from ...solver.report import states_table
+from .._meanstate import accepts_solution
 
 # Terminal closures whose analytic 3-wave (f, g, h) form drops the composition -> acoustic
 # off-diagonal R_xi (everywhere else the inherited J_alg retains it).
@@ -62,6 +63,7 @@ def _compositional_noise_gap(prob):
     return sorted(kinds)
 
 
+@accepts_solution
 def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False):
     """Solve the perturbation field under each terminal's declared boundary condition.
 
@@ -70,12 +72,14 @@ def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, 
 
     Parameters
     ----------
-    prob : CompiledProblem
-        Compiled flow network whose single-port elements carry ``PerturbationBC``s
+    prob : CompiledProblem or Solution
+        The compiled flow network whose single-port elements carry ``PerturbationBC``s
         (``prob.node_bc``).  Terminals left at ``inherit`` keep their linearized mean
-        boundary row.
+        boundary row.  Pass a solved :class:`nefes.Solution` to have its problem and mean
+        state supplied for you (then omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state, shape ``(n_solve, E)``.
+        Converged mean-flow state, shape ``(n_solve, E)``.  Omit when ``prob`` is a
+        ``Solution``.
     freqs : array_like
         Frequencies (Hz) to solve at.
     eps, eps_fb, u_floor : float, optional
@@ -100,6 +104,16 @@ def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, 
     wave; scalar waves are unaffected.
     """
     freqs = np.asarray(freqs, dtype=float)
+    node_bc = getattr(prob, "node_bc", None)
+    if not node_bc or not any(getattr(bc, "driven", ()) for bc in node_bc if bc is not None):
+        # A frequency sweep with nothing driving the network solves the trivial zero field.
+        warnings.warn(
+            "forced_response solves the field under the terminals' boundary conditions, but no terminal "
+            "is driven, so the result is the trivial zero field. Set an excitation on a boundary (e.g. "
+            "PerturbationBC.anechoic(driven=('acoustic',))), or use perturbation_response for the "
+            "termination-independent transfer/scattering matrices.",
+            stacklevel=2,
+        )
     gap = _compositional_noise_gap(prob)
     if gap:  # one reminder per call: the compact closure radiates entropy noise but not compositional
         warnings.warn(

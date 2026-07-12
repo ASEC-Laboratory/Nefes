@@ -24,7 +24,8 @@ from typing import List
 import numpy as np
 
 from ..assembly.assemble import residual, jacobian
-from ..elements.ids import MASS_FLOW_INLET, PT_INLET, P_OUTLET, MASS_SOURCE
+from ..elements.ids import MASS_FLOW_INLET, PT_INLET, P_OUTLET, MASS_SOURCE, CHOKED_NOZZLE_OUTLET
+from ..thermo.api import thermo_state
 from ..thermo.api import EQ_KERNEL, PERFECT_GAS
 from ..assembly.scaling import compose_scales, measure_inflow_scales
 from .linear import newton_step, lm_step, scaled_system, col_scale, unflatten
@@ -85,6 +86,89 @@ def domain_max_dp(prob):
     return max(refs) - min(refs)
 
 
+def _choked_chamber_pressure(prob, node, edge_mdot, edge_ht, edge_xi):
+    """Chamber (upstream) pressure at a compact choked-nozzle node, from its critical mass flux.
+
+    The nozzle passes ``mdot = rho c A* (2/(gamma+1))^((gamma+1)/(2(gamma-1)))`` for the
+    (near-stagnation) chamber state; since ``rho`` scales roughly linearly with pressure at fixed
+    enthalpy, a few fixed-point steps recover the chamber pressure that carries the edge's seeded
+    mass flow.  Returns ``None`` when the estimate is not well defined (no throat, no flow, or a
+    non-physical closure state), so the caller simply drops this anchor.
+    """
+    row_ptr = np.asarray(prob.row_ptr)
+    col_edge = np.asarray(prob.col_edge)
+    npar_f = np.asarray(prob.npar_f)
+    ptr = np.asarray(prob.npar_fptr)
+
+    e0 = int(col_edge[row_ptr[node]])
+    a_star = float(npar_f[ptr[node] + 0])
+    mdot = abs(float(edge_mdot[e0]))
+    if not (a_star > 0.0 and mdot > 0.0):
+        return None
+    h_t = float(edge_ht[e0])
+    z_el = np.ascontiguousarray(edge_xi[:, e0]) if edge_xi is not None and edge_xi.shape[0] > 0 else np.zeros(0)
+
+    pc = float(prob.var_scale[1])  # the reference pressure as the starting scale
+    for _ in range(12):
+        _, rho, c, _ = thermo_state(prob.model_id, prob.tf, prob.ti, z_el, h_t, pc)
+        if not (np.isfinite(rho) and np.isfinite(c) and rho > 0.0 and c > 0.0):
+            return None
+        gamma = rho * c * c / pc
+        if not (gamma > 1.0):
+            return None
+        gexp = (gamma + 1.0) / (2.0 * (gamma - 1.0))
+        mdot_crit = rho * c * a_star * (2.0 / (gamma + 1.0)) ** gexp
+        if not (mdot_crit > 0.0):
+            return None
+        pc_new = pc * (mdot / mdot_crit)
+        if abs(pc_new - pc) <= 1e-6 * pc:
+            pc = pc_new
+            break
+        pc = pc_new
+    return pc if (np.isfinite(pc) and pc > 0.0) else None
+
+
+def _boundary_pressure_seed(prob, edge_mdot, edge_ht, edge_xi, interior_default=None):
+    """Per-edge static-pressure seed derived from the network's own boundary pressures.
+
+    Whenever pressure information is present -- a total-pressure inlet, a static-pressure outlet, or
+    a choked nozzle (whose chamber pressure is estimated from the critical mass flux) -- the seed is
+    scaled to it instead of the gauge reference, so a 200-bar network starts near 200 bar rather than
+    at ``p_ref``.  Boundary-incident edges take their own boundary pressure.  Interior edges take
+    ``interior_default`` if given (used by the perfect-gas seed, whose recovery is robust to a plain
+    reference-pressure interior and would be *misled* by the mean at a low-static-pressure throat),
+    otherwise the mean of the anchors (the reacting seed, where an interior chamber sits near the
+    boundary pressure).  Returns ``None`` when no boundary pressure is available (e.g. a purely
+    mass-flow-driven network), so the caller keeps its reference-pressure default.
+    """
+    N, E = prob.n_nodes, prob.n_edges
+    rid = np.asarray(prob.node_rid)
+    npar_f = np.asarray(prob.npar_f)
+    ptr = np.asarray(prob.npar_fptr)
+    row_ptr = np.asarray(prob.row_ptr)
+    col_edge = np.asarray(prob.col_edge)
+
+    anchors = []  # (edge id, pressure)
+    for n in range(N):
+        r = int(rid[n])
+        if r == PT_INLET or r == P_OUTLET:
+            p_anchor = float(npar_f[int(ptr[n]) + 0])
+        elif r == CHOKED_NOZZLE_OUTLET:
+            p_anchor = _choked_chamber_pressure(prob, n, edge_mdot, edge_ht, edge_xi)
+        else:
+            continue
+        if p_anchor is not None and np.isfinite(p_anchor) and p_anchor > 0.0:
+            anchors.append((int(col_edge[row_ptr[n]]), p_anchor))
+
+    if not anchors:
+        return None
+    rep = float(interior_default) if interior_default is not None else float(np.mean([p for _, p in anchors]))
+    p_seed = np.full(E, rep)
+    for e, p in anchors:
+        p_seed[e] = p
+    return p_seed
+
+
 def initial_guess(prob, mdot0=None, p0=None, h0=None, z0=None):
     """Initial state; a small co-directional ``mdot`` by default.
 
@@ -99,7 +183,14 @@ def initial_guess(prob, mdot0=None, p0=None, h0=None, z0=None):
     mdot_ref, p_ref, h_ref = prob.var_scale[0], prob.var_scale[1], prob.var_scale[2]
     x = np.zeros((prob.n_solve, prob.n_edges))
     x[0, :] = 0.05 * mdot_ref if mdot0 is None else mdot0
-    x[1, :] = p_ref if p0 is None else p0
+    if p0 is not None:
+        x[1, :] = p0
+    else:
+        # Seed the pressure from the network's own boundary pressures when available, not p_ref.
+        # Interior edges keep the reference (the closed-form perfect-gas recovery is robust to it and
+        # a low-static-pressure throat would be mis-seeded by the anchor mean).
+        p_seed = _boundary_pressure_seed(prob, x[0, :], np.full(prob.n_edges, h_ref), None, interior_default=p_ref)
+        x[1, :] = p_ref if p_seed is None else p_seed
     x[2, :] = h_ref if h0 is None else h0
     if prob.n_solve > 3:
         if z0 is None:
@@ -234,7 +325,14 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
 
     x = np.zeros((n_solve, E))
     x[0, :] = edge_mdot
-    x[1, :] = float(p_ref if p0 is None else p0)
+    if p0 is not None:
+        x[1, :] = float(p0)
+    else:
+        # Seed the pressure from the network's own boundary pressures (choked chambers included),
+        # scaled by the propagated mass flow and mixed enthalpy, not the gauge reference.
+        edge_xi = edge_scal[:, 1:].T if nscal > 1 else None
+        p_seed = _boundary_pressure_seed(prob, edge_mdot, edge_scal[:, 0], edge_xi)
+        x[1, :] = p_ref if p_seed is None else p_seed
     x[2, :] = edge_scal[:, 0]
     if nscal > 1:
         x[3:, :] = edge_scal[:, 1:].T

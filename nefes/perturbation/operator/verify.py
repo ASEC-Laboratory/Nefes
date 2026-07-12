@@ -26,6 +26,7 @@ element geometry (see ``response._seats_entropy`` and ``stamps.build_duct_stamps
 from ...solver.report import states_table
 from ...assembly.recover import ES_M
 from ...elements.ids import STAMP_DUCT
+from .._meanstate import accepts_solution
 
 
 def duct_nodes(prob):
@@ -33,15 +34,18 @@ def duct_nodes(prob):
     return [n for n in range(prob.n_nodes) if int(prob.node_acoustic_stamp[n]) == STAMP_DUCT]
 
 
+@accepts_solution
 def verify_acoustic(prob, x_bar):
     """Raise ``ValueError`` unless ``prob`` admits a subsonic acoustic assembly at ``x_bar``.
 
     Parameters
     ----------
-    prob : CompiledProblem
-        The compiled network.
+    prob : CompiledProblem or Solution
+        The compiled network.  Pass a solved :class:`nefes.Solution` to have its problem and
+        mean state supplied for you (then omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state, shape ``(n_solve, E)``.
+        Converged mean-flow state, shape ``(n_solve, E)``.  Omit when ``prob`` is a
+        ``Solution``.
 
     Raises
     ------

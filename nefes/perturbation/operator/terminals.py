@@ -13,6 +13,7 @@ from typing import List
 from ...solver.report import states_table
 from ...assembly.recover import ES_MDOT
 from ...elements.ids import BOUNDARY_RIDS
+from .._meanstate import accepts_solution
 
 
 @dataclass
@@ -37,6 +38,7 @@ class Terminal:
         return f"Terminal: node {self.node} on edge {self.edge} ({face}), inject {inj}' / read {out}', mean {flow}"
 
 
+@accepts_solution
 def find_terminals(prob, x_bar=None) -> List[Terminal]:
     """All 1-port boundary terminals of the network (edges at a boundary node).
 
@@ -45,11 +47,13 @@ def find_terminals(prob, x_bar=None) -> List[Terminal]:
 
     Parameters
     ----------
-    prob : CompiledProblem
-        The compiled network.
+    prob : CompiledProblem or Solution
+        The compiled network.  Pass a solved :class:`nefes.Solution` to have its problem and
+        mean state supplied for you (then omit ``x_bar``).
     x_bar : ndarray, optional
         Converged mean-flow state, shape ``(n_solve, E)``.  When given, each
-        terminal's ``inflowing`` flag is set from the local mean-flow direction.
+        terminal's ``inflowing`` flag is set from the local mean-flow direction.  Supplied
+        automatically when ``prob`` is a ``Solution``.
 
     Returns
     -------

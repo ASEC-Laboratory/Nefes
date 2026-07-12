@@ -208,3 +208,92 @@ def test_carbonless_burn_in_carbon_library():
     Z = gas.elemental_mass_fractions((mdot_air * Yair + mdot_h2 * Yh2) / (mdot_air + mdot_h2))
     ref_static = gas.equilibrate_HP(Z, h_static, est[1, 2], T_guess=2000.0)
     assert est[ES_T, 2] == pytest.approx(ref_static.T, rel=3e-3)
+
+
+def _ch4_air_lib():
+    from nefes.thermo import ThermoInp
+
+    return ThermoInp().library(["CH4", "O2", "N2", "CO2", "H2O", "CO", "OH", "H2", "H", "O", "NO"])
+
+
+def test_high_pressure_reacting_converges_from_boundary_pressure_seed():
+    """A 200-bar reacting solve converges from a bare cold start.
+
+    The default seed reads the network's own boundary pressures (here a 200/190-bar
+    total-pressure inlet and static outlet) rather than the gauge reference, so the very
+    high-pressure operating point is reached with no warm start and no hand-built guess.
+    """
+    import nefes
+    from nefes.chem import equivalence_ratio_mixture
+
+    lib = _ch4_air_lib()
+    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    sol = nefes.Network(
+        nefes.equilibrium(lib),
+        nodes=[
+            cat.total_pressure_inlet(2.0e7, 300.0, composition=mix, name="feed"),
+            cat.equilibrium_flame(name="flame"),
+            cat.pressure_outlet(1.9e7, 300.0, composition=mix, name="out"),
+        ],
+        edges=[(0, 1, 0.05), (1, 2, 0.05)],
+        edge_models=[EQ_FROZEN, EQ_KERNEL],
+    ).solve()
+    assert sol.converged
+    assert sol.edge(1)["p"] > 1.5e7  # actually solved at high pressure, not the 1-bar reference
+    assert 2000.0 < sol.edge(1)["T"] < 2600.0  # physical adiabatic flame temperature
+
+
+def test_choked_chamber_emergent_pressure_seed_converges():
+    """A reacting chamber whose pressure is set implicitly by a choked nozzle converges cold.
+
+    There is no boundary pressure to read; the seed estimates the chamber pressure from the
+    nozzle's critical-mass-flux relation.  A rising mass flow raises the emergent chamber
+    pressure into the multi-hundred-bar range, all from a bare ``solve``.
+    """
+    import nefes
+    from nefes.chem import equivalence_ratio_mixture
+
+    lib = _ch4_air_lib()
+    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    prev_pc = 0.0
+    for mdot in (10.0, 50.0, 100.0):
+        sol = nefes.Network(
+            nefes.equilibrium(lib),
+            nodes=[
+                cat.mass_flow_inlet(mdot, 300.0, composition=mix, name="inj"),
+                cat.equilibrium_flame(name="flame"),
+                cat.choked_nozzle_outlet(5.0e-4, name="throat"),
+            ],
+            edges=[(0, 1, 0.05), (1, 2, 0.05)],
+            edge_models=[EQ_FROZEN, EQ_KERNEL],
+        ).solve()
+        assert sol.converged, f"choked chamber failed cold at mdot={mdot}"
+        pc = sol.edge(1)["p"]
+        assert pc > prev_pc > -1.0  # chamber pressure rises with mass flow, monotone
+        prev_pc = pc
+    assert prev_pc > 1.0e8  # mdot=100 reaches >1000 bar, cold, no warm start
+
+
+def test_reacting_recovery_never_raises_on_a_hard_cold_start():
+    """The density-based kinetic-energy recovery returns a Solution instead of raising.
+
+    An extreme cold start that used to raise ``kinetic-energy bracket expansion failed`` now
+    yields a (possibly non-converged) Solution -- the recovery is unconditionally bracketable,
+    like the perfect-gas path, so a bad intermediate iterate never kills the solve.
+    """
+    import nefes
+    from nefes.chem import equivalence_ratio_mixture
+
+    lib = _ch4_air_lib()
+    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    sol = nefes.Network(
+        nefes.equilibrium(lib),
+        nodes=[
+            cat.mass_flow_inlet(200.0, 300.0, composition=mix, name="inj"),
+            cat.equilibrium_flame(name="flame"),
+            cat.choked_nozzle_outlet(5.0e-4, name="throat"),
+        ],
+        edges=[(0, 1, 0.05), (1, 2, 0.05)],
+        edge_models=[EQ_FROZEN, EQ_KERNEL],
+    ).solve()  # must not raise
+    assert sol.converged  # and with the boundary-pressure seed it also converges

@@ -68,6 +68,7 @@ from ..operator.terminals import find_terminals
 from ..fields.modeshape import build_geometry, reconstruct_field, NetworkGeometry
 from ...solver.report import states_table
 from ...assembly.recover import ES_C
+from .._meanstate import accepts_solution
 
 # Below this Mach number a duct's entropy wave is treated as decoupled (stationary) in the
 # stability assembly: its transit time tau_0 = L/u diverges as u -> 0, so for a complex omega
@@ -506,6 +507,7 @@ def _dedup(omegas, modes, residuals, rtol=1e-4):
     return kept
 
 
+@accepts_solution
 def eigenmodes(
     prob,
     x_bar,
@@ -549,10 +551,13 @@ def eigenmodes(
 
     Parameters
     ----------
-    prob : CompiledProblem
-        Compiled flow network (carries the terminal BCs in ``prob.node_bc``).
+    prob : CompiledProblem or Solution
+        The compiled flow network (carries the terminal BCs in ``prob.node_bc``).  Pass a
+        solved :class:`nefes.Solution` to have its problem and mean state supplied for you
+        (then omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state, shape ``(n_solve, E)``.
+        Converged mean-flow state, shape ``(n_solve, E)``.  Omit when ``prob`` is a
+        ``Solution``.
     freq_band : tuple of float
         ``(f_lo, f_hi)`` real-frequency window to search, in **Hz**.  Required unless
         an explicit ``contour`` is given.
@@ -711,6 +716,10 @@ def eigenmodes(
                 stacklevel=2,
             )
 
+    # Set when a sub-contour count is negative (operator ill-conditioned); forces the result
+    # uncertified afterwards, since the region completeness count is then untrustworthy too.
+    ill_conditioned = [False]
+
     def _tile_rank(sub):
         """Eigenvalues enclosed by ``sub`` from the argument principle, or ``None`` if untrustworthy."""
         k, info = winding_count(factorizer.det_phase, sub)
@@ -719,6 +728,22 @@ def eigenmodes(
                 "the operator overflowed on a sub-contour, so its eigenvalue count is unavailable; "
                 "falling back to the singular-value rank there, which may report modes that do not "
                 "exist. Narrow growth_band or split long ducts.",
+                EigenmodeWarning,
+                stacklevel=3,
+            )
+            return None
+        if k < 0:
+            # A negative argument-principle count (zeros - poles < 0) means the operator is
+            # ill-conditioned on the sub-contour, seen at very low mean-flow Mach where the entropy
+            # characteristic (convected at u = M*c -> 0) degenerates the determinant.  The count is
+            # untrustworthy, so fall back to the singular-value rank and leave the result uncertified.
+            ill_conditioned[0] = True
+            warnings.warn(
+                f"the argument-principle eigenvalue count on a sub-contour came out negative ({k}); "
+                "the acoustic operator is ill-conditioned here, typically at very low mean-flow Mach "
+                "number where the entropy characteristic degenerates. The mode count is unreliable and "
+                "modes may be missed -- pass isentropic=True to recover the acoustic modes, or read the "
+                "resonances from forced_response magnitude peaks.",
                 EigenmodeWarning,
                 stacklevel=3,
             )
@@ -785,6 +810,11 @@ def eigenmodes(
         probe = min(n, _REFINE_GROWTH * probe)
         c_re, c_im, rx, ry = geom
         subcontours = _tile(c_re, c_im, rx, ry, len(subcontours) * _REFINE_GROWTH, n_nodes)
+
+    if ill_conditioned[0]:
+        # A sub-contour count was negative: the argument principle is untrustworthy here, so the
+        # region completeness count cannot certify the result even if it happens to agree.
+        expected = None
 
     if expected is not None and len(omegas) != expected:
         warnings.warn(

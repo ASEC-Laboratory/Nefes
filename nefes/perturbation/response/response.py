@@ -58,6 +58,7 @@ from ..operator.terminals import Terminal, find_terminals, BOUNDARY_RIDS  # noqa
 from ..operator import matrices as mat
 from ...solver.report import states_table
 from ...assembly.recover import ES_RHO, ES_C, ES_U, ES_P, ES_AREA, ES_MDOT  # noqa: F401
+from .._meanstate import accepts_solution
 
 # The first scalar characteristic index: chars 0/1 are acoustic (f, g), 2 is entropy (h),
 # and 3.. are the transported reacting scalars.
@@ -551,6 +552,7 @@ def excite_perturbation(
     )
 
 
+@accepts_solution
 def perturbation_response(
     prob,
     x_bar,
@@ -574,10 +576,11 @@ def perturbation_response(
 
     Parameters
     ----------
-    prob : Problem
-        Compiled flow network.
+    prob : CompiledProblem or Solution
+        The compiled flow network.  Pass a solved :class:`nefes.Solution` to have its
+        problem and mean state supplied for you (then omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state vector.
+        Converged mean-flow state vector.  Omit when ``prob`` is a ``Solution``.
     freqs : array_like
         Frequencies (Hz) to solve at.
     forcing : tuple of int, optional

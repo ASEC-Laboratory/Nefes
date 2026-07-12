@@ -10,12 +10,22 @@ plus one transport equation per edge, giving a square ``3E`` system that is
 invariant to the choice of edge directions.  All residual math is smooth and
 complex-step-safe; the Jacobian is obtained by complex-step differentiation and
 doubles as the zero-frequency perturbation operator.
+
+The common workflow is reachable from this top-level namespace: build a
+:class:`Network` from element factories in :data:`cat`, choose a gas model with
+:func:`perfect_gas` or :func:`equilibrium`, :meth:`Network.solve` it, sweep with
+:func:`parameter_study`, set acoustic terminations with :class:`PerturbationBC`, and
+load or save cases with :func:`load_case` / :func:`save_case`.  The acoustic analyses
+(``eigenmodes``, ``forced_response``, ...) live in :mod:`nefes.perturbation`.
 """
 
 __version__ = "0.1.0"
 
 from .shell import Network, Solution, parameter_study, StudyResult
 from .io import load_case, load_solution, save_case, save_solution
+from .elements import catalog as cat
+from .thermo.configure import perfect_gas, equilibrium
+from .perturbation import PerturbationBC
 
 __all__ = [
     "Network",
@@ -26,4 +36,8 @@ __all__ = [
     "load_solution",
     "save_case",
     "save_solution",
+    "cat",
+    "perfect_gas",
+    "equilibrium",
+    "PerturbationBC",
 ]
