@@ -727,3 +727,39 @@ def test_passive_temperature_jump_keeps_the_zero_mach_velocity_continuity():
     _match(res.freqs, roots, rtol=3e-3)
     # the ideal modes are neutral; only the Mach-order terms may damp them
     assert np.all(np.abs(res.growth_rates) < 2.0 * np.pi * 2.0)
+
+
+def test_low_mach_choked_nozzle_warns_not_crashes():
+    """A very low-Mach choked-nozzle chamber ill-conditions the argument-principle count.
+
+    The entropy characteristic (convected at u = M*c -> 0) degenerates the operator's determinant
+    at very low mean-flow Mach, so a sub-contour count comes out negative.  The solver must not
+    crash (it used to raise ``rank must be non-negative``) and must not falsely certify a "no modes"
+    result: it warns and leaves ``certified`` False.  The modes are real -- ``isentropic=True``
+    recovers them -- so the honest outcome is uncertified, not a silent empty answer.
+    """
+    import warnings
+    import numpy as np
+    import nefes
+    from nefes.elements import catalog as cat
+
+    sol = nefes.Network(
+        nodes=[
+            cat.mass_flow_inlet(2.0, 300.0, perturbation_bc=nefes.PerturbationBC.hard_wall()),
+            cat.duct(0.5),
+            cat.choked_nozzle_outlet(1e-3, name="throat"),
+        ],
+        edges=[(0, 1, 0.02), (1, 2, 0.02)],
+    ).solve()
+    assert sol.edge(0)["M"] < 0.05  # genuinely low Mach
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        res = sol.eigenmodes(freq_band=(50.0, 2000.0))  # must not raise
+    assert not res.certified  # never a false "no modes, certified"
+    assert any("ill-conditioned" in str(w.message) for w in caught)
+
+    # The acoustic modes are real: the isentropic path recovers them, certified.
+    iso = sol.eigenmodes(freq_band=(50.0, 2000.0), isentropic=True)
+    assert iso.n_modes >= 4 and iso.certified
+    assert np.all(np.array(iso.freqs) > 300.0)

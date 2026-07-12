@@ -87,6 +87,7 @@ import numpy as np
 import scipy.sparse.linalg as spla
 
 from ..operator.operator import build_acoustic_blocks, assemble_acoustic
+from .._meanstate import accepts_solution
 
 
 class NyquistWarning(UserWarning):
@@ -159,6 +160,7 @@ def _factor_nudged(A_of, omega):
     raise last
 
 
+@accepts_solution
 def open_loop_response(
     prob,
     x_bar,
@@ -180,11 +182,14 @@ def open_loop_response(
 
     Parameters
     ----------
-    prob : CompiledProblem
-        Compiled network carrying at least one dynamic source (a flame FTF or a
-        fluctuating injector); terminals carry their :class:`PerturbationBC`.
+    prob : CompiledProblem or Solution
+        The compiled network carrying at least one dynamic source (a flame FTF or a
+        fluctuating injector); terminals carry their :class:`PerturbationBC`.  Pass a solved
+        :class:`nefes.Solution` to have its problem and mean state supplied for you (then
+        omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state, shape ``(n_solve, E)``.
+        Converged mean-flow state, shape ``(n_solve, E)``.  Omit when ``prob`` is a
+        ``Solution``.
     freqs : array_like
         Real frequencies (Hz).  Should span from ``~0`` (DC) to well above the highest
         acoustic mode so the locus closes near ``D = 1``; ``0`` is inserted if missing.
@@ -295,13 +300,15 @@ def _refine_locus(fgrid, Ls, Ds, evaluate):
     return fgrid, Ls, Ds
 
 
+@accepts_solution
 def nyquist_stability(prob, x_bar, freqs, *, isentropic=False, **kwargs):
     """Number of unstable modes of the network from the real-frequency Nyquist sweep.
 
     Convenience wrapper over :func:`open_loop_response`: it computes the return ratio and
     returns the same :class:`NyquistResponse`, whose :attr:`~NyquistResponse.n_unstable`
-    is the encirclement count.  See :func:`open_loop_response` for the parameters and the
-    passive-``A_0`` assumption the count relies on.
+    is the encirclement count.  See :func:`open_loop_response` for the parameters (``prob``
+    may be a solved :class:`nefes.Solution`) and the passive-``A_0`` assumption the count
+    relies on.
 
     Returns
     -------

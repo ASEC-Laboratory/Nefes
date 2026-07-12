@@ -50,6 +50,7 @@ from ..response.response import (
 )
 from ...elements.dynamic_source import DynamicSource, DynamicResponseTerm, Constant, TransferFunction, Tabulated
 from ..continuation import RationalFit
+from .._meanstate import accepts_solution
 
 # ==========================================================================
 # results
@@ -145,6 +146,7 @@ def _with_node(descriptors, n_nodes, node, value):
 # ==========================================================================
 
 
+@accepts_solution
 def identify_transfer_matrix(
     prob,
     x_bar,
@@ -174,11 +176,13 @@ def identify_transfer_matrix(
 
     Parameters
     ----------
-    prob : CompiledProblem
+    prob : CompiledProblem or Solution
         The network.  ``node`` is any interior 2-port element; any dynamic-source feedback it
-        carries is folded into the recovered matrix (the identification runs it silent).
+        carries is folded into the recovered matrix (the identification runs it silent).  Pass
+        a solved :class:`nefes.Solution` to have its problem and mean state supplied for you
+        (then omit ``x_bar``).
     x_bar : ndarray
-        Converged mean-flow state.
+        Converged mean-flow state.  Omit when ``prob`` is a ``Solution``.
     measured : TransferMatrix
         Measured transfer matrix ``w_b = M_meas w_a`` between edges ``a`` and ``b``; its grid
         sets the identification frequencies and its dimension ``N`` the matrix recovered.
@@ -208,6 +212,11 @@ def identify_transfer_matrix(
     -------
     TransferMatrixIdentification
     """
+    if a == b:
+        raise ValueError(
+            f"identification needs two distinct measurement stations, but a == b == {a}; choose an "
+            "upstream edge `a` and a downstream edge `b` that straddle the element at `node`."
+        )
     freqs = np.asarray(measured.freqs, dtype=float)
     N = measured.n
     if excite is None:
@@ -308,6 +317,7 @@ def _deembed_tm(lu, F, P, Q, Ea, Eb, M):
 # ==========================================================================
 
 
+@accepts_solution
 def identify_transfer_function(
     prob,
     x_bar,
@@ -356,6 +366,11 @@ def identify_transfer_function(
     -------
     TransferFunctionIdentification
     """
+    if a == b:
+        raise ValueError(
+            f"identification needs two distinct measurement stations, but a == b == {a}; choose an "
+            "upstream edge `a` and a downstream edge `b` that straddle the element at `node`."
+        )
     if isentropic:
         excite = tuple(f for f in excite if f == "acoustic") or ("acoustic",)
     freqs = np.asarray(measured.freqs, dtype=float)

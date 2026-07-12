@@ -731,3 +731,37 @@ def test_loader_builds_wall_element(tmp_path):
     wall = net._elements[2]
     assert wall.residual_id == WALL
     assert wall.perturbation_bc.kind == "hard_wall"
+
+
+def test_forced_response_warns_when_nothing_is_driven():
+    """A frequency sweep with no driven terminal warns (the field is the trivial zero)."""
+    import warnings
+    import numpy as np
+    import pytest
+    import nefes
+    from nefes.elements import catalog as cat
+
+    sol = nefes.Network(
+        nodes=[
+            cat.total_pressure_inlet(1.02e5, 300.0, perturbation_bc=nefes.PerturbationBC.hard_wall()),
+            cat.duct(0.5),
+            cat.pressure_outlet(1.0e5, 300.0, perturbation_bc=nefes.PerturbationBC.open_end()),
+        ],
+        edges=[(0, 1, 0.01), (1, 2, 0.01)],
+    ).solve()
+    with pytest.warns(UserWarning, match="no terminal is driven"):
+        sol.forced_response(np.linspace(50.0, 2000.0, 20))
+
+    # With a driven terminal there is a genuine forcing: no such warning.
+    drive = nefes.PerturbationBC.anechoic(driven=("acoustic",))
+    driven = nefes.Network(
+        nodes=[
+            cat.total_pressure_inlet(1.02e5, 300.0, perturbation_bc=drive),
+            cat.duct(0.5),
+            cat.pressure_outlet(1.0e5, 300.0, perturbation_bc=nefes.PerturbationBC.hard_wall()),
+        ],
+        edges=[(0, 1, 0.01), (1, 2, 0.01)],
+    ).solve()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any driven-related warning would raise here
+        driven.forced_response(np.linspace(50.0, 2000.0, 20))

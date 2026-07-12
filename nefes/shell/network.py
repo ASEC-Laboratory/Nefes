@@ -49,7 +49,9 @@ class Network:
     complete in one shot via the ``nodes`` / ``edges`` constructor arguments, or loaded from
     a saved case with :meth:`from_yaml` / :meth:`from_dict`.  Call :meth:`solve` for the
     steady mean flow (a :class:`Solution`) or :meth:`compile` / :attr:`problem` for the
-    immutable compiled problem.  Write it back out with :meth:`to_yaml`.
+    immutable compiled problem.  Parameter-swept stability follows from
+    :meth:`eigenvalue_trajectory` / :meth:`nyquist_stability_map`.  Write it back out with
+    :meth:`to_yaml`.
     """
 
     def __init__(
@@ -189,12 +191,14 @@ class Network:
     def add(self, spec: ElementSpec) -> int:
         """Add an element and return its node index.
 
-        The element names are required to be unique. If a non-unique name is provided in the ElementSpec,
-        it will be made unique by appending a number.
+        Element names must be unique.  A factory default (the caller did not pass ``name``) is
+        always numbered -- a lone ``duct`` becomes ``duct-1`` -- while a name the caller chose is
+        kept and only suffixed on an actual clash; the ``name_auto`` flag on the spec records which.
         """
         taken = {el.name for el in self._elements}
         base = spec.name or ""
-        spec.name = cat.unique_name(base, taken, always_number=base in cat.default_name_bases())
+        spec.name = cat.unique_name(base, taken, always_number=getattr(spec, "name_auto", False))
+        spec.name_auto = False  # name is now concrete; a later re-add must not re-number it
         self._elements.append(spec)
         self._invalidate()
         return len(self._elements) - 1
@@ -721,6 +725,72 @@ class Network:
         kwargs.setdefault("width_by", "area")
         return plot_network_topology(self, **kwargs)
 
+    # -- perturbation continuation (parameter-swept stability) ---------------------------------------------------------
+
+    def eigenvalue_trajectory(self, address, params, **kwargs):
+        """Track the eigenmode spectrum as one parameter is swept.
+
+        A bound form of :func:`nefes.perturbation.eigenvalue_trajectory`: it builds each swept
+        network with :meth:`builder` (this base stays pristine), seeds the spectrum once, then
+        continues each mode along ``params``.
+
+        Parameters
+        ----------
+        address : str
+            The swept parameter's dotted address (e.g. ``"flame.Qdot"``).
+        params : array_like
+            The parameter values, in continuation order.
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.eigenvalue_trajectory` (e.g. ``freq_band``,
+            ``growth_band``, ``isentropic``); ``param_name`` defaults to ``address``.
+
+        Returns
+        -------
+        TrajectoryResult
+
+        See Also
+        --------
+        nefes.perturbation.eigenvalue_trajectory : the underlying routine.
+        builder : the ``build(p)`` closure this passes through.
+        """
+        from ..perturbation import eigenvalue_trajectory
+
+        kwargs.setdefault("param_name", address)
+        return eigenvalue_trajectory(self.builder(address), params, **kwargs)
+
+    def nyquist_stability_map(self, address, params, freqs, **kwargs):
+        """Unstable-mode count across a parameter sweep, on the real-frequency axis.
+
+        A bound form of :func:`nefes.perturbation.nyquist_stability_map`: it builds each swept
+        network with :meth:`builder` (this base stays pristine).  The network must carry at least
+        one dynamic source.
+
+        Parameters
+        ----------
+        address : str
+            The swept parameter's dotted address (e.g. ``"flame.n"``).
+        params : array_like
+            The parameter values to sweep.
+        freqs : array_like
+            Real frequencies (Hz) for the Nyquist locus at each point.
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.nyquist_stability_map`; ``param_name`` defaults
+            to ``address``.
+
+        Returns
+        -------
+        NyquistStabilityMap
+
+        See Also
+        --------
+        nefes.perturbation.nyquist_stability_map : the underlying routine.
+        builder : the ``build(p)`` closure this passes through.
+        """
+        from ..perturbation import nyquist_stability_map
+
+        kwargs.setdefault("param_name", address)
+        return nyquist_stability_map(self.builder(address), params, freqs, **kwargs)
+
     def to_yaml(self, path: str, **kwargs) -> None:
         """Write this network as a UI-readable YAML case (no result data).
 
@@ -946,6 +1016,8 @@ class Solution:
         Per-edge chemistry: solved species, transported feed fractions, burnt marker.
     cuton_report()
         Per-duct plane-wave validity ceiling (higher-order-mode cut-on).
+    eigenmodes(), forced_response(), perturbation_response(), nyquist_stability()
+        Linear acoustic and stability analyses on this mean flow (see :mod:`nefes.perturbation`).
     to_yaml(path)
         Write the network and these results to a UI-readable YAML case.
     """
@@ -1337,6 +1409,112 @@ class Solution:
         moles, stream_Y = self._chemistry_caches()
         lib = self.network.gas.library
         return edge_species(self.problem, self.result.x, e, lib, basis=basis, moles=moles, stream_Y=stream_Y)
+
+    # -- perturbation / acoustics (linear analyses on this converged mean flow) ----------------------------------------
+
+    def eigenmodes(self, freq_band=None, **kwargs):
+        """Free-oscillation eigenmodes of the perturbation network on this mean flow.
+
+        A bound form of :func:`nefes.perturbation.eigenmodes` that supplies this solution's
+        compiled problem and mean state; see it for the full parameter set and the growth-rate
+        sign convention.  Set the terminal :class:`~nefes.perturbation.PerturbationBC`\\ s on the
+        network before solving.
+
+        Parameters
+        ----------
+        freq_band : tuple of float
+            ``(f_lo, f_hi)`` real-frequency search window, in Hz.
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.eigenmodes` (e.g. ``growth_band``, ``isentropic``).
+
+        Returns
+        -------
+        EigenmodeResult
+
+        See Also
+        --------
+        nefes.perturbation.eigenmodes : the underlying routine.
+        """
+        from ..perturbation import eigenmodes
+
+        return eigenmodes(self.problem, self.x, freq_band, **kwargs)
+
+    def forced_response(self, freqs, **kwargs):
+        """Perturbation field under each terminal's declared boundary condition, on this mean flow.
+
+        A bound form of :func:`nefes.perturbation.forced_response`: the forcing is whatever the
+        terminals' ``driven`` :class:`~nefes.perturbation.PerturbationBC`\\ s inject.
+
+        Parameters
+        ----------
+        freqs : array_like
+            Frequencies (Hz) to solve at.
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.forced_response` (e.g. ``isentropic``).
+
+        Returns
+        -------
+        ForcedResponse
+
+        See Also
+        --------
+        nefes.perturbation.forced_response : the underlying routine.
+        """
+        from ..perturbation import forced_response
+
+        return forced_response(self.problem, self.x, freqs, **kwargs)
+
+    def perturbation_response(self, freqs, forcing=None, **kwargs):
+        """Transfer / scattering response by driving each terminal wave, on this mean flow.
+
+        A bound form of :func:`nefes.perturbation.perturbation_response`; the matrices it yields
+        are independent of the physical terminations.
+
+        Parameters
+        ----------
+        freqs : array_like
+            Frequencies (Hz) to solve at.
+        forcing : tuple of int, optional
+            The pair of terminal node ids to force (default: every open terminal).
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.perturbation_response` (e.g. ``excite``).
+
+        Returns
+        -------
+        PerturbationResponse
+
+        See Also
+        --------
+        nefes.perturbation.perturbation_response : the underlying routine.
+        """
+        from ..perturbation import perturbation_response
+
+        return perturbation_response(self.problem, self.x, freqs, forcing, **kwargs)
+
+    def nyquist_stability(self, freqs, **kwargs):
+        """Unstable-mode count from the real-frequency Nyquist sweep, on this mean flow.
+
+        A bound form of :func:`nefes.perturbation.nyquist_stability`; the network must carry at
+        least one dynamic source (a flame FTF or a fluctuating injector).
+
+        Parameters
+        ----------
+        freqs : array_like
+            Real frequencies (Hz), spanning ``~0`` to past the highest mode.
+        **kwargs
+            Forwarded to :func:`nefes.perturbation.nyquist_stability` (e.g. ``isentropic``).
+
+        Returns
+        -------
+        NyquistResponse
+
+        See Also
+        --------
+        nefes.perturbation.nyquist_stability : the underlying routine.
+        """
+        from ..perturbation import nyquist_stability
+
+        return nyquist_stability(self.problem, self.x, freqs, **kwargs)
 
     def to_yaml(self, path: str, dataset: str = "Mean flow", **kwargs) -> None:
         """Write the network and this solution's results to a UI-readable YAML case.

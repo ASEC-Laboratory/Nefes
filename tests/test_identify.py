@@ -194,3 +194,35 @@ def test_identify_noise_degrades_gracefully():
     out = identify_transfer_function(pu, xu, TransferMatrix(FREQS, M_meas + noise), node=2, a=0, b=3, continue_=False)
     # 0.1% measurement noise -> ~0.1-1% identification error (no blow-up)
     assert np.median(np.abs(out.values[0] - Fu(FREQS))) / np.max(np.abs(Fu(FREQS))) < 5e-2
+
+
+def test_identify_rejects_degenerate_stations():
+    """Identifying between a==b (same station) fails with a clear message, not a cryptic matmul error."""
+    import numpy as np
+    import pytest
+    import nefes
+    from nefes.elements import catalog as cat
+    from nefes.elements import n_tau_flame
+    from nefes.perturbation import PerturbationBC, TransferMatrix, identify_transfer_function, identify_transfer_matrix
+
+    R, g = 287.0, 1.4
+    cp = g * R / (g - 1)
+    md, A = 0.02, 0.01
+    sol = nefes.Network(
+        nefes.perfect_gas(R, g),
+        nodes=[
+            cat.mass_flow_inlet(md, 300.0, perturbation_bc=PerturbationBC.anechoic(driven=("acoustic",))),
+            cat.duct(0.3),
+            cat.heat_release_flame(md * cp * 500.0, name="fl", dynamic_source=n_tau_flame(0.8, 3e-3, ref_edge=1)),
+            cat.duct(0.3),
+            cat.pressure_outlet(1e5, perturbation_bc=PerturbationBC.anechoic()),
+        ],
+        edges=[(0, 1, A), (1, 2, A), (2, 3, A), (3, 4, A)],
+        mdot_ref=md,
+        h_ref=cp * 300.0,
+    ).solve()
+    fr = np.linspace(50.0, 800.0, 30)
+    meas = TransferMatrix(fr, sol.perturbation_response(fr).transfer_matrix(1, 1))
+    for fn in (identify_transfer_function, identify_transfer_matrix):
+        with pytest.raises(ValueError, match="two distinct measurement stations"):
+            fn(sol, meas, node=2, a=1, b=1)
