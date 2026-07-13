@@ -1,4 +1,4 @@
-"""The public ``Thermo`` facade: the uniform, backend-selectable API.
+"""Public ``Thermo`` class: uniform, backend-selectable thermochemistry.
 
 Independent of the network: inputs and outputs are purely thermodynamic (composition, ``T``/``h``,
 ``p``, derived properties).

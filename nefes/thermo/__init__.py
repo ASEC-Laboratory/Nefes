@@ -44,7 +44,7 @@ from .equilibrate import (
     equilibrate_HP,
     equilibrate_TP,
 )
-from .facade import Thermo
+from .interface import Thermo
 from .mechanism import Mechanism, Reaction
 from .perfect_gas import pg_solve_density, pg_update
 
