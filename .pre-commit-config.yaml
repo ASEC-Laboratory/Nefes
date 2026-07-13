@@ -10,7 +10,8 @@ repos:
   - repo: https://github.com/psf/black
     rev: 26.5.1
     hooks:
-      - id: black
+      # black-jupyter also formats .ipynb code cells (pulls the Jupyter extra in the hook env).
+      - id: black-jupyter
         language_version: python3
   - repo: https://github.com/PyCQA/flake8
     rev: 7.3.0
