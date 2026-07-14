@@ -86,7 +86,7 @@ from ..elements.ids import (
     TRANSFER_MATRIX,
     WALL,
 )
-from ..thermo.api import EQ_KERNEL
+from ..thermo.api import EQ_FROZEN, EQ_KERNEL
 from .yaml_in import EDGE_CLOSURE, MODEL_ID
 
 # The UI save-file schema version this writer targets (matches yaml_in / the UI).
@@ -546,13 +546,14 @@ def _build_datasets(
 
 
 def _chemistry_items(network, solution):
-    """Per-edge composition datasets: feed-stream mixture fractions and species mole fractions.
+    """Per-edge composition datasets: feed-stream mixture fractions, burnt marker, and species mass fractions.
 
-    Emitted by default whenever the network transports a composition.  Each transported
-    feed stream becomes one edge field ``xi:<stream>``; for a reacting network each species
-    present anywhere becomes one edge field ``X:<species>`` (mole fraction, ``0`` where the
-    species is absent).  Light enough to always include -- the per-edge chemistry the solver
-    otherwise hides behind the conserved mixture fractions.
+    Emitted by default whenever the network transports a composition.  Each transported feed
+    stream becomes one edge field ``xi:<stream>``; a reacting network additionally gets a
+    ``burnt`` edge field (``0`` fresh / ``1`` burnt per edge) and one edge field ``Y:<species>``
+    per species present anywhere (mass fraction, ``0`` where the species is absent).  Light
+    enough to always include -- the per-edge chemistry the solver otherwise hides behind the
+    conserved mixture fractions.
     """
     prob = solution.problem
     n_elem = int(prob.n_elem)
@@ -567,17 +568,23 @@ def _chemistry_items(network, solution):
     for name in prob.scalar_names:
         vals = [float(solution.mixture_fractions(e).get(name, 0.0)) for e in range(n_edges)]
         items.append(DataItem(f"xi:{name}", "edge", vals, ""))
-    # transported burnt marker (marker-gated reacting networks): 0 fresh / 1 burnt per edge
-    if int(getattr(prob, "marker_row", -1)) >= 0:
-        items.append(DataItem("burnt", "edge", [float(solution.marker(e)) for e in range(n_edges)], ""))
-    # solved chemical species (reacting only -- a perfect gas carries passive scalars, no species)
     lib = network.gas.library
     if lib is not None:
-        per_edge = [solution.species(e, basis="mole") for e in range(n_edges)]
+        # per-edge burnt marker (0 fresh / 1 burnt).  A marker-gated network reads the transported
+        # marker scalar; a hard per-edge closure carries none, so the burnt state is read off each
+        # edge's model instead (frozen -> fresh, equilibrium -> burnt).
+        marker_row = int(getattr(prob, "marker_row", -1))
+        if marker_row >= 0:
+            burnt = [float(solution.marker(e)) for e in range(n_edges)]
+        else:
+            burnt = [0.0 if int(prob.edge_model[e]) == EQ_FROZEN else 1.0 for e in range(n_edges)]
+        items.append(DataItem("burnt", "edge", burnt, ""))
+        # solved chemical species (reacting only -- a perfect gas carries passive scalars, no species)
+        per_edge = [solution.species(e, basis="mass") for e in range(n_edges)]
         present = [s for s in (sp.name for sp in lib.species) if any(s in d for d in per_edge)]
         for s in present:
             vals = [float(d.get(s, 0.0)) for d in per_edge]
-            items.append(DataItem(f"X:{s}", "edge", vals, ""))
+            items.append(DataItem(f"Y:{s}", "edge", vals, ""))
     return items
 
 

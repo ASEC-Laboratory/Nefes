@@ -621,6 +621,8 @@ sol3 = nefes.load_solution("run.yaml")  # -> Solution, restoring the embedded fi
 `net.to_yaml(path)` writes topology only.
 Programmatic serialization uses `nefes.save_case` / `nefes.save_solution` / `nefes.io.dump_case`.
 
+A reacting save also embeds a companion `"<dataset> chemistry"` dataset by default: the transported feed-stream mixture fractions (`xi:<stream>`), the per-edge burnt marker (`burnt`, `0` fresh / `1` burnt), and each species' mass fraction (`Y:<species>`).
+
 ---
 
 ## 14. Troubleshooting

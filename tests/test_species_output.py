@@ -139,7 +139,64 @@ def test_yaml_includes_chemistry_by_default(tmp_path):
     assert "Molar mass" in txt and "Specific heat" in txt  # W, cp fields
     assert "Chemistry" in txt  # the chemistry dataset
     assert "xi:air" in txt and "xi:H2" in txt  # mixture fractions
-    assert "X:H2O" in txt and "X:N2" in txt  # species mole fractions
+    assert "burnt" in txt  # the burnt marker (0 fresh / 1 burnt per edge)
+    assert "Y:H2O" in txt and "Y:N2" in txt  # species mass fractions
+
+
+def test_yaml_hard_closure_still_emits_burnt_marker(tmp_path):
+    """A hard per-edge closure carries no transported marker, yet the burnt state is well defined
+    per edge (frozen -> fresh, equilibrium -> burnt) and must still reach the output."""
+    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo.api import EQ_FROZEN, EQ_KERNEL
+
+    lib = SpeciesLibrary.from_cantera(MECH)
+    gas = Thermo(lib)
+    idx = lib.species_index
+    Y = np.zeros(lib.n_species)
+    Y[idx["O2"]], Y[idx["N2"]] = 0.21, 0.79
+    Y /= Y.sum()
+    h_air = gas.enthalpy_mass(Y, 300.0)
+
+    net = Network(gas=equilibrium(gas.mech), p_ref=1e5, T_ref=300.0, mdot_ref=0.4, h_ref=h_air)
+    A = 0.01
+    i = net.add(cat.total_pressure_inlet(1.2e5, 300.0, composition=AIR, basis="mole", name="air"))
+    d1 = net.add(cat.duct(0.4))
+    src = net.add(cat.mass_source(0.006, 300.0, composition={"H2": 1.0}, basis="mole", name="H2"))
+    d2 = net.add(cat.duct(0.4))
+    fl = net.add(cat.equilibrium_flame())
+    d3 = net.add(cat.duct(0.5))
+    o = net.add(cat.mass_flow_outlet(0.406))
+    # approach edges frozen, flame outlet onward equilibrium: a hard closure (no marker gating)
+    net.connect(i, d1, A, edge_model=EQ_FROZEN)
+    net.connect(d1, src, A, edge_model=EQ_FROZEN)
+    net.connect(src, d2, A, edge_model=EQ_FROZEN)
+    net.connect(d2, fl, A, edge_model=EQ_FROZEN)
+    net.connect(fl, d3, A, edge_model=EQ_KERNEL)
+    net.connect(d3, o, A, edge_model=EQ_KERNEL)
+
+    sol = net.solve()
+    assert sol.converged
+    assert int(sol.problem.marker_row) < 0  # not marker-gated
+    path = tmp_path / "case.yaml"
+    sol.to_yaml(str(path))
+    txt = path.read_text()
+    assert "burnt" in txt  # per-edge burnt state derived from the closure
+    # the chemistry dataset's burnt series should read 0 on the frozen approach, 1 on the burnt side
+    burnt = _burnt_series(txt)
+    assert burnt[0] == pytest.approx(0.0)  # frozen inlet edge
+    assert burnt[-1] == pytest.approx(1.0)  # equilibrium outlet edge
+
+
+def _burnt_series(yaml_text):
+    """Pull the ``burnt`` edge series out of a written case's chemistry dataset."""
+    import yaml as _yaml
+
+    doc = _yaml.safe_load(yaml_text)
+    for ds in doc["data"]["datasets"]:
+        for item in ds.get("items", []):
+            if item.get("name") == "burnt":
+                return item["values"]
+    raise AssertionError("no burnt series in the written case")
 
 
 def test_yaml_perfect_gas_has_no_chemistry_dataset(tmp_path):
