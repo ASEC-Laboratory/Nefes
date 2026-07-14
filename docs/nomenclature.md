@@ -98,22 +98,25 @@ A related remark on numeric subscripts: they denote **port indices** ($p_0$, $p_
 
 ## Terms
 
+<!-- Keep rows sorted alphabetically by the bold term (case-insensitive). -->
+
 | term | meaning |
 |---|---|
-| **element** | a network component (graph node): a control volume on which the governing equations are applied; it owns equations, not state (state lives on the edges) |
-| **edge** | a port cross-section shared by two elements (or an element and the exterior); owns the state vector |
-| **residual** | how far an equation is from being satisfied at the current guess; all zeros means solved |
-| **Jacobian** | the matrix of sensitivities $\partial R_i/\partial x_j$ |
-| **seeding** | tagging one unknown with an imaginary perturbation, $x \leftarrow x + \mathrm{i}h_{\text{cs}}$ |
-| **jump condition** | an algebraic relation between the states on the two sides of a compact element (one taken in the zero-volume limit) |
-| **transport (edge) equation** | the donor/upwind relation that carries total enthalpy (and any scalar) along an edge |
-| **choking** | mass-flow saturation when the narrowest section reaches $M = 1$ |
 | **characteristic variables** | the wave amplitudes $(f, g, h)$ that diagonalize the linearized 1-D Euler system |
-| **storage** | the finite-volume compliance and inertance restored to an element under an unsteady perturbation |
-| **stamp** | a local contribution an element writes into the assembled (mean-flow or perturbation) operator |
-| **transfer matrix** | a frequency-domain 2-port relating the flow variables at two stations along their arrows |
-| **scattering matrix** | a frequency-domain 2-port relating the incoming waves at two stations to the outgoing ones |
+| **choking** | mass-flow saturation when the narrowest section reaches $M = 1$ |
+| **complex-step derivative** | an exact derivative from a single imaginary-perturbed evaluation, free of subtractive cancellation |
+| **edge** | a port cross-section shared by two elements (or an element and the exterior); owns the state vector |
+| **element** | a network component (graph node): a control volume on which the governing equations are applied; it owns equations, not state (state lives on the edges) |
 | **flame transfer function (FTF)** | the linear frequency response of a flame's heat release to a reference fluctuation |
 | **identification (de-embedding)** | recovering an unknown element's dynamic response from a measured network response, given a model of the rest |
-| **complex-step derivative** | an exact derivative from a single imaginary-perturbed evaluation, free of subtractive cancellation |
+| **Jacobian** | the matrix of sensitivities $\partial R_i/\partial x_j$ |
+| **jump condition** | an algebraic relation between the states on the two sides of a compact element (one taken in the zero-volume limit) |
+| **residual** | how far an equation is from being satisfied at the current guess; all zeros means solved |
+| **scattering matrix** | a frequency-domain 2-port relating the incoming waves at two stations to the outgoing ones |
+| **seeding** | tagging one unknown with an imaginary perturbation, $x \leftarrow x + \mathrm{i}h_{\text{cs}}$ |
+| **stamp** | a local contribution an element writes into the assembled (mean-flow or perturbation) operator |
+| **storage** | the finite-volume compliance and inertance restored to an element under an unsteady perturbation |
+| **terminal** | a single-port element who acts as a boundary condition |
+| **transfer matrix** | a frequency-domain 2-port relating the flow variables at two stations along their arrows |
+| **transport (edge) equation** | the donor/upwind relation that carries total enthalpy (and any scalar) along an edge |
 | **well-posed** | having exactly as many independent conditions as unknowns — solvable and unambiguous |

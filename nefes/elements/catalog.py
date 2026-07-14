@@ -68,8 +68,10 @@ class ElementSpec:
     # smoothing-width override in mass-flow units; None follows the global solve-time eps
     eps: Optional[float] = None
     perturbation_bc: Optional[object] = None  # PerturbationBC (None -> inherit)
-    # stream this element introduces / draws on backflow: a named species mixture
-    # {species: fraction} in ``basis`` units, or raw passive scalars for a perfect gas
+    # what this element feeds / draws on backflow, in ``basis`` units.  Its reading follows the
+    # reacting model's stream mode: in "auto" mode a named species mixture {species: fraction}; in
+    # "declared" mode a blend {stream_label: amount} over the declared streams; or raw passive
+    # scalars for a perfect gas.
     composition_spec: object = None
     basis: str = "mole"  # units of composition_spec: "mole" or "mass"
     dynamic_source: object = None  # DynamicSource for the S(omega) block; mean flow ignores it
@@ -103,10 +105,12 @@ def mass_flow_inlet(mdot, Tt, composition=None, basis="mole", name="inlet", pert
     ``Tt`` is the **total** (stagnation) temperature.  The transported total enthalpy
     is ``h_t = h(Tt)`` -- the mixture's enthalpy evaluated at ``Tt`` -- so the static
     temperature ``T < Tt`` is recovered on the edge from ``h = h_t - u^2/2``; no kinetic
-    energy is double-counted.  ``composition`` is a named species mixture
-    (``{species: fraction}``) for the equilibrium model -- e.g. dry air as
-    ``{"O2": 0.21, "N2": 0.79}`` with ``basis="mole"`` -- resolved to the transported
-    feed streams and this ``h_t`` at ``build_problem``.
+    energy is double-counted.  ``composition`` states what the inlet feeds, read per the
+    reacting model's stream mode: in ``"auto"`` mode a named species mixture
+    (``{species: fraction}``) -- e.g. dry air as ``{"O2": 0.21, "N2": 0.79}`` -- and in
+    ``"declared"`` mode a blend over the declared streams (``{stream_label: amount}``, e.g.
+    ``{"air": 20.0, "H2": 1.0}`` for a premix that keeps ``air`` and ``H2`` separate, so their
+    ratio is a live composition degree of freedom).  ``basis`` gives the units of its amounts.
 
     This is an **inflow boundary**: ``mdot`` must be non-negative (``>= 0``).  A
     positive value injects the feed stream; ``mdot = 0`` is a quiescent (closed) inlet.
@@ -127,10 +131,11 @@ def mass_flow_inlet(mdot, Tt, composition=None, basis="mole", name="inlet", pert
     Tt : float
         Total (stagnation) temperature [K] of the feed.
     composition : dict or array_like, optional
-        Feed composition -- a named species mixture ``{species: fraction}`` for the
-        equilibrium model, or raw passive-scalar values for a perfect gas.  ``None`` -> zeros.
+        What the inlet feeds -- a named species mixture ``{species: fraction}`` (``"auto"``
+        mode), a blend ``{stream_label: amount}`` over the declared streams (``"declared"``
+        mode), or raw passive-scalar values for a perfect gas.  ``None`` -> zeros.
     basis : {"mole", "mass"}, optional
-        Units of ``composition`` (default ``"mole"``).
+        Units of ``composition``'s amounts (default ``"mole"``).
     name : str, optional
         Element label.
     perturbation_bc : PerturbationBC, optional
@@ -171,9 +176,10 @@ def total_pressure_inlet(pt, Tt, composition=None, basis="mole", name="pt-inlet"
     Tt : float
         Total (stagnation) temperature [K] of the feed.
     composition : dict or array_like, optional
-        Feed composition; see :func:`mass_flow_inlet`.
+        What the inlet feeds; see :func:`mass_flow_inlet` (species mixture in ``"auto"`` mode,
+        declared-stream blend in ``"declared"`` mode).
     basis : {"mole", "mass"}, optional
-        Units of ``composition`` (default ``"mole"``).
+        Units of ``composition``'s amounts (default ``"mole"``).
     name : str, optional
         Element label.
     perturbation_bc : PerturbationBC, optional
@@ -212,9 +218,10 @@ def pressure_outlet(
     Tt_backflow : float, optional
         Total temperature [K] of gas drawn in on ingestion (default ``300.0``).
     composition : dict or array_like, optional
-        Backflow composition; see :func:`mass_flow_inlet`.
+        What is drawn in on backflow; see :func:`mass_flow_inlet` (species mixture in ``"auto"``
+        mode, declared-stream blend in ``"declared"`` mode).
     basis : {"mole", "mass"}, optional
-        Units of ``composition`` (default ``"mole"``).
+        Units of ``composition``'s amounts (default ``"mole"``).
     name : str, optional
         Element label.
     perturbation_bc : PerturbationBC, optional
@@ -629,12 +636,12 @@ def equilibrium_flame(name="flame", dynamic_source=None):
     return ElementSpec(FLAME_EQUILIBRIUM, [], name, dynamic_source=dynamic_source)
 
 
-def mass_source(mdot, T, composition, u_inj=0.0, basis="mole", name="source", dynamic_source=None, marker=0.0):
+def mass_source(mdot, T, composition=None, u_inj=0.0, basis="mole", name="source", dynamic_source=None, marker=0.0):
     """A 2-port inline mass-injection element (e.g. a fuel injector).
 
     Injects a stream of mass-flow ``mdot`` [kg/s], total temperature ``T`` [K] and
-    the given species ``composition`` into the through-flow, conserving mass,
-    momentum and energy *with the appropriate source terms*:
+    the given ``composition`` into the through-flow, conserving mass, momentum and
+    energy *with the appropriate source terms*:
 
     * **mass**: the outflow exceeds the inflow by ``mdot``;
     * **momentum**: the constant-area balance ``(rho u^2 + p)`` carries the
@@ -653,13 +660,15 @@ def mass_source(mdot, T, composition, u_inj=0.0, basis="mole", name="source", dy
         Injected mass-flow [kg/s] (``> 0`` adds mass).
     T : float
         Injected stream total temperature [K] (sets its enthalpy datum).
-    composition : dict or array_like
-        Injected species mixture, e.g. ``{"CH4": 1.0}`` or ``{"O2": 0.21, "N2": 0.79}``.
+    composition : dict or array_like, optional
+        What the source injects; see :func:`mass_flow_inlet`.  A named species mixture in
+        ``"auto"`` mode (e.g. ``{"CH4": 1.0}``), or a blend over the declared streams in
+        ``"declared"`` mode (e.g. ``{"H2": 1.0}``).
     u_inj : float, optional
         Axial injection velocity [m/s] for the momentum source (default 0: normal
         injection).
     basis : {"mole", "mass"}, optional
-        Units of ``composition``.
+        Units of ``composition``'s amounts.
     name : str, optional
         Element label.
     dynamic_source : DynamicSource, optional

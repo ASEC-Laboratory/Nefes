@@ -9,9 +9,13 @@ is source-free and acoustically neutral.  The mixture fractions ``xi`` reconstru
 the unburnt speciation exactly by a forward blend ``Y = sum_k xi_k Y_k``, so an
 arbitrary number of co-mixed fuels is admissible.
 
-The number of transported scalars is the number of *distinct injected compositions*
-(auto-merged).  The two reconstructions the kernels consume are both forward linear
-maps of ``xi``:
+The feed streams come from one of two modes.  In **auto** mode the streams are the
+*distinct injected compositions* (auto-merged), so their number equals the distinct
+feeds.  In **declared** mode the streams are named up front (``equilibrium(streams=...)``)
+and each feed states its composition as a blend over them (:func:`resolve_stream_blend`);
+a premixed feed then keeps its constituent streams separate, so its mixture fraction (an
+equivalence ratio) stays a live degree of freedom even with a single inlet.  Either way
+the two reconstructions the kernels consume are both forward linear maps of ``xi``:
 
 * unburnt (frozen) species moles ``n_feed = sum_k xi_k n_k`` (each stream's fixed
   per-kg mole vector over the feed-species union);
@@ -340,6 +344,90 @@ def build_streams(library, comps):
     Ns = library.n_species
     arr = np.array(stream_Y, dtype=float) if stream_Y else np.zeros((0, Ns))
     return arr, assignment
+
+
+def stream_mean_molar_masses(library, stream_Y):
+    """Mean molar mass ``[kg/mol]`` of each feed stream from its species mass fractions.
+
+    The mass-weighted harmonic mean ``W_k = 1 / sum_j (Y_kj / W_j)`` -- the molar mass for
+    which one kilogram of stream ``k`` holds ``1 / W_k`` moles.  Converts a mole-basis
+    stream blend to the transported mass fractions.
+
+    Parameters
+    ----------
+    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+        Provides ``molar_masses``.
+    stream_Y : ndarray, shape (K, n_species)
+        Each stream's species mass fractions (rows need not be renormalized here; each is
+        already normalized by :func:`species_mass_fractions`).
+
+    Returns
+    -------
+    ndarray, shape (K,)
+        The per-stream mean molar mass.
+    """
+    stream_Y = np.atleast_2d(np.asarray(stream_Y, dtype=float))
+    W = np.asarray(library.molar_masses, dtype=float)
+    moles_per_kg = (stream_Y / W).sum(axis=1)  # 1/W_k = sum_j Y_kj / W_j
+    return 1.0 / moles_per_kg
+
+
+def resolve_stream_blend(library, stream_labels, stream_Y, blend, basis="mole"):
+    """Feed donor mixture fractions ``xi`` from a blend over the declared stream basis.
+
+    A feed injects a mixture of the network's declared streams; this resolves how much of
+    each stream's *mass* it carries -- the transported mixture-fraction donor ``xi`` (one
+    entry per declared stream, summing to one).  Streams named in ``blend`` contribute; the
+    rest are zero.  The blend amounts are relative (need not sum to one): the user states a
+    ratio and it is normalized here.
+
+    Parameters
+    ----------
+    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+        Provides ``molar_masses`` (only used for a ``"mole"`` blend).
+    stream_labels : sequence of str
+        The declared stream names, in transported-scalar order.
+    stream_Y : ndarray, shape (K, n_species)
+        Declared stream mass fractions; row ``k`` is stream ``stream_labels[k]``.
+    blend : dict of {str: float}
+        ``{stream_name: amount}`` -- non-negative relative amounts of each named stream.
+    basis : {"mole", "mass"}, optional
+        Whether the amounts are relative moles of each stream (converted through the stream
+        mean molar mass, :func:`stream_mean_molar_masses`) or relative masses (default
+        ``"mole"``).
+
+    Returns
+    -------
+    ndarray, shape (K,)
+        The donor mixture fractions ``xi`` in declared-stream order (non-negative, sum one).
+
+    Examples
+    --------
+    A twenty-to-one mole blend of ``"air"`` and ``"H2"`` yields the mass fractions of that
+    premix; ``xi @ stream_Y`` reconstructs the premixed species composition exactly.
+    """
+    labels = list(stream_labels)
+    index = {name: k for k, name in enumerate(labels)}
+    amount = np.zeros(len(labels), dtype=float)
+    for name, val in blend.items():
+        if name not in index:
+            raise KeyError(
+                f"stream {name!r} is not a declared stream; the network declares {labels}. "
+                f"Declare it in equilibrium(streams=...) or fix the feed's stream name."
+            )
+        a = float(val)
+        if a < 0.0:
+            raise ValueError(f"stream amount for {name!r} must be non-negative; got {a}")
+        amount[index[name]] += a
+    if amount.sum() <= 0.0:
+        raise ValueError("a stream blend must name at least one stream with a positive amount")
+    if basis == "mole":
+        mass = amount * stream_mean_molar_masses(library, stream_Y)  # moles -> mass
+    elif basis == "mass":
+        mass = amount
+    else:
+        raise ValueError("basis must be 'mole' or 'mass'")
+    return mass / mass.sum()
 
 
 def stream_pack_arrays(library, stream_Y):

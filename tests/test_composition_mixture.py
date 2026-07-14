@@ -1,11 +1,16 @@
-"""Fuel/oxidizer + equivalence-ratio mixture helper (`equivalence_ratio_mixture`)."""
+"""Fuel/oxidizer + equivalence-ratio mixture helper (`equivalence_ratio_mixture`)
+and the declared-stream blend resolver (`resolve_stream_blend`)."""
 
+import numpy as np
 import pytest
 
 from nefes.chem.composition import (
     _o2_demand,
     equivalence_ratio_mixture,
+    resolve_stream_blend,
+    species_mass_fractions,
     species_mole_fractions,
+    stream_mean_molar_masses,
 )
 from nefes.thermo import SpeciesLibrary
 
@@ -94,3 +99,65 @@ def test_rejects_bad_arguments(lib):
         equivalence_ratio_mixture(lib, {"N2": 1.0}, AIR, 1.0)  # N2 is not a fuel
     with pytest.raises(ValueError, match="supplies no oxygen"):
         equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"N2": 1.0}, 1.0)  # N2 is not an oxidizer
+
+
+# --- declared-stream blend resolver -----------------------------------------------------
+
+STREAMS = {"air": AIR, "H2": {"H2": 1.0}}
+
+
+def _basis(lib, streams=STREAMS, basis="mole"):
+    """The (labels, stream_Y) declared basis for a set of named species mixtures."""
+    labels = list(streams)
+    stream_Y = np.array([species_mass_fractions(lib, streams[k], basis) for k in labels])
+    return labels, stream_Y
+
+
+def test_mass_blend_is_the_normalized_ratio(lib):
+    labels, sY = _basis(lib)
+    xi = resolve_stream_blend(lib, labels, sY, {"air": 20.0, "H2": 1.0}, basis="mass")
+    assert xi == pytest.approx([20.0 / 21.0, 1.0 / 21.0])
+    assert xi.sum() == pytest.approx(1.0)
+
+
+def test_mole_blend_reconstructs_the_premix(lib):
+    """The physics anchor: a mole blend's ``xi @ stream_Y`` equals the premix species mass
+    fractions, so keeping the streams separate does not change the mean composition."""
+    labels, sY = _basis(lib)
+    xi = resolve_stream_blend(lib, labels, sY, {"air": 20.0, "H2": 1.0}, basis="mole")
+    premix = {"O2": 20.0 * 0.21, "N2": 20.0 * 0.79, "H2": 1.0}  # 20 mol air + 1 mol H2
+    Y_premix = species_mass_fractions(lib, premix, "mole")
+    assert xi @ sY == pytest.approx(Y_premix, rel=1e-12)
+    assert xi.sum() == pytest.approx(1.0)
+
+
+def test_blend_default_basis_is_mole(lib):
+    labels, sY = _basis(lib)
+    default = resolve_stream_blend(lib, labels, sY, {"air": 20.0, "H2": 1.0})
+    mole = resolve_stream_blend(lib, labels, sY, {"air": 20.0, "H2": 1.0}, basis="mole")
+    assert default == pytest.approx(mole)
+
+
+def test_pure_stream_blend_is_one_hot(lib):
+    labels, sY = _basis(lib)
+    xi = resolve_stream_blend(lib, labels, sY, {"air": 5.0}, basis="mass")
+    assert xi == pytest.approx([1.0, 0.0])
+
+
+def test_stream_mean_molar_masses(lib):
+    _labels, sY = _basis(lib)
+    W = stream_mean_molar_masses(lib, sY)
+    assert W[0] == pytest.approx(0.02885, abs=1e-3)  # air ~ 28.85 g/mol
+    assert W[1] == pytest.approx(0.002016, abs=5e-5)  # H2 ~ 2.016 g/mol
+
+
+def test_blend_rejects_bad_input(lib):
+    labels, sY = _basis(lib)
+    with pytest.raises(KeyError, match="not a declared stream"):
+        resolve_stream_blend(lib, labels, sY, {"argon": 1.0})
+    with pytest.raises(ValueError, match="non-negative"):
+        resolve_stream_blend(lib, labels, sY, {"air": -1.0})
+    with pytest.raises(ValueError, match="positive"):
+        resolve_stream_blend(lib, labels, sY, {})
+    with pytest.raises(ValueError, match="basis"):
+        resolve_stream_blend(lib, labels, sY, {"air": 1.0}, basis="volume")

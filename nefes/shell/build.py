@@ -13,7 +13,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from ..chem.composition import build_streams, enthalpy_mass, species_mass_fractions
+from ..chem.composition import build_streams, enthalpy_mass, resolve_stream_blend
 from ..elements.catalog import ElementSpec, ensure_unique_names
 from ..elements.composite import expand_composites
 from ..elements.ids import (
@@ -255,22 +255,15 @@ def _row_kinds(rid: int, deg: int, mdot_ref, p_ref):
     return [scale[tag] for tag in row_kind_tags(rid, deg)]
 
 
-def _onehot(k: int, n: int):
-    """Mixture-fraction unit vector: all mass from stream ``k`` (``[]`` if ``n==0``)."""
-    xi = [0.0] * n
-    if 0 <= k < n:
-        xi[k] = 1.0
-    return xi
-
-
-def _boundary_scalars(thermo: ThermoConfig, el: ElementSpec, Tt: float, n_elem: int, label: str, stream: int):
+def _boundary_scalars(thermo: ThermoConfig, el: ElementSpec, Tt: float, n_elem: int, label: str, donor, stream_Y):
     """Resolve a boundary's advected-scalar params ``[h_t, xi_0, ..., xi_{n_elem-1}]``.
 
-    Converts the element's total temperature to the absolute total enthalpy
-    ``h_t = h(Tt)`` and tags the stream it introduces with the mixture-fraction unit
-    vector ``xi = e_stream``.  For a perfect gas ``h_t = cp*Tt`` and the composition (if
-    any) is the raw passive-scalar values; for the equilibrium model the composition is
-    a named species mixture whose own (formation-inclusive) enthalpy at ``Tt`` is used.
+    Converts the element's total temperature to the absolute total enthalpy ``h_t = h(Tt)``
+    and tags the mixture-fraction donor ``xi = donor`` it introduces: a pure feed is one-hot
+    (``e_stream``), a premixed feed a blend over the declared streams.  For a perfect gas
+    ``h_t = cp*Tt`` and the composition (if any) is the raw passive-scalar values; for the
+    equilibrium model the feed's own (formation-inclusive) enthalpy at ``Tt`` -- evaluated on
+    its effective species composition ``donor @ stream_Y`` -- is used.
     """
     if thermo.model_id == PERFECT_GAS:
         h_t = float(thermo.tf[0]) * Tt  # cp * Tt
@@ -284,29 +277,30 @@ def _boundary_scalars(thermo: ThermoConfig, el: ElementSpec, Tt: float, n_elem: 
             raise ValueError(f"{label} carries {len(zvals)} scalar(s) but the model has {n_elem}")
         return [h_t] + zvals
 
-    # equilibrium / reacting backend: an explicit species composition is required
-    # for any stream that introduces mass (inlets, mass sources); an outlet may
-    # omit it (its backflow scalars are used only on ingestion).
-    comp = el.composition_spec
-    if comp is None:
+    # equilibrium / reacting backend: an explicit feed composition is required for any stream
+    # that introduces mass (inlets, mass sources); an outlet may omit it (its backflow scalars
+    # are used only on ingestion).
+    if el.composition_spec is None:
         if el.residual_id in (MASS_FLOW_INLET, PT_INLET):
             raise ValueError(
-                f"{label}: the equilibrium model requires an explicit species composition "
-                f"(e.g. composition={{'O2': 0.21, 'N2': 0.79}})"
+                f"{label}: the equilibrium model requires an explicit feed composition "
+                f"(e.g. composition={{'O2': 0.21, 'N2': 0.79}} in auto mode, or "
+                f"composition={{'air': 1.0}} over the declared streams)"
             )
         return [0.0] + [0.0] * n_elem  # inert backflow placeholder
-    Y = species_mass_fractions(thermo.library, comp, el.basis)
+    xi = np.asarray(donor, dtype=float)
+    Y = xi @ stream_Y  # effective feed species mass fractions
     h_t = enthalpy_mass(thermo.library, Y, Tt)
-    return [h_t] + _onehot(stream, n_elem)
+    return [h_t] + [float(v) for v in xi]
 
 
-def _mass_source_params(thermo: ThermoConfig, el: ElementSpec, n_elem: int, label: str, stream: int):
+def _mass_source_params(thermo: ThermoConfig, el: ElementSpec, n_elem: int, label: str, donor, stream_Y):
     """Resolve a mass source's params ``[mdot_src, u_inj, h_t_src, xi_src_0, ...]``.
 
     The injected total enthalpy carries the stream's enthalpy at ``T_src`` plus the
-    injection kinetic energy ``0.5 u_inj^2`` (D-1 datum); the injected composition is
-    the mixture-fraction unit vector of its feed stream (kernel donor index
-    ``pb+2+s``).
+    injection kinetic energy ``0.5 u_inj^2`` (D-1 datum); the injected composition is the
+    mixture-fraction donor ``xi = donor`` (a pure injector is one-hot, a premixed one a
+    blend over the declared streams; kernel donor index ``pb+2+s``).
     """
     mdot_src = float(el.fparams[0])
     u_inj = float(el.fparams[1])
@@ -322,15 +316,16 @@ def _mass_source_params(thermo: ThermoConfig, el: ElementSpec, n_elem: int, labe
             raise ValueError(f"{label} carries {len(zvals)} scalar(s) but the model has {n_elem}")
         return [mdot_src, u_inj, h_t_src] + zvals
 
-    comp = el.composition_spec
-    if comp is None:
+    if el.composition_spec is None:
         raise ValueError(
-            f"{label}: a mass source must specify its injected species composition "
-            f"(e.g. composition={{'CH4': 1.0}})"
+            f"{label}: a mass source must specify its injected composition "
+            f"(e.g. composition={{'CH4': 1.0}} in auto mode, or composition={{'H2': 1.0}} "
+            f"over the declared streams)"
         )
-    Y = species_mass_fractions(thermo.library, comp, el.basis)
+    xi = np.asarray(donor, dtype=float)
+    Y = xi @ stream_Y  # effective injected species mass fractions
     h_t_src = enthalpy_mass(thermo.library, Y, T_src) + ke
-    return [mdot_src, u_inj, h_t_src] + _onehot(stream, n_elem)
+    return [mdot_src, u_inj, h_t_src] + [float(v) for v in xi]
 
 
 def _burnt_seed(conn: Connectivity, flame_nodes) -> np.ndarray:
@@ -361,61 +356,102 @@ def _burnt_seed(conn: Connectivity, flame_nodes) -> np.ndarray:
     return burnt
 
 
-def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
-    """Discover the network's feed streams and pack the equilibrium bundle.
+def _feed_donor(library, labels, stream_Y, el, label):
+    """Mixture-fraction donor ``xi`` (length ``K``) a feed injects, in declared-stream mode.
 
-    For the reacting (``EQ_KERNEL``) model the **streams are the distinct injected
-    compositions** of the network's inlets, mass sources and (backflow-bearing)
-    outlets.  This scans them in node order, auto-merges identical compositions, and
-    packs the per-stream forward-blend maps -- so the user only ever names species at
-    the elements that introduce them, and the transported scalar count equals the
-    number of distinct feeds (never the chemical-element count, never the product
-    species).
+    The feed's ``composition`` is a blend ``{stream_label: amount}`` over the declared streams;
+    :func:`resolve_stream_blend` turns it into the transported mass-fraction donor.  A feed
+    carrying no composition injects nothing (an inert-backflow outlet, zero donor).
+    """
+    K = len(labels)
+    comp = el.composition_spec
+    if comp is None:
+        return np.zeros(K)  # inert backflow (no injected composition)
+    if not isinstance(comp, dict):
+        raise ValueError(
+            f"{label}: in declared-stream mode a feed's composition must be a {{stream_label: amount}} "
+            f"blend over the declared streams {labels}; got {type(comp).__name__}"
+        )
+    return resolve_stream_blend(library, labels, stream_Y, comp, el.basis)
+
+
+def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
+    """Resolve the network's feed streams and (auto mode) pack the equilibrium bundle.
+
+    Two modes for the reacting (``EQ_KERNEL``) model:
+
+    * **declared** -- the streams were named up front (``equilibrium(streams=...)``), so the
+      transported basis is fixed.  Each feed resolves to a donor over that basis: a
+      ``streams`` blend, a raw composition matching one declared stream (a pure feed), or
+      nothing (inert backflow).  The config is already packed, so it passes through.
+    * **auto-discovered** -- no basis was declared, so the **streams are the distinct injected
+      compositions** of the inlets, mass sources and (backflow-bearing) outlets, scanned in
+      node order and auto-merged; each feed's donor is the one-hot of its stream.  Blends are
+      unavailable here (they need named streams).  The bundle is packed from the discovered
+      streams.
+
+    Either way the transported scalar count is the number of streams (never the chemical-element
+    count, never the product species).
 
     Returns
     -------
     thermo : ThermoConfig
-        The finalized config (unchanged for a perfect gas / passive-scalar model).
-    node_stream : dict or None
-        ``node -> stream index`` for every stream-introducing node (``-1`` if that
-        element carries no composition, e.g. an inert-backflow outlet); ``None`` for
-        a non-reacting model.
+        The finalized config (unchanged for a perfect gas / passive-scalar or declared model).
+    node_donor : dict or None
+        ``node -> donor mixture-fraction vector`` (length ``K``) for every stream-introducing
+        node; ``None`` for a non-reacting model.
+    stream_Y : ndarray or None
+        The ``(K, n_species)`` stream mass fractions the donors blend over; ``None`` for a
+        non-reacting model.
     """
     if thermo.model_id != EQ_KERNEL or thermo.library is None:
-        return thermo, None
+        return thermo, None, None
 
     from ..thermo.edge_state import pack_equilibrium
 
-    comps = []
-    comp_nodes = []
-    for n, el in enumerate(elements):
-        if el.residual_id in STREAM_INTRODUCING:
-            comps.append((el.composition_spec, el.basis))
-            comp_nodes.append(n)
-    stream_Y, assignment = build_streams(thermo.library, comps)
-    node_stream = {comp_nodes[i]: assignment[i] for i in range(len(comp_nodes))}
+    library = thermo.library
+    feed_nodes = [n for n, el in enumerate(elements) if el.residual_id in STREAM_INTRODUCING]
+
+    if thermo.stream_Y is not None:  # declared basis: feeds blend over the named streams
+        stream_Y = np.asarray(thermo.stream_Y, dtype=np.float64)
+        labels = list(thermo.element_names)
+        node_donor = {
+            n: _feed_donor(library, labels, stream_Y, elements[n], _node_label(n, elements[n])) for n in feed_nodes
+        }
+        return thermo, node_donor, stream_Y
+
+    # auto-discovery: the distinct injected compositions are the streams
+    comps = [(elements[n].composition_spec, elements[n].basis) for n in feed_nodes]
+    stream_Y, assignment = build_streams(library, comps)
+    K = stream_Y.shape[0]
+
+    node_donor = {}
+    for i, n in enumerate(feed_nodes):
+        donor = np.zeros(K)
+        if assignment[i] >= 0:
+            donor[assignment[i]] = 1.0
+        node_donor[n] = donor
 
     # label each stream by the first element that introduces it (for reporting)
-    K = stream_Y.shape[0]
     labels = [f"stream{k}" for k in range(K)]
     for i, k in enumerate(assignment):
         if k >= 0 and labels[k] == f"stream{k}":
-            nm = elements[comp_nodes[i]].name
+            nm = elements[feed_nodes[i]].name
             if nm:
                 labels[k] = nm
 
-    tf, ti = pack_equilibrium(thermo.library, stream_Y, thermo.t_init, thermo.t_init_frozen)
+    tf, ti = pack_equilibrium(library, stream_Y, thermo.t_init, thermo.t_init_frozen)
     finalized = ThermoConfig(
         model_id=EQ_KERNEL,
         tf=tf,
         ti=ti,
         element_names=labels,
         species_names=thermo.species_names,
-        library=thermo.library,
+        library=library,
         t_init=thermo.t_init,
         t_init_frozen=thermo.t_init_frozen,
     )
-    return finalized, node_stream
+    return finalized, node_donor, stream_Y
 
 
 def build_problem(
@@ -531,9 +567,11 @@ def build_problem_from_connectivity(
     area = np.ascontiguousarray(area, dtype=np.float64)
     validate_network(elements, conn, area, require_connected=require_connected)
 
-    # discover the feed streams from the network and finalize the (reacting) thermo
-    # bundle: the transported mixture fractions are the distinct injected compositions.
-    thermo, node_stream = finalize_thermo(thermo, elements)
+    # resolve the feed streams from the network and finalize the (reacting) thermo bundle: the
+    # transported mixture fractions are the declared streams (feeds blend over them) or, without a
+    # declared basis, the distinct injected compositions.  node_donor maps each feed to its donor
+    # mixture-fraction vector; stream_Y are the stream mass fractions the donors blend over.
+    thermo, node_donor, stream_Y = finalize_thermo(thermo, elements)
 
     degrees = [conn.degree(n) for n in range(n_nodes)]
     node_rid = np.array([el.residual_id for el in elements], dtype=np.int64)
@@ -573,13 +611,13 @@ def build_problem_from_connectivity(
     npar_fptr = np.zeros(n_nodes + 1, dtype=np.int64)
     for n, el in enumerate(elements):
         fp = list(el.fparams)
-        k = -1 if node_stream is None else node_stream.get(n, -1)
+        donor = None if node_donor is None else node_donor.get(n)
         marker_param = [float(el.marker)] if n_marker else []
         if el.residual_id in _SCALAR_BOUNDARY_RIDS and len(fp) >= 2:
             base, Tt = float(fp[0]), float(fp[1])
-            fp = [base] + _boundary_scalars(thermo, el, Tt, n_elem, _node_label(n, el), k) + marker_param
+            fp = [base] + _boundary_scalars(thermo, el, Tt, n_elem, _node_label(n, el), donor, stream_Y) + marker_param
         elif el.residual_id == MASS_SOURCE:
-            fp = _mass_source_params(thermo, el, n_elem, _node_label(n, el), k) + marker_param
+            fp = _mass_source_params(thermo, el, n_elem, _node_label(n, el), donor, stream_Y) + marker_param
         npar_f.extend(fp)
         npar_fptr[n + 1] = npar_fptr[n] + len(fp)
     npar_f = np.array(npar_f, dtype=np.float64)

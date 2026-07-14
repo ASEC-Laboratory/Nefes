@@ -191,6 +191,34 @@ def test_provenance_preserves_ids_and_handles(tmp_path):
         assert e["targetHandle"] == by_id[e["id"]]["targetHandle"]
 
 
+def test_count_preserving_edit_drops_stale_provenance(tmp_path):
+    """A reconnection that keeps the node/edge counts must not reuse a handle bound to the wrong node.
+
+    Loaded provenance is reused verbatim only while the topology is unchanged.  If an edge is
+    reconnected to a different node without changing the counts, reusing the stored handles would
+    emit a ``targetHandle`` naming the old node while ``target`` names the new one; Nemo binds by
+    the handle, so that edge is dropped silently.  The writer must instead detect the drift, warn,
+    and synthesize a fresh layout whose handles name the true endpoints -- and every emitted handle
+    must survive a reload (no edge lost).
+    """
+    src = os.path.join(_EXAMPLES, "getting-started", "converging_nozzle.yaml")
+    net = load_case(src)
+    # Simulate a topology edit: reconnect edge 0 to a different head node, counts unchanged.
+    t, _h, area = net._edges[0]
+    net._edges[0] = (t, 2, area)
+
+    with pytest.warns(UserWarning, match="topology no longer matches its loaded provenance"):
+        doc = yaml.safe_load(dump_case(net))
+
+    for e in doc["model"]["edges"]:
+        assert e["sourceHandle"].startswith(e["source"] + "-port-"), e
+        assert e["targetHandle"].startswith(e["target"] + "-port-"), e
+    out = tmp_path / "reconnected.yaml"
+    out.write_text(dump_case(net))
+    reloaded = load_case(str(out))
+    assert len(reloaded._edges) == len(net._edges)
+
+
 # --------------------------------------------------------------------------
 # 2. The emitted document obeys the UI schema / binding rules.
 # --------------------------------------------------------------------------

@@ -572,16 +572,22 @@ def stamp_transfer_matrix(A, omega, tm_stamps, u_floor=1e-8, skip_entropy=False)
             _set_row(A, st.rows[i], st.up_cols, block_up[i, :], st.down_cols, st.L_down[i, :].astype(np.complex128))
 
 
-def _terminal_scalar_seats(prob, t, bc, e, specify, freq):
-    """Driven reacting-scalar waves seated at a genuine-inflow terminal: ``(row, cols, coeff, rhs)``.
+def _terminal_scalar_seats(prob, t, bc, e, specify, freq, x_bar):
+    """Driven composition waves seated at a genuine-inflow terminal: ``(row, cols, coeff, rhs)``.
 
-    A transported composition scalar convects at the mean speed ``u`` like the entropy wave, so
-    it is to-specify exactly when the entropy wave is -- at a genuine inflow.  Seating it is a
-    diagonal identity on its own transport row (``xi'_edge = amplitude``); the seat itself is
-    decoupled, but the seated wave *does* radiate sound downstream wherever the linearization is
-    inherited (the full Jacobian carries composition -> acoustic -- a flame, an area change, an
-    inherited compact nozzle).  Raises if a scalar drive is requested where the convected waves are
-    outgoing, or names a scalar the network does not transport.
+    A transported composition scalar convects at the mean speed ``u`` like the entropy wave, so it
+    is to-specify exactly when the entropy wave is -- at a genuine inflow.  When the transported
+    scalars partition unity (feed-stream mixture fractions, ``sum_k xbar_k = 1``), driving a stream
+    ``f`` seats the physical **equivalence-ratio direction**: ``xi'_f`` rises and the other streams
+    present in the feed fall in proportion (``d_f = 1``, ``d_k = -xbar_k / (1 - xbar_f)`` for
+    ``k != f``), so ``sum_k xi'_k = 0`` -- the wave trades one stream for another at constant total
+    mass, and is silent (no ``mdot'`` / ``p'``).  For free passive scalars (which do not partition
+    unity) the seat is the lone scalar itself.  Each involved scalar is seated as a diagonal identity
+    on its own transport row; the seated wave still radiates sound downstream wherever the
+    linearization is inherited (the full Jacobian carries composition -> acoustic -- a flame, an
+    area change, an inherited compact nozzle).  Raises where the convected waves are outgoing, a
+    named scalar is not transported, or (for stream fractions) the driven stream is essentially the
+    feed's only stream (raising it alone would be the non-physical mass-loading mode).
     """
     families = [f for f in bc.driven if f not in ("acoustic", "entropy")]
     if not families:
@@ -589,22 +595,50 @@ def _terminal_scalar_seats(prob, t, bc, e, specify, freq):
     names = tuple(getattr(prob, "scalar_names", ()) or ())
     if 2 not in specify:  # h (entropy/convected) index: the convected waves are arriving here
         raise ValueError(
-            f"cannot drive scalar wave(s) {families} at this terminal: the convected waves leave the "
-            "domain here -- drive a scalar only at a genuine inflow."
+            f"cannot drive composition wave(s) {families} at this terminal: the convected waves leave the "
+            "domain here -- drive a composition wave only at a genuine inflow."
         )
+    K = len(names)
+    xbar = np.real(np.asarray(x_bar[3 : 3 + K, e])).astype(float) if K else np.zeros(0)
+    # the sum-zero equivalence-ratio constraint is meaningful only where the scalars partition unity
+    # (mass-conserving stream fractions); free passive scalars keep the lone-scalar seat.
+    is_partition = K > 0 and abs(float(xbar.sum()) - 1.0) < 1e-6
     ns, E, tr0 = int(prob.n_solve), int(prob.n_edges), int(prob.transport_row0)
-    seats = []
+
+    direction = np.zeros(K, dtype=np.complex128)  # accumulated xi' seat over all driven scalars
     for fam in families:
         if fam not in names:
-            raise ValueError(f"unknown scalar wave family {fam!r}; the network transports {list(names)}.")
-        j = names.index(fam)  # 0-based over the transported scalars
-        row = tr0 + (j + 1) * E + e  # this scalar's transport row on the terminal edge
-        col = ns * e + 3 + j  # this scalar's column (band-1 var 3 + j)
-        seats.append((row, (col,), np.array([1.0 + 0.0j]), complex(bc._drive_amplitude(fam, freq))))
+            raise ValueError(f"unknown composition wave family {fam!r}; the network transports {list(names)}.")
+        f = names.index(fam)  # 0-based over the transported scalars
+        d = np.zeros(K)
+        d[f] = 1.0
+        if is_partition:
+            x_f = xbar[f]
+            if 1.0 - x_f < 1e-6:
+                raise ValueError(
+                    f"cannot drive composition wave {fam!r} at this feed: {fam!r} is essentially the only stream "
+                    f"present (mean fraction {x_f:.4g}), so raising it alone is the (non-physical) mass-loading "
+                    "mode. Feed a blend of at least two streams so the wave can trade one stream for another at "
+                    "constant mass."
+                )
+            # raise fam, lower the other present streams in proportion (relative blend fixed),
+            # so sum(xi') = 0: a constant-mass equivalence-ratio wave.
+            for k in range(K):
+                if k != f and xbar[k] > 0.0:
+                    d[k] = -xbar[k] / (1.0 - x_f)
+        amp = complex(bc._drive_amplitude(fam, freq))
+        direction = direction + amp * d
+
+    seats = []
+    for k in range(K):
+        if direction[k] != 0.0:
+            row = tr0 + (k + 1) * E + e  # stream k's transport row on the terminal edge
+            col = ns * e + 3 + k  # stream k's column (band-1 var 3 + k)
+            seats.append((row, (col,), np.array([1.0 + 0.0j]), complex(direction[k])))
     return seats
 
 
-def _terminal_closure(prob, est, t, bc, omega):
+def _terminal_closure(prob, est, t, bc, omega, x_bar):
     """Per to-specify wave at terminal ``t``: ``(row, cols, coeff_block, rhs)``.
 
     Builds the matrix closure ``w[specify] = A(omega) @ w[arriving] + b`` via
@@ -632,7 +666,7 @@ def _terminal_closure(prob, est, t, bc, omega):
         for j, cha in enumerate(arriving):
             coeff = coeff - Amat[i, j] * L_e[cha, :]
         out.append((row, acou_cols, coeff, complex(bvec[i])))
-    out.extend(_terminal_scalar_seats(prob, t, bc, e, specify, freq))
+    out.extend(_terminal_scalar_seats(prob, t, bc, e, specify, freq, x_bar))
     return out
 
 
@@ -657,7 +691,7 @@ def stamp_boundaries(A, omega, prob, x_bar):
         bc = node_bc[t.node] if t.node < len(node_bc) else None
         if bc is None or not getattr(bc, "stamps_terminal", False):
             continue
-        for row, cols, coeff, _rhs in _terminal_closure(prob, est, t, bc, omega):
+        for row, cols, coeff, _rhs in _terminal_closure(prob, est, t, bc, omega, x_bar):
             _set_row(A, row, cols, coeff, (), ())
 
 
@@ -769,7 +803,7 @@ def boundary_forcing(prob, x_bar, omega):
         bc = node_bc[t.node] if t.node < len(node_bc) else None
         if bc is None or not getattr(bc, "stamps_terminal", False):
             continue
-        for row, _cols, _coeff, rhs in _terminal_closure(prob, est, t, bc, omega):
+        for row, _cols, _coeff, rhs in _terminal_closure(prob, est, t, bc, omega, x_bar):
             b[row] = rhs
     return b
 

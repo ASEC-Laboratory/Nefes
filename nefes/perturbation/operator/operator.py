@@ -231,6 +231,7 @@ class _AssemblyPlan:
         "phase_coeff",
         "prob",
         "est",
+        "x_bar",
         "bnd",
         "src_slots",
         "m_slots",
@@ -249,6 +250,7 @@ class _AssemblyPlan:
         phase_coeff,
         prob,
         est,
+        x_bar,
         bnd,
         src_slots,
         m_slots,
@@ -264,6 +266,7 @@ class _AssemblyPlan:
         self.phase_coeff = phase_coeff
         self.prob = prob
         self.est = est
+        self.x_bar = x_bar  # frozen mean state; driven-composition seats read its mean fractions
         self.bnd = bnd
         # storage block: each entry accumulates i*omega*m_coeff onto its slot (base holds
         # only J_alg there), so a storage row is J_alg + i*omega*M.
@@ -286,7 +289,7 @@ class _AssemblyPlan:
             # the only bulk omega-dependence: each duct phase entry = coeff * e^{-i w tau}
             data[self.phase_slots] = self.phase_coeff * np.exp(-1j * omega * self.phase_tau)
         for t, bc, rowslots in self.bnd:
-            for row, _cols, coeff, _rhs in _terminal_closure(self.prob, self.est, t, bc, omega):
+            for row, _cols, coeff, _rhs in _terminal_closure(self.prob, self.est, t, bc, omega, self.x_bar):
                 slots = rowslots.get(row)
                 if slots is not None:  # entropy rows are dropped under isentropic mode
                     data[slots] = coeff
@@ -345,7 +348,9 @@ def _build_plan(blocks: AcousticBlocks, with_boundaries):
             bc = prob.node_bc[t.node] if t.node < len(prob.node_bc) else None
             if bc is None or not getattr(bc, "stamps_terminal", False):
                 continue
-            entries = [(row, cols) for row, cols, _c, _r in _terminal_closure(prob, est, t, bc, _PLAN_OMEGA)]
+            entries = [
+                (row, cols) for row, cols, _c, _r in _terminal_closure(prob, est, t, bc, _PLAN_OMEGA, blocks.x_bar)
+            ]
             if blocks.isentropic:
                 # entropy (transport) rows [tr0, tr0+E) are pinned to h = 0 in base; the boundary
                 # fill must not overwrite them.  Acoustic node rows (< tr0) and scalar transport
@@ -459,6 +464,7 @@ def _build_plan(blocks: AcousticBlocks, with_boundaries):
         phase_coeff,
         prob,
         est,
+        blocks.x_bar,
         bnd,
         src_slots,
         m_slots,

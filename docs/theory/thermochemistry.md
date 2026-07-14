@@ -50,6 +50,17 @@ The expansion is linear, so the library only ever receives an elemental (or spec
 An important property is that the donor mixes of [transport](transport.qmd) are convex combinations, so the transported fractions remain realizable — non-negative and summing to one — at convergence without any clipping, and each mixture fraction adds exactly one unknown and one transport row per edge, preserving the square $(3 + N_s)E$ system of [equation structure](equation-structure.md).
 Combustion then requires no special element: it occurs wherever streams of differing mixture fraction meet and mix at a junction, and the equilibrium closure reports the burnt state there (tests: `test_passive_tracer_mixes_mass_weighted`, `test_problem_has_extra_scalar`, `test_branched_mixing_converges_from_seed`).
 
+### Auto-discovered and declared streams
+
+Which streams the network transports is set in one of two modes.
+By default (**auto**) the streams *are* the distinct injected compositions of the inlets, mass sources, and backflow-bearing outlets, auto-merged so that injecting the same composition in several places costs a single scalar; a feed names a species mixture and the stream set is discovered at build time.
+Alternatively the streams may be **declared** up front, `equilibrium(streams={...}, mode="declared")`, which fixes a named, closed basis; each feed then states its composition as a blend over those streams (`composition={stream_label: amount}`) rather than a raw species mixture.
+
+The declared mode decouples *which composition degrees of freedom exist* from *how many feeds there are*.
+A single **premixed** inlet, given as a blend of two declared streams (a fuel and an oxidizer), keeps those streams separate, so its mixture fraction — the equivalence ratio — is a live degree of freedom that can fluctuate, even though there is one inlet and no in-line injector.
+In auto mode the same premix would collapse to a single stream pinned to $Z = 1$, carrying no composition degree of freedom; declaring the two streams is what makes the equivalence ratio drivable.
+The mean species composition is identical either way: keeping the streams separate is bookkeeping that changes only the transported degrees of freedom, not the physics (tests: `test_species_equal_the_single_composition_premix`, `test_premixed_inlet_carries_two_live_streams`).
+
 ## The equilibrium equation of state and its kinetic-energy coupling
 
 With the elemental composition in hand, the equation of state is the chemical-equilibrium solve, which returns the thermodynamic state from the conserved variables, given as the map:

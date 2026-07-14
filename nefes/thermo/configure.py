@@ -50,11 +50,21 @@ class ThermoConfig:
     library: object = None  # SpeciesLibrary (parse-time only)
     t_init: float = 3000.0  # equilibrium temperature guess [K]
     t_init_frozen: float = 300.0  # frozen temperature guess [K]
+    # declared feed-stream mass fractions (K, n_species) when the streams were named up front
+    # (equilibrium(streams=...)); None defers stream discovery to build time (auto-merge of feeds)
+    stream_Y: object = None
 
     @property
     def n_elem(self) -> int:
         """Number of transported band-1 scalars (feed streams / passive scalars)."""
         return len(self.element_names)
+
+    @property
+    def stream_mode(self) -> str:
+        """Feed-stream mode: ``"declared"`` when the streams were named up front
+        (``equilibrium(streams=...)``, a fixed closed basis feeds blend over), else
+        ``"auto"`` (the streams are the distinct feed compositions, discovered at build)."""
+        return "declared" if self.stream_Y is not None else "auto"
 
     @property
     def n_species(self) -> int:
@@ -118,7 +128,9 @@ def perfect_gas_passive_scalars(n_scalars: int, R: float = 287.0, gamma: float =
     return ThermoConfig(model_id=PERFECT_GAS, tf=cfg.tf, ti=cfg.ti, element_names=names)
 
 
-def equilibrium(library, streams=None, basis: str = "mole", T_init: float = 3000.0, T_init_frozen: float = 300.0):
+def equilibrium(
+    library, streams=None, basis: str = "mole", mode: str = None, T_init: float = 3000.0, T_init_frozen: float = 300.0
+):
     """Reacting-gas config from a ``nefes.thermo.SpeciesLibrary``.
 
     The transported composition is the network's **feed-stream mixture fractions**
@@ -137,28 +149,50 @@ def equilibrium(library, streams=None, basis: str = "mole", T_init: float = 3000
         the standalone authority; this packs its canonical 9-term arrays for the
         compiled kernel.
     streams : dict of {str: spec}, optional
-        Explicit feed streams ``{label: composition}`` (each ``composition`` a named
-        species mixture in ``basis`` units).  Useful for direct kernel/closure use
-        and for pinning the scalar order/labels.  **Default ``None`` defers stream
-        discovery to build time**: ``build_problem`` collects the distinct inlet /
-        mass-source / outlet compositions and packs them automatically -- so a user
-        only ever names species at the elements that introduce them.
+        The **declared** feed streams ``{label: composition}`` (each ``composition`` a named
+        species mixture in ``basis`` units).  These are the network's fixed, named transported
+        streams: every feed then states its composition **in terms of these streams** (its
+        ``composition={label: amount}``), so a premixed inlet keeps its constituent streams
+        separate and their ratio (an equivalence ratio) stays a live composition degree of
+        freedom -- and a stream may be declared without any dedicated inlet that injects it
+        pure.  Selects ``mode="declared"``; also pins the scalar order/labels.
     basis : {"mole", "mass"}
-        Units of the explicit ``streams`` compositions (ignored when ``streams`` is
-        ``None``; each element then carries its own basis).
+        Units of the declared ``streams`` compositions (the species mixtures; ignored in
+        ``"auto"`` mode, where each feed carries its own basis).
+    mode : {"auto", "declared"}, optional
+        ``"declared"`` -- the transported streams are exactly the declared ``streams`` (a
+        fixed, closed basis; feeds name their composition over these streams and a feed that
+        names something else is rejected).  ``"auto"`` -- the streams are the distinct feed
+        compositions, discovered and auto-merged at build time (each feed carries a raw species
+        mixture).  Default: ``"declared"`` when ``streams`` is given, else ``"auto"``.
     T_init, T_init_frozen : float
         Initial temperature guesses for the equilibrium and frozen solves [K].
+
+    See Also
+    --------
+    ThermoConfig.stream_mode : the resolved mode on the returned config.
     """
     from .edge_state import pack_equilibrium
 
-    if streams is None:
+    if mode is None:
+        mode = "declared" if streams is not None else "auto"
+    if mode not in ("auto", "declared"):
+        raise ValueError(f"mode must be 'auto' or 'declared'; got {mode!r}")
+    if mode == "declared" and streams is None:
+        raise ValueError("mode='declared' requires streams={label: composition} to declare the basis")
+    if mode == "auto" and streams is not None:
+        raise ValueError("streams=... declares a fixed basis (that is mode='declared'); drop streams= for mode='auto'")
+
+    if mode == "auto":
         stream_Y = np.zeros((0, library.n_species))
         labels: List[str] = []
+        declared_Y = None  # defer discovery to build time
     else:
         from ..chem.composition import species_mass_fractions
 
         labels = list(streams.keys())
         stream_Y = np.array([species_mass_fractions(library, streams[k], basis) for k in labels], dtype=np.float64)
+        declared_Y = stream_Y  # the fixed basis every feed states its composition over
 
     tf, ti = pack_equilibrium(library, stream_Y, T_init, T_init_frozen)
     return ThermoConfig(
@@ -170,4 +204,5 @@ def equilibrium(library, streams=None, basis: str = "mole", T_init: float = 3000
         library=library,
         t_init=T_init,
         t_init_frozen=T_init_frozen,
+        stream_Y=declared_Y,
     )

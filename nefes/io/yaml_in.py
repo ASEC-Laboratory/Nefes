@@ -34,6 +34,9 @@ _GLOBAL_DEFAULTS = {
     "speciesReducer": "equilibrium_sampling",
     "equilibriumTInit": 3000.0,
     "frozenTInit": 300.0,
+    "streamMode": "auto",
+    "streams": "",
+    "streamBasis": "mole",
     "referencePressure": 101325.0,
     "referenceTemperature": 300.0,
     "referenceMassFlow": 0.0,
@@ -267,6 +270,36 @@ def _declared_species(specs) -> List[str]:
             if name not in out:
                 out.append(name)
     return out
+
+
+def _parse_streams(text, path: str) -> dict:
+    """Parse the declared-stream basis string into ``{label: species mixture}``.
+
+    The UI writes the declared streams as ``"label = species:frac, ...; label = ..."`` (streams
+    separated by ``;``, each a label and a species composition joined by ``=``).  Returns an
+    ordered ``{label: {species: fraction}}`` dict, the ``streams=`` argument of
+    :func:`~nefes.thermo.configure.equilibrium`.
+    """
+    if not text or not str(text).strip():
+        raise ValueError(
+            f"{path}: streamMode='declared' needs a 'streams' basis, e.g. 'air = O2:0.21, N2:0.79; H2 = H2:1'"
+        )
+    streams: dict = {}
+    for chunk in str(text).split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if "=" not in chunk:
+            raise ValueError(f"{path}: declared stream {chunk!r} must be 'label = composition'")
+        label, comp = chunk.split("=", 1)
+        label = label.strip()
+        parsed = _parse_composition(comp)
+        if not label or not parsed:
+            raise ValueError(f"{path}: declared stream {chunk!r} must be 'label = species:frac, ...'")
+        streams[label] = parsed
+    if not streams:
+        raise ValueError(f"{path}: streamMode='declared' but no streams were declared")
+    return streams
 
 
 def _dedup(seq) -> List[str]:
@@ -518,12 +551,27 @@ def _parse_perturbation_bc(attrs: dict):
     raise ValueError(f"unknown boundaryType {btype!r} on a boundary node")
 
 
-def _port_of(handle: str) -> int:
-    """Extract the integer port ordinal from a UI handle of the form ``...-port-<k>``."""
+def _port_of(handle: str, node_id: str, edge_id, side: str) -> int:
+    """Port ordinal ``k`` from a UI handle ``"<node_id>-port-<k>"``, checked against ``node_id``.
+
+    A flow edge names the ports it plugs into as ``sourceHandle`` / ``targetHandle`` of the form
+    ``"<node>-port-<ordinal>"``; the node prefix must be the edge's own ``source`` / ``target``
+    (named by ``side``).  A handle that names a different or absent node binds the edge to no port
+    in Nemo, which then drops it silently, so it is rejected here rather than loaded as a phantom
+    edge whose endpoint does not exist.
+    """
+    handle = str(handle)
     m = _PORT_RE.search(handle)
     if not m:
-        raise ValueError(f"cannot parse port from handle {handle!r}")
-    return int(m.group(1))
+        raise ValueError(f"edge {edge_id!r}: cannot parse a port ordinal from its {side} handle {handle!r}")
+    ordinal = int(m.group(1))
+    expected = f"{node_id}-port-{ordinal}"
+    if handle != expected:
+        raise ValueError(
+            f"edge {edge_id!r}: its {side} handle {handle!r} does not name its {side} node {node_id!r} "
+            f"(expected {expected!r}); the edge would bind to no port and be dropped"
+        )
+    return ordinal
 
 
 def parse_endpoints(doc: dict) -> Tuple[int, List[Tuple[int, int, int, int]]]:
@@ -539,8 +587,8 @@ def parse_endpoints(doc: dict) -> Tuple[int, List[Tuple[int, int, int, int]]]:
         e_index = int(edge["attributes"]["index"])
         tn = id_to_index[edge["source"]]
         hn = id_to_index[edge["target"]]
-        tp = _port_of(edge["sourceHandle"])
-        hp = _port_of(edge["targetHandle"])
+        tp = _port_of(edge["sourceHandle"], edge["source"], edge.get("id"), "source")
+        hp = _port_of(edge["targetHandle"], edge["target"], edge.get("id"), "target")
         rows.append((e_index, tn, tp, hn, hp))
 
     rows.sort(key=lambda r: r[0])
@@ -657,14 +705,34 @@ def case_from_dict(doc: dict, case_dir: str = None, source: str = "<dict>"):
     nodes_sorted = sorted(ui_nodes, key=lambda n: int((n.get("attributes") or {}).get("index", 0)))
     specs = [_build_ui_spec(n) for n in nodes_sorted]
 
-    # The reacting library is built from the network feeds (automatic slate), so it is
-    # resolved after the node specs are parsed.  The closures then need an absolute-enthalpy
-    # datum from the feed streams; the perfect-gas default (cp * T_ref) is meaningless for a
-    # variable-composition gas.
+    # The reacting library and the absolute-enthalpy datum are built from the species-bearing
+    # compositions, resolved after the node specs are parsed.  In "auto" mode these are the feed
+    # compositions; in "declared" mode the feeds carry stream labels, not species, so the species
+    # come from the declared stream basis instead (the feeds blend over it).
     if reacting:
-        library = _build_library(g, specs, case_dir)
-        gas = equilibrium(library, T_init=float(g["equilibriumTInit"]), T_init_frozen=float(g["frozenTInit"]))
-        h_ref = _reacting_h_ref(gas, specs)
+        if str(g.get("streamMode") or "auto") == "declared":
+            declared = _parse_streams(g.get("streams"), path)
+            stream_basis = str(g.get("streamBasis") or "mole")
+            T_ref = float(g["referenceTemperature"])
+            # pseudo-feeds carrying each declared stream's species, so the library / enthalpy
+            # helpers (which read composition_spec as species) resolve from the declared basis
+            stream_specs = [
+                cat.mass_flow_inlet(1.0, T_ref, composition=comp, basis=stream_basis) for comp in declared.values()
+            ]
+            library = _build_library(g, stream_specs, case_dir)
+            gas = equilibrium(
+                library,
+                streams=declared,
+                basis=stream_basis,
+                mode="declared",
+                T_init=float(g["equilibriumTInit"]),
+                T_init_frozen=float(g["frozenTInit"]),
+            )
+            h_ref = _reacting_h_ref(gas, stream_specs)
+        else:
+            library = _build_library(g, specs, case_dir)
+            gas = equilibrium(library, T_init=float(g["equilibriumTInit"]), T_init_frozen=float(g["frozenTInit"]))
+            h_ref = _reacting_h_ref(gas, specs)
     else:
         h_ref = None
 
@@ -692,8 +760,8 @@ def case_from_dict(doc: dict, case_dir: str = None, source: str = "<dict>"):
                 raise ValueError(f"edge {e.get('id')!r} references unknown node {e.get(end)!r}")
         s = id_to_index[e["source"]]
         t = id_to_index[e["target"]]
-        so = _port_of(e["sourceHandle"])
-        to = _port_of(e["targetHandle"])
+        so = _port_of(e["sourceHandle"], e["source"], e.get("id"), "source")
+        to = _port_of(e["targetHandle"], e["target"], e.get("id"), "target")
         area = float(attrs["area"])
         if area <= 0.0:
             raise ValueError(f"edge {e.get('id')!r} has non-positive area {area}")

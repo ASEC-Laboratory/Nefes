@@ -8,7 +8,6 @@
 #
 # Preview locally with `quarto preview docs`; the example pages execute notebooks, so point
 # Quarto at the project environment first, e.g. `QUARTO_PYTHON=$(which python) quarto render docs`.
-# The internal planning document is excluded from the render below.
 
 project:
   type: website

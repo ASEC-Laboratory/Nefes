@@ -538,7 +538,7 @@ def test_driving_unknown_scalar_name_is_rejected():
     sol = _scalar_duct(PerturbationBC.anechoic(driven=("Zbogus",)))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", CompositionalNoiseWarning)
-        with pytest.raises(ValueError, match="unknown scalar wave family"):
+        with pytest.raises(ValueError, match="unknown composition wave family"):
             forced_response(sol.problem, sol.x, FREQS, isentropic=False)
 
 

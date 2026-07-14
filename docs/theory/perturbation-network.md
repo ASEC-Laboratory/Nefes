@@ -112,6 +112,13 @@ The coefficient depends on the termination and, through the mean Mach number $M$
 The choked-nozzle termination is the one that also carries an entropy coupling, given as $R_s = (\overline{c}/\overline{\varrho})\,M/(2 + (\gamma-1)M)$, which converts an arriving entropy spot into a reflected acoustic wave — the compact-nozzle mechanism of indirect combustion noise, and the reason a reacting analysis cannot in general set $\widehat{h} = 0$ (see [identification](identification.md)).
 In the limit $M \to 0$ the choked nozzle reduces to a hard wall, $R \to +1$ and $R_s \to 0$, as it must (tests: `test_terminated_duct_reflection`, `test_mean_flow_open_end`, `test_choked_nozzle_outlet_marble_candel`).
 
+### Driving a composition wave at a feed
+
+A transported composition scalar is its own characteristic, convecting with the entropy wave at $\tau_u$, so at a genuine inflow it may be *driven* just as the acoustic and entropy waves are.
+Driving the mixture fraction of one declared stream imposes the physical **equivalence-ratio wave**: the driven stream's fraction is raised and the other streams present in the feed are lowered in proportion, so the perturbations sum to zero, $\sum_k \widehat{\xi}_k = 0$.
+This trades one stream for another at constant total mass, so the wave carries no mass-flow and no pressure fluctuation — it is acoustically **silent** as it convects along a uniform duct — and turns into sound only where the flow is accelerated, above all at a compact nozzle (the compositional-noise mechanism of [identification](identification.md)).
+The sum-to-zero direction is essential: raising a single stream's fraction alone would instead be a spurious mass-loading mode, all species scaled together with the mixture unchanged, so a premixed feed of at least two streams is required to carry the wave (tests: `test_equivalence_ratio_wave_is_silent`, `test_lone_stream_drive_is_rejected_as_loading_mode`).
+
 ## What is inherited and what is overwritten
 
 The economy of the method is best seen as a ledger of which rows the base Jacobian keeps and which the assembly replaces.

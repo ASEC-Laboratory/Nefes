@@ -344,7 +344,7 @@ def _build_excitation_context(
         # for the frozen terminals, whose explicit closure is stamped back in below.
         A = assemble_acoustic(omega, blocks, with_boundaries=False).tolil()
         for t in frozen_closured:  # keep this terminal closed by its own physical BC
-            for row, cols, coeff, _rhs in _terminal_closure(prob, est, t, prob.node_bc[t.node], omega):
+            for row, cols, coeff, _rhs in _terminal_closure(prob, est, t, prob.node_bc[t.node], omega, x_bar):
                 _set_row(A, row, cols, coeff, (), ())
         for p in pres:  # prescribe every open incoming wave; only the rhs distinguishes excitations
             A.rows[p.row] = []

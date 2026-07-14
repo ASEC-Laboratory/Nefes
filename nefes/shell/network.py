@@ -1382,7 +1382,15 @@ class Solution:
 
             lib = self.network.gas.library
             moles = product_moles(self.problem, self.result.x)
-            stream_Y = None if lib is None else stream_mass_fractions(self.network._elements, lib)
+            # declared streams (equilibrium(streams=...)) carry their fixed basis on the gas model;
+            # otherwise rebuild the auto-discovered basis from the feed compositions.
+            declared = getattr(self.network.gas, "stream_Y", None)
+            if lib is None:
+                stream_Y = None
+            elif declared is not None:
+                stream_Y = np.asarray(declared, dtype=float)
+            else:
+                stream_Y = stream_mass_fractions(self.network._elements, lib)
             self._chem_cache = (moles, stream_Y)
         return self._chem_cache
 

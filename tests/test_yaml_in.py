@@ -646,3 +646,36 @@ def test_load_solution_edge_count_mismatch_raises(tmp_path):
     open(bad, "w").write(yaml.safe_dump(doc))
     with pytest.raises(ValueError, match="different network"):
         load_solution(bad)
+
+
+def _two_node_case(tmp_path, name, edge):
+    """A minimal inlet -> outlet case carrying the given (possibly malformed) edge."""
+    g = {"gasConstant": 287.0, "heatCapacityRatio": 1.4, "referencePressure": 101325.0, "referenceTemperature": 300.0}
+    nodes = [
+        _node("TotalPressureInlet_1", "TotalPressureInlet", 0, label="in", totalPressure=2e5, totalTemperature=300.0),
+        _node("PressureOutlet_1", "PressureOutlet", 1, label="out", pressure=1.5e5, backflowTotalTemperature=300.0),
+    ]
+    return _dump(tmp_path, name, g, nodes, [edge])
+
+
+def test_edge_handle_naming_wrong_node_is_rejected(tmp_path):
+    """A targetHandle that names a node other than the edge's own target is rejected on load.
+
+    Nemo binds a flow edge to the port its handle names; a handle pointing at a different (or
+    absent) node leaves the edge unbound, so Nemo drops it silently.  The loader must reject such
+    a file loudly rather than admit a phantom edge whose endpoint does not exist.
+    """
+    edge = _edge("edge_1", "TotalPressureInlet_1", "PressureOutlet_1", 0, 0, 0, 0.02)
+    edge["targetHandle"] = "SomeOtherNode-port-0"  # names a node that is not this edge's target
+    path = _two_node_case(tmp_path, "bad_handle.yaml", edge)
+    with pytest.raises(ValueError, match="does not name its target node"):
+        load_case(path)
+
+
+def test_edge_handle_without_port_ordinal_is_rejected(tmp_path):
+    """A handle carrying no ``-port-<k>`` ordinal is rejected with a pointed message."""
+    edge = _edge("edge_1", "TotalPressureInlet_1", "PressureOutlet_1", 0, 0, 0, 0.02)
+    edge["sourceHandle"] = "TotalPressureInlet_1"  # no port ordinal at all
+    path = _two_node_case(tmp_path, "no_port.yaml", edge)
+    with pytest.raises(ValueError, match="cannot parse a port ordinal"):
+        load_case(path)

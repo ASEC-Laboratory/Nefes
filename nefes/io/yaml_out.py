@@ -883,11 +883,22 @@ def build_payload(network, datasets, title=None) -> dict:
 
 
 def _matching_provenance(network):
-    """Return ``network.provenance`` only if it still matches the live topology."""
+    """Return ``network.provenance`` only if it still matches the live topology.
+
+    Equal node and edge counts are not sufficient: an edit that preserves the counts but
+    reconnects an edge (or reorders the edges) would otherwise have the writer reuse a stale port
+    handle bound to the wrong node, which Nemo silently drops.  The live edge endpoints are
+    therefore checked against the ones the provenance recorded; on any mismatch the provenance is
+    discarded and a fresh, self-consistent layout is synthesized instead.
+    """
     prov = getattr(network, "provenance", None)
     if prov is None:
         return None
-    if len(prov.node_ids) == len(network._elements) and len(prov.edge_ids) == len(network._edges):
+    if (
+        len(prov.node_ids) == len(network._elements)
+        and len(prov.edge_ids) == len(network._edges)
+        and _endpoints_match(network, prov)
+    ):
         return prov
     warnings.warn(
         "network topology no longer matches its loaded provenance; "
@@ -895,6 +906,21 @@ def _matching_provenance(network):
         stacklevel=3,
     )
     return None
+
+
+def _endpoints_match(network, prov) -> bool:
+    """Whether every live edge still connects the node ids the provenance recorded for it.
+
+    Called only after the node/edge counts are known to match, so ``prov.edge_ids`` is indexable
+    by every live edge index and ``prov.node_ids`` by every node index.
+    """
+    prov_edges = {e.get("id"): e for e in prov.doc.get("model", {}).get("edges", [])}
+    node_ids = prov.node_ids
+    for ei, (t, h, _a) in enumerate(network._edges):
+        pe = prov_edges.get(prov.edge_ids[ei])
+        if pe is None or pe.get("source") != node_ids[t] or pe.get("target") != node_ids[h]:
+            return False
+    return True
 
 
 def _prov_title(prov):
@@ -970,12 +996,40 @@ def _build_model(network, prov):
             }
         )
 
+    # An edge's port handles must name its own endpoints, or Nemo binds the edge to no port and
+    # drops it silently.  This holds by construction, so a violation is an internal writer bug;
+    # fail here rather than emit a file that loses edges on load.
+    for e in edges_out:
+        for side, handle_key in (("source", "sourceHandle"), ("target", "targetHandle")):
+            handle, node = e.get(handle_key), e[side]
+            if not isinstance(handle, str) or not handle.startswith(f"{node}-port-"):
+                raise ValueError(
+                    f"internal error writing edge {e['id']!r}: its {handle_key} {handle!r} does not "
+                    f"name the edge's {side} node {node!r}"
+                )
+
     return {
         "id": MODEL_ID,
         "globalAttributes": _global_attributes(network, prov),
         "nodes": nodes,
         "edges": edges_out,
     }
+
+
+def _stream_basis_string(gas):
+    """The declared-stream basis as a UI string ``'label = sp:massfrac, ...; ...'``.
+
+    Built from the packed per-stream mass fractions, so it round-trips the exact composition on a
+    mass basis regardless of how the streams were originally specified.
+    """
+    labels = list(gas.element_names)
+    sY = np.asarray(gas.stream_Y, dtype=float)
+    names = list(gas.species_names)
+    parts = []
+    for k, lab in enumerate(labels):
+        comp = ", ".join(f"{names[j]}:{sY[k, j]:g}" for j in np.nonzero(sY[k] > 0.0)[0])
+        parts.append(f"{lab} = {comp}")
+    return "; ".join(parts)
 
 
 def _global_attributes(network, prov=None):
@@ -995,6 +1049,12 @@ def _global_attributes(network, prov=None):
             # which a comma/whitespace-delimited string cannot round-trip.
             "species": list(gas.species_names),
         }
+        if getattr(gas, "stream_mode", "auto") == "declared":
+            # declared basis: the named streams every feed blends over (each feed's composition is a
+            # blend over these, written on the feed nodes by _composition_to_ui).
+            g["streamMode"] = "declared"
+            g["streams"] = _stream_basis_string(gas)
+            g["streamBasis"] = "mass"
         if mech:
             g["mechanismFile"] = mech
     else:

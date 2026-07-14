@@ -3,6 +3,12 @@
 Nefes exchanges cases with its graphical companion Nemo through a single YAML document: the network definition, the canvas layout, and an optional results section that carries solver output for display on the graph.
 The format is deliberately generic: Nemo colours the network from whatever the file declares, without needing to know how those numbers were produced.
 
+## Connectivity: edges bind to ports by handle
+
+Each flow edge names the two ports it plugs into as `sourceHandle` and `targetHandle`, written `"<node>-port-<ordinal>"`.
+The node prefix of an edge's `sourceHandle` must be that edge's own `source`, and of its `targetHandle` its own `target`; a handle that names any other node leaves the edge attached to nothing, so Nemo drops it from the drawing without warning.
+The loader therefore rejects such a file on read rather than admit an edge whose endpoint does not exist, and the writer never emits one: when a loaded case is edited so its live topology no longer matches the layout it was opened with, the stored handles are discarded and a fresh, self-consistent layout is synthesized in their place.
+
 ## Binding data to the network
 
 A result set is a named collection of numeric series.
