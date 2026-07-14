@@ -23,6 +23,13 @@ Nitric oxides (NOx), for example, are kinetically slow, and equilibrium estimate
 The frozen-to-burnt switch is realized through the marker gate rather than a residence-time balance, and that gate approach assumes that the flame is thin compared with the network elements.
 Each lumped element also assumes perfect mixing of its incoming streams into one outlet state (see [transport](transport.qmd)), which may or may not represent the geometry of interest.
 
+The equilibrium closure, including its condensed-phase (soot) products, is intended for oxidiser-bearing mixtures: any blend from lean through stoichiometric and deep into the rich, sooting regime is in scope and converges reliably.
+The one composition it does not solve reliably is a mixture with essentially no oxidiser at all, a pure fuel driven to equilibrium as in a cracking or pyrolysis passage.
+There, almost every carbon atom condenses to soot and the remaining gas collapses toward a single species, and that limit leaves the equilibrium system degenerate.
+Such a state is reachable (an equilibrium region fed only by fuel), so it is a genuine boundary rather than an abstract one; when a network reaches it the solve reports a clear non-convergence rather than a silent or misleading result.
+A related subtlety is that the reacting closure equilibrates at constant enthalpy (adiabatically), which is the combustion setting; the *isothermal* equilibrium a heated cracking duct would need, holding the passage at a set temperature, is not expressed as a network element.
+Pure-fuel pyrolysis is therefore outside the present reacting scope; the accompanying note in the repository records the mechanism and the path to lifting it.
+
 ## Acoustic-model scope
 
 Before the specific bounds, the premise beneath all of them: the acoustic layer is *linear*, and its perturbation is an infinitesimal one.
