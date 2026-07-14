@@ -36,6 +36,7 @@ class _Reporter:
     level: int = 0
     interval: int = 1
     prob: object = None
+    res_scale: object = None  # live per-row scale of the current stage (adaptive); falls back to prob.res_scale
     _grp: tuple = None  # cached (labels, ids, header, widths) for the per-iteration group table
     _IT_W: int = 4  # width of the leading iteration-index column
 
@@ -51,7 +52,10 @@ class _Reporter:
         parts = [first.rjust(self._IT_W)] + [c.rjust(w) for c, w in zip(cells, widths)]
         return "  " + "  ".join(parts)
 
-    def stage_start(self, kappa, eps):
+    def stage_start(self, kappa, eps, res_scale=None):
+        # Record the live (per-stage, adaptive) row scale so the printed residual matches the
+        # one the solver actually tests against, not the stale compiled ``prob.res_scale``.
+        self.res_scale = res_scale
         if self.level >= 2:
             print(f"[kappa={kappa:<5g} eps={eps:.2e}]")
             _labels, _ids, header, widths = self._groups()
@@ -64,7 +68,8 @@ class _Reporter:
         if R is None:
             print(self._row(str(it), ["(non-physical)"], [len("(non-physical)")]))
             return
-        R_hat = R / self.prob.res_scale
+        scale = self.res_scale if self.res_scale is not None else self.prob.res_scale
+        R_hat = R / scale
         cells = [f"{float(np.linalg.norm(R_hat[ids == g])):.3e}" for g in range(len(labels))]
         cells.append(f"{float(np.linalg.norm(R_hat)):.3e}")  # the gross norm (matches stage_end)
         print(self._row(str(it), cells, widths))

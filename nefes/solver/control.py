@@ -628,7 +628,7 @@ def solve(
             res_scale, var_scale = compose_scales(prob.node_rid, degrees, prob.n_edges, n_scalars, mass, p_scale, h)
         else:
             res_scale, var_scale = prob.res_scale, prob.var_scale
-        reporter.stage_start(kappa, eps)
+        reporter.stage_start(kappa, eps, res_scale)
         # eps tracks the dimensionless kappa; the kernel friction uses the scaled coefficient.
         x2d, converged, it, norm = _solve_stage(
             prob, x2d, eps, kappa * r_art, tol, max_iter, history, res_scale, var_scale, reporter

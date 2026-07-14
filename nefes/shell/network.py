@@ -693,6 +693,12 @@ class Network:
         -------
         Solution
             The converged mean-flow result with named edge-field access.
+
+        Notes
+        -----
+        A solve that does not converge returns its (partial) ``Solution`` and emits a warning;
+        reading a field off a state that cannot be recovered raises a clear error naming the
+        non-convergence rather than an opaque linear-algebra failure from the closure.
         """
         prob = self.compile()
         res = _solve(prob, x0=x0, **kw)
@@ -700,6 +706,15 @@ class Network:
         if res.converged:
             for message in sol.verify():
                 warnings.warn(message, stacklevel=2)
+        else:
+            # Surface the failure at the solve boundary rather than letting it resurface
+            # opaquely when the caller first reads a field off a non-physical state.
+            warnings.warn(
+                f"Network.solve did not converge (residual_norm={res.residual_norm:.3e}, "
+                f"iterations={res.iterations}); the returned state may be non-physical. "
+                "Inspect it with sol.print_residuals().",
+                stacklevel=2,
+            )
         return sol
 
     def initial_guess(self, **kw):
@@ -1087,6 +1102,15 @@ class Solution:
         """Raw converged state vector."""
         return self.result.x
 
+    def _recovery_error(self) -> RuntimeError:
+        """A clear diagnostic for a failed state recovery (replaces an opaque ``LinAlgError``)."""
+        return RuntimeError(
+            "could not recover the edge states from this solution: the equilibrium state "
+            f"solve returned a non-finite result (converged={self.converged}, "
+            f"residual_norm={self.residual_norm:.3e}). This points to an operating point "
+            "outside the solver's envelope; inspect it with sol.print_residuals()."
+        )
+
     def table(self, show_internal: bool = True) -> np.ndarray:
         """Return the per-edge state table (rows are fields, columns are edges).
 
@@ -1097,7 +1121,12 @@ class Solution:
             *internal* edge columns, leaving only the user-facing edges (which keep their
             ids; internals append at the tail).  Default ``True`` (every edge).
         """
-        est = states_table(self.problem, self.result.x)
+        try:
+            est = states_table(self.problem, self.result.x)
+        except np.linalg.LinAlgError as exc:
+            # A non-physical state can still drive the equilibrium recovery singular; surface it
+            # as a clear diagnostic instead of the opaque LinAlgError from deep in the kernel.
+            raise self._recovery_error() from exc
         cm = self.problem.composite_map
         if show_internal or cm is None or not cm.internal_edges:
             return est
