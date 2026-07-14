@@ -71,30 +71,36 @@ def elemental_abundance(lib, Z_elem):
 
 
 def _product_subset(lib):
-    """Gas-phase product arrays ``(prod_idx, coeffs, Tint, Af)`` the kernel solves over.
+    """Product arrays ``(prod_idx, coeffs, Tint, Af, ng)`` the kernel solves over.
 
-    Condensed feed species (e.g. a liquid fuel) carry their atoms into ``b`` but never
-    appear as equilibrium products; an all-gas library leaves this the full set.  Mirrors
-    the product slicing in :func:`nefes.thermo.edge_state.pack_equilibrium`.
+    Gaseous products are ordered first (count ``ng``), then any condensed products (a high-
+    temperature phase such as graphite).  Condensed *feed* species (e.g. a liquid fuel) carry
+    their atoms into ``b`` but are not products.  Mirrors the product slicing in
+    :func:`nefes.thermo.edge_state.pack_equilibrium`.
     """
     coeffs, Tint = lib.nasa9_arrays()
     A = np.ascontiguousarray(lib.element_matrix, dtype=np.float64)
-    prod_mask = np.asarray(getattr(lib, "product_mask", np.ones(lib.n_species, bool)), dtype=bool)
-    prod_idx = np.nonzero(prod_mask)[0]
+    ns = lib.n_species
+    prod_mask = np.asarray(getattr(lib, "product_mask", np.ones(ns, bool)), dtype=bool)
+    phase = np.asarray(getattr(lib, "species_phase", np.zeros(ns, dtype=np.int64)), dtype=np.int64)
+    gas_prod = [j for j in range(ns) if prod_mask[j] and phase[j] == 0]
+    cond_prod = [j for j in range(ns) if prod_mask[j] and phase[j] != 0]
+    prod_idx = np.array(gas_prod + cond_prod, dtype=np.int64)
+    ng = len(gas_prod)
     prod_coeffs = np.ascontiguousarray(coeffs[prod_idx], dtype=np.float64)
     prod_Tint = np.ascontiguousarray(Tint[prod_idx], dtype=np.float64)
     prod_A = np.ascontiguousarray(A[:, prod_idx], dtype=np.float64)
-    return prod_idx, prod_coeffs, prod_Tint, prod_A
+    return prod_idx, prod_coeffs, prod_Tint, prod_A, ng
 
 
-def _finalize(lib, prod_idx, coeffs, Tint, Af, nj_prod, ntot, T, p, iterations, converged):
+def _finalize(lib, prod_idx, coeffs, Tint, Af, nj_prod, ntot, T, p, ng, iterations, converged):
     """Assemble an :class:`EquilibriumResult` from the kernel's product-space solution."""
     n_full = np.zeros(lib.n_species, dtype=nj_prod.dtype)
     n_full[prod_idx] = nj_prod
     mass = n_full * lib.molar_masses
     Y = mass / np.sum(mass)
     props = mixture_properties(lib, Y, T, p)
-    props.a_equilibrium = equilibrium_sound_speed(coeffs, Tint, Af, nj_prod, ntot, T, p)
+    props.a_equilibrium = equilibrium_sound_speed(coeffs, Tint, Af, nj_prod, ntot, T, p, ng)
     return EquilibriumResult(
         T=T,
         p=p,
@@ -108,9 +114,11 @@ def _finalize(lib, prod_idx, coeffs, Tint, Af, nj_prod, ntot, T, p, iterations, 
     )
 
 
-def _cold_start(b0, Np):
-    """Uniform gram-atom guess spread over the ``Np`` product species (real float64)."""
-    return np.full(Np, float(np.sum(np.real(b0))) / (2.0 * Np))
+def _cold_start(b0, Np, ng):
+    """Gas products at the uniform gram-atom guess, condensed products absent (real float64)."""
+    nj = np.full(Np, float(np.sum(np.real(b0))) / (2.0 * ng))
+    nj[ng:] = 0.0
+    return nj
 
 
 def equilibrate_HP(lib, Z_elem, h, p, T_guess=2000.0):
@@ -141,9 +149,9 @@ def equilibrate_HP(lib, Z_elem, h, p, T_guess=2000.0):
         The converged temperature, density, mass/mole fractions, moles, and the derived
         :class:`MixtureState` (including the frozen and equilibrium sound speeds).
     """
-    prod_idx, coeffs, Tint, Af = _product_subset(lib)
+    prod_idx, coeffs, Tint, Af, ng = _product_subset(lib)
     b0 = elemental_abundance(lib, Z_elem)
-    nj_init = _cold_start(b0, prod_idx.size)
+    nj_init = _cold_start(b0, prod_idx.size, ng)
 
     if np.iscomplexobj(b0) or isinstance(h, complex) or isinstance(p, complex):
         b0 = np.asarray(b0, dtype=np.complex128)
@@ -153,8 +161,8 @@ def equilibrate_HP(lib, Z_elem, h, p, T_guess=2000.0):
     else:
         b0 = np.ascontiguousarray(b0, dtype=np.float64)
 
-    T, nj_prod, ntot, flag, nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, lib.P_ref, float(T_guess), nj_init)
-    return _finalize(lib, prod_idx, coeffs, Tint, Af, nj_prod, ntot, T, p, nit, flag == 1)
+    T, nj_prod, ntot, flag, nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, lib.P_ref, float(T_guess), ng, nj_init)
+    return _finalize(lib, prod_idx, coeffs, Tint, Af, nj_prod, ntot, T, p, ng, nit, flag == 1)
 
 
 def equilibrate_TP(lib, Z_elem, T, p):
@@ -182,9 +190,9 @@ def equilibrate_TP(lib, Z_elem, T, p):
         The equilibrium density, mass/mole fractions, moles, and the derived
         :class:`MixtureState` (including the frozen and equilibrium sound speeds) at ``T``.
     """
-    prod_idx, coeffs, Tint, Af = _product_subset(lib)
+    prod_idx, coeffs, Tint, Af, ng = _product_subset(lib)
     b0 = np.ascontiguousarray(np.real(elemental_abundance(lib, Z_elem)), dtype=np.float64)
-    nj = _cold_start(b0, prod_idx.size)
+    nj = _cold_start(b0, prod_idx.size, ng)
     Tr, pr = float(np.real(T)), float(np.real(p))
-    ntot, flag, nit = equilibrate_tp(coeffs, Tint, Af, b0, Tr, pr, lib.P_ref, nj)
-    return _finalize(lib, prod_idx, coeffs, Tint, Af, nj, ntot, Tr, pr, nit, flag == 1)
+    ntot, flag, nit = equilibrate_tp(coeffs, Tint, Af, b0, Tr, pr, lib.P_ref, ng, nj)
+    return _finalize(lib, prod_idx, coeffs, Tint, Af, nj, ntot, Tr, pr, ng, nit, flag == 1)

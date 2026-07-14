@@ -37,6 +37,11 @@ from .kernel import species_thermo9
 
 __all__ = ["ThermoPoly", "NASA7", "NASA9", "Species", "SpeciesLibrary"]
 
+# Minimum upper temperature [K] of a condensed species' NASA polynomial for it to be admitted
+# as an equilibrium product (vs. feed-only): high-temperature phases such as graphite qualify;
+# liquid fuels, whose polynomials stop near their boiling point, do not.
+CONDENSED_PRODUCT_TMAX = 2000.0
+
 
 # ---------------------------------------------------------------------------
 # Canonical NASA-9 polynomial (subsumes NASA-7)
@@ -211,10 +216,21 @@ class SpeciesLibrary:
         self.element_matrix = a
         self.element_weights = np.array([atomic_weight(e) for e in self.elements])
 
-        # Product mask: which species may appear as equilibrium products.  Only gaseous
-        # species (CEA phase 0) are kept; condensed species are feed-only (they set elements
-        # and enthalpy but their polynomials are not valid at flame temperatures).
-        self.product_mask = np.array([getattr(s, "phase", 0) == 0 for s in self.species], dtype=bool)
+        # Product mask: which species may appear as equilibrium products.  Gaseous species
+        # (CEA phase 0) always qualify.  A condensed species qualifies only if its NASA
+        # polynomial extends to combustion temperatures (``Tmax >= CONDENSED_PRODUCT_TMAX``),
+        # which admits a high-temperature product such as graphite ``C(gr)`` (Tmax 6000 K)
+        # while leaving a liquid fuel such as ``Jet-A(L)`` (Tmax ~550 K) feed-only.  A
+        # qualifying condensed product enters the equilibrium as a pure phase at unit activity.
+        self.product_mask = np.array(
+            [
+                getattr(s, "phase", 0) == 0 or float(s.thermo.Tranges.max()) >= CONDENSED_PRODUCT_TMAX
+                for s in self.species
+            ],
+            dtype=bool,
+        )
+        # phase flag per species (0 = gas, non-zero = condensed), used to order products
+        self.species_phase = np.array([getattr(s, "phase", 0) for s in self.species], dtype=np.int64)
 
         self._pack_thermo()
 

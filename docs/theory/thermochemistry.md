@@ -85,6 +85,34 @@ $$
 where $m = \dot m/A$ is the mass flux density and $\varrho_{\text{eq}}$ is the equilibrium density at the given composition, static enthalpy, and pressure.
 Solving this outer root returns the *exact* static state rather than the $\mathcal{O}(M^2)$ approximation $h \approx h_t$, and its derivatives are spliced by the implicit function theorem in exactly the manner of the perfect-gas recovery, so the complex-step Jacobian remains exact (tests: `test_ke_burnt_static_matches_oracle`, `test_ke_complex_step_matches_fd_warm_cache`, `test_ke_frozen_leg_self_consistent`).
 
+## Condensed-phase products
+
+Rich combustion carries the equilibrium beyond the gas phase.
+When the carbon-to-oxygen ratio of the burnt mixture exceeds unity there is not enough oxygen to bind every carbon atom as carbon monoxide, and the excess carbon condenses as solid soot; a purely gaseous species set cannot represent that state, and the element-potential system for it is singular.
+The equilibrium solve therefore admits condensed species as an integral part of the same minimization.
+A condensed species enters as a **pure phase at unit activity**, so its chemical potential is its standard Gibbs energy alone, with no mole-fraction or pressure term:
+
+$$
+\frac{\mu_c}{R T} \;=\; \frac{g_c(T)}{R T},
+$$
+
+where $g_c$ is the standard molar Gibbs energy of the condensed species and the absence of a $\ln(n_c/n)$ term is what distinguishes a pure phase from a gaseous one.
+Its mole number is a direct unknown of the reduced Newton system, appended as one row and column carrying the element couplings $a_{ic}$ (and, in the enthalpy-constrained solve, the enthalpy coupling that ties it to the temperature correction), so a condensed phase adds to the element balance and to the energy balance without ever entering the gas total-mole constraint.
+
+Which condensed phases are present is itself part of the solution, decided on the real state so the complex-step derivative is untouched.
+A phase is admitted when forming it would lower the Gibbs energy, given as the condition that its potential undercuts the element-potential combination:
+
+$$
+\frac{g_c}{R T} \;<\; \sum_{i} a_{ic}\,\pi_i,
+$$
+
+where $\pi_i$ is the potential of element $i$ and $a_{ic}$ the number of atoms of element $i$ in the condensed species; a phase whose mole number is driven to zero during the iteration is dropped again.
+At convergence the present phases satisfy the equality (their potential exactly matches the element combination) and the absent ones the strict inequality, which are the optimality conditions of the constrained minimization.
+Because the phase set is a property of the converged real state, the implicit-function sensitivity is formed at fixed set and remains exact away from a phase-onset boundary, exactly as the active-element reduction already is.
+
+Which species may condense is read from the data: a species carrying the CEA condensed-phase flag qualifies as a product only if its polynomial extends to combustion temperatures, so graphite (valid to several thousand kelvin) is a soot product while a liquid fuel, whose polynomial stops near its boiling point, remains a feed that sets elements and the enthalpy datum but never appears as a product.
+The equilibrium sound speed re-equilibrates the gas at the acoustic frequency and holds the condensed phase frozen, since a solid does not re-form on the wave time scale; the condensed mass still loads the density through the reduced gas mole count.
+
 ## The frozen, equilibrium, and marker closures
 
 Not every region of a reacting network is burnt: a pre-ignition passage carries unburnt reactants that must *not* be placed in chemical equilibrium, or the flame would be smeared across the whole domain.

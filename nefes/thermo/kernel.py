@@ -50,6 +50,10 @@ LN_TRACE_CAP = 9.2103404  # -ln(1e-4): caps trace-species growth per step
 # element/energy sums through ``n_j f_j = 0 * (-inf) = NaN``.  Flooring the argument keeps
 # ``f_j`` finite; the vanishing moles still contribute ~0 to every sum.
 MOLE_FRAC_FLOOR = 1.0e-300
+# A condensed phase is admitted to the product set when forming it would lower the Gibbs
+# energy, i.e. its potential undercuts the element-potential combination by this margin
+# (dimensionless g/RT); dropped again when its moles vanish.
+CONDENSED_INCLUDE_TOL = 1.0e-8
 
 
 # ---------------------------------------------------------------------------
@@ -186,15 +190,22 @@ def _cea_lambda(nj, ntot, dln_nj, dln_n, dln_T):
 
 
 @njit(cache=True)
-def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
-    """Solve gas-phase HP equilibrium in place; return ``(T, ntot, flag, nit)``.
+def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, ng, nj, Mout):
+    """Solve HP equilibrium in place (gas + condensed); return ``(T, ntot, flag, nit)``.
 
-    ``nj`` is in/out (warm start -> converged moles [mol/kg]); ``Mout`` receives
-    the converged reduced ``(Ne+2)x(Ne+2)`` matrix for the IFT seed.
+    Species ``0..ng-1`` are gaseous; ``ng..Ns-1`` are pure condensed phases at unit activity
+    (``mu_c/RT = g_c/RT``, no mole-fraction or pressure term), whose moles are direct Newton
+    unknowns.  ``ntot`` returned is the **gas** mole total (a condensed phase carries no
+    volume), so the caller's ``rho = p/(R ntot T)`` is the bulk gas density.  ``nj`` is
+    in/out (warm start -> converged moles [mol/kg]); ``Mout`` receives the converged reduced
+    ``(Ne+2+Nc)x(Ne+2+Nc)`` matrix for the IFT seed.  A condensed phase is included when it
+    lowers the Gibbs energy (``g_c/RT < sum_i a_ic pi_i``) and dropped when its moles vanish;
+    the phase set is decided on the real state, so the complex-step derivative stays exact.
     """
     Ne = Af.shape[0]
     Ns = Af.shape[1]
-    dim = Ne + 2
+    Nc = Ns - ng
+    dim = Ne + 2 + Nc
 
     cpR = np.empty(Ns)
     hRT = np.empty(Ns)
@@ -204,23 +215,20 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
 
     M = np.zeros((dim, dim))
     rhs = np.zeros(dim)
+    included = np.zeros(Nc, dtype=np.bool_)
 
-    # Element / species compaction (CEA keep_el-keep_sp, located on the
-    # real abundance): an element with zero gram-atoms (e.g. carbon on a carbonless
-    # branch of a carbon-bearing library) carries no products, so its balance row is
-    # null -> singular.  Drop such elements and every species containing one; the
-    # reduced system is over the present elements only.  All elements present (the
-    # common case) leaves this a no-op.
+    # Element / species compaction (CEA keep_el-keep_sp, located on the real abundance): an
+    # element with zero gram-atoms carries no products, so its balance row is null -> singular.
+    # Drop such elements and every species containing one.  All elements present -> a no-op.
     bscale = 0.0
     for i in range(Ne):
-        bi = b0[i]
-        if bi > bscale:
-            bscale = bi
+        if b0[i] > bscale:
+            bscale = b0[i]
     active_el = np.empty(Ne, dtype=np.bool_)
     for i in range(Ne):
         active_el[i] = b0[i] > 1.0e-13 * bscale
     active_sp = np.empty(Ns, dtype=np.bool_)
-    n_active_sp = 0
+    n_active_gas = 0
     for j in range(Ns):
         ok = True
         for i in range(Ne):
@@ -228,26 +236,33 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
                 ok = False
                 break
         active_sp[j] = ok
-        if ok:
-            n_active_sp += 1
-    # a dropped species holds no moles and is skipped in every sum / update below
+        if ok and j < ng:
+            n_active_gas += 1
     for j in range(Ns):
         if not active_sp[j]:
             nj[j] = 0.0
+    # Seed the condensed phase set from any warm-started positive moles.
+    for c in range(Nc):
+        if nj[ng + c] > 0.0 and active_sp[ng + c]:
+            included[c] = True
+        else:
+            nj[ng + c] = 0.0
+            included[c] = False
 
     ntot = 0.0
-    for j in range(Ns):
+    for j in range(ng):
         ntot += nj[j]
     T = T_init
 
-    # Uniform cold guess (the robust, always-conditioned start: gram-atoms spread
-    # evenly over the active product species).  ``nj`` may arrive warm-started from a
-    # cache at a different operating point; if that seed drives the reduced Newton
-    # matrix singular, the solve below falls back to this guess (graceful warm -> cold).
+    # Uniform cold guess (well-conditioned start): gram-atoms spread over the active gas species.
     sb0 = 0.0
     for i in range(Ne):
         sb0 += b0[i]
-    uniform = sb0 / (2.0 * n_active_sp)
+    uniform = sb0 / (2.0 * n_active_gas)
+    if ntot <= 0.0:  # no (or fully condensed) warm start -> seed the gas uniformly
+        for j in range(ng):
+            nj[j] = uniform if active_sp[j] else 0.0
+        ntot = n_active_gas * uniform
 
     flag = 0
     nit = 0
@@ -256,13 +271,9 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
         nit = it + 1
         species_thermo9(coeffs, Tint, T, cpR, hRT, gRT)
         lnp = np.log(p / p_ref)
-        for j in range(Ns):
-            # dropped species hold no moles; fj is left at 0 so every ``nj*fj`` sum
-            # below stays 0 (avoids log(0)) without special-casing each sum
+        for j in range(ng):
             if active_sp[j]:
-                # An active species whose moles underflow to ~0 (cold, near-inert
-                # mixtures) would give log(0) = -inf; floor the mole fraction so fj
-                # stays finite (its ~0 moles still contribute ~0 to every sum).
+                # floor the mole fraction inside log so an underflowed active species stays finite
                 xj = nj[j] / ntot
                 if xj < MOLE_FRAC_FLOOR:
                     xj = MOLE_FRAC_FLOOR
@@ -276,42 +287,56 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
             for b in range(dim):
                 M[a, b] = 0.0
 
+        # gas sums
         sum_n = 0.0
         sum_nh = 0.0
         sum_nf = 0.0
         sum_nhf = 0.0
         ccoef = 0.0
-        for j in range(Ns):
+        for j in range(ng):
             sum_n += nj[j]
             sum_nh += nj[j] * hRT[j]
             sum_nf += nj[j] * fj[j]
             sum_nhf += nj[j] * hRT[j] * fj[j]
             ccoef += nj[j] * (cpR[j] + hRT[j] * hRT[j])
+        # condensed enthalpy (energy balance) and heat capacity (energy diagonal)
+        sum_nh_cond = 0.0
+        for c in range(Nc):
+            if included[c]:
+                jc = ng + c
+                sum_nh_cond += nj[jc] * hRT[jc]
+                ccoef += nj[jc] * cpR[jc]
 
-        # element-balance rows
+        # element-balance rows (gas coefficients; condensed columns; total-abundance rhs)
         for i in range(Ne):
             bi = 0.0
             bih = 0.0
             rj = 0.0
             for k in range(Ne):
                 s = 0.0
-                for j in range(Ns):
+                for j in range(ng):
                     s += Af[i, j] * Af[k, j] * nj[j]
                 M[i, k] = s
-            for j in range(Ns):
+            for j in range(ng):
                 aij_nj = Af[i, j] * nj[j]
                 bi += aij_nj
                 bih += aij_nj * hRT[j]
                 rj += aij_nj * fj[j]
             M[i, Ne] = bi
             M[i, Ne + 1] = bih
-            rhs[i] = b0[i] - bi + rj
+            b_cond = 0.0
+            for c in range(Nc):
+                if included[c]:
+                    a_ic = Af[i, ng + c]
+                    M[i, Ne + 2 + c] = a_ic
+                    b_cond += a_ic * nj[ng + c]
+            rhs[i] = b0[i] - (bi + b_cond) + rj
 
-        # total-mole row
+        # total-mole row (gas only)
         for k in range(Ne):
             bk = 0.0
             bkh = 0.0
-            for j in range(Ns):
+            for j in range(ng):
                 bk += Af[k, j] * nj[j]
                 bkh += Af[k, j] * nj[j] * hRT[j]
             M[Ne, k] = bk
@@ -320,13 +345,27 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
         M[Ne, Ne + 1] = sum_nh
         rhs[Ne] = ntot - sum_n + sum_nf
 
-        # energy (HP) row
+        # energy (HP) row: total enthalpy = gas + condensed
         M[Ne + 1, Ne] = sum_nh
         M[Ne + 1, Ne + 1] = ccoef
-        rhs[Ne + 1] = hhat_target - sum_nh + sum_nhf
+        rhs[Ne + 1] = hhat_target - (sum_nh + sum_nh_cond) + sum_nhf
+        for c in range(Nc):
+            if included[c]:
+                M[Ne + 1, Ne + 2 + c] = hRT[ng + c]
 
-        # decouple every dropped element: its balance row is null (no products), so
-        # replace it with the identity (d(pi_i) = 0, no effect on the present block)
+        # condensed equilibrium rows: g_c/RT = sum_i a_ic pi_i (- h_c/RT dln_T)
+        for c in range(Nc):
+            r = Ne + 2 + c
+            if included[c]:
+                for i in range(Ne):
+                    M[r, i] = Af[i, ng + c]
+                M[r, Ne + 1] = hRT[ng + c]
+                rhs[r] = gRT[ng + c]
+            else:
+                M[r, r] = 1.0
+                rhs[r] = 0.0
+
+        # decouple every dropped element (its balance row is null -> identity)
         for i in range(Ne):
             if not active_el[i]:
                 for k in range(dim):
@@ -341,32 +380,68 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
         except Exception:
             singular = True
         if singular:
-            # The warm seed made this iterate's reduced matrix singular.  Re-seed to
-            # the uniform cold guess (well-conditioned for any present element) and
-            # retry; capped so a genuinely rank-deficient system (a truly absent
-            # element) still terminates rather than looping.
+            # A warm seed made the reduced matrix singular.  Re-seed to the uniform cold guess
+            # (gas) with every condensed phase dropped, and retry; capped so a genuinely
+            # rank-deficient system still terminates.
             if n_reset >= 2:
                 break
             n_reset += 1
-            for j in range(Ns):
+            for j in range(ng):
                 nj[j] = uniform if active_sp[j] else 0.0
-            ntot = n_active_sp * uniform
+            for c in range(Nc):
+                nj[ng + c] = 0.0
+                included[c] = False
+            ntot = n_active_gas * uniform
             T = T_init
             continue
+
         dln_n = x[Ne]
         dln_T = x[Ne + 1]
 
-        conv_species = 0.0
+        # Admit any excluded condensed phase whose formation would lower the Gibbs energy
+        # (``g_c/RT < sum_i a_ic pi_i``), BEFORE taking the gas step.  With a carbon-rich mixture
+        # the gas alone cannot hold the excess element and the gas-only step is infeasible, so the
+        # phase must enter first; seed it to absorb about half of its most-constraining element,
+        # then rebuild the reduced system with the new phase set.
+        admitted = False
+        for c in range(Nc):
+            if (not included[c]) and active_sp[ng + c]:
+                drive = gRT[ng + c]
+                for i in range(Ne):
+                    drive -= Af[i, ng + c] * x[i]
+                if drive < -CONDENSED_INCLUDE_TOL:
+                    seed = 0.0
+                    for i in range(Ne):
+                        if Af[i, ng + c] > 0.0:
+                            s = 0.5 * b0[i] / Af[i, ng + c]
+                            if seed == 0.0 or s < seed:
+                                seed = s
+                    included[c] = True
+                    nj[ng + c] = seed if seed > 0.0 else 1.0e-6
+                    admitted = True
+        if admitted:
+            continue
+
+        # gas corrections (condensed dln_nj stay 0 -> inert in the CEA damping factor)
+        conv = 0.0
         for j in range(Ns):
+            dln_nj[j] = 0.0
+        for j in range(ng):
             acc = dln_n + hRT[j] * dln_T - fj[j]
             for i in range(Ne):
                 acc += Af[i, j] * x[i]
             dln_nj[j] = acc
             w = (nj[j] / ntot) * abs(acc)
-            if w > conv_species:
-                conv_species = w
+            if w > conv:
+                conv = w
+        # condensed mole-change contributes to the convergence metric
+        for c in range(Nc):
+            if included[c] and nj[ng + c] > 0.0:
+                w = abs(x[Ne + 2 + c]) / nj[ng + c]
+                if w > conv:
+                    conv = w
 
-        if conv_species < TOL and abs(dln_T) < TOL and abs(dln_n) < TOL:
+        if conv < TOL and abs(dln_T) < TOL and abs(dln_n) < TOL:
             for a in range(dim):
                 for b in range(dim):
                     Mout[a, b] = M[a, b]
@@ -374,10 +449,17 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
             break
 
         lam = _cea_lambda(nj, ntot, dln_nj, dln_n, dln_T)
-        for j in range(Ns):
+        for j in range(ng):
             nj[j] = nj[j] * np.exp(lam * dln_nj[j])
         ntot = ntot * np.exp(lam * dln_n)
         T = T * np.exp(lam * dln_T)
+        # condensed moles update directly; a phase that goes non-positive is dropped
+        for c in range(Nc):
+            if included[c]:
+                nj[ng + c] += lam * x[Ne + 2 + c]
+                if nj[ng + c] <= 0.0:
+                    nj[ng + c] = 0.0
+                    included[c] = False
 
     if flag == 0:
         for a in range(dim):
@@ -385,7 +467,7 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
                 Mout[a, b] = M[a, b]
 
     ntot = 0.0
-    for j in range(Ns):
+    for j in range(ng):
         ntot += nj[j]
     return T, ntot, flag, nit
 
@@ -394,11 +476,18 @@ def equilibrate_hp(coeffs, Tint, Af, b0, h_target, p, p_ref, T_init, nj, Mout):
 # Complex-step seed via the implicit function theorem
 # ---------------------------------------------------------------------------
 @njit(cache=True)
-def _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0_imag, h_imag, p_r, p_imag):
-    """Imaginary parts ``(dT, dnj[Ns], dntot)`` of the converged equilibrium state."""
+def _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0_imag, h_imag, p_r, p_imag, ng):
+    """Imaginary parts ``(dT, dnj[Ns], dntot)`` of the converged equilibrium state.
+
+    ``M`` is the augmented ``(Ne+2+Nc)`` reduced matrix; the pressure terms involve gas
+    species only (a condensed phase carries no ``ln p`` in its potential), and the condensed
+    equilibrium rows have no direct ``(h, p, b0)`` dependence so their RHS is zero.  Gas
+    sensitivities follow the log relation; condensed mole sensitivities are read off directly.
+    """
     Ne = Af.shape[0]
     Ns = Af.shape[1]
-    dim = Ne + 2
+    Nc = Ns - ng
+    dim = Ne + 2 + Nc
 
     cpR = np.empty(Ns)
     hRT = np.empty(Ns)
@@ -406,16 +495,16 @@ def _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0_imag, h_imag, p_r, p_
     species_thermo9(coeffs, Tint, T_r, cpR, hRT, gRT)
 
     c = np.zeros(dim)
-    sum_nh = 0.0
-    for j in range(Ns):
-        sum_nh += nj_r[j] * hRT[j]
+    sum_nh_gas = 0.0
+    for j in range(ng):
+        sum_nh_gas += nj_r[j] * hRT[j]
     for i in range(Ne):
         bi = 0.0
-        for j in range(Ns):
+        for j in range(ng):
             bi += Af[i, j] * nj_r[j]
         c[i] = b0_imag[i] + (bi / p_r) * p_imag
     c[Ne] = (ntot_r / p_r) * p_imag
-    c[Ne + 1] = h_imag / (RU * T_r) + (sum_nh / p_r) * p_imag
+    c[Ne + 1] = h_imag / (RU * T_r) + (sum_nh_gas / p_r) * p_imag
 
     dy = np.linalg.solve(M, c)
 
@@ -423,15 +512,17 @@ def _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0_imag, h_imag, p_r, p_
     dT = T_r * dy[Ne + 1]
     dntot = ntot_r * dy[Ne]
     dnj = np.empty(Ns)
-    for j in range(Ns):
+    for j in range(ng):
         dln = dy[Ne] + hRT[j] * dy[Ne + 1] - dlnp
         for i in range(Ne):
             dln += Af[i, j] * dy[i]
         dnj[j] = nj_r[j] * dln
+    for cc in range(Nc):
+        dnj[ng + cc] = dy[Ne + 2 + cc]
     return dT, dnj, dntot
 
 
-def _attach_equil_imag(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
+def _attach_equil_imag(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p, ng):
     """Return ``(T, nj, ntot)`` with IFT-spliced imaginary parts (dtype-dispatched).
 
     Pure-Python base path (used if ever called outside numba); the ``@overload``
@@ -453,6 +544,7 @@ def _attach_equil_imag(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
         float(np.imag(h)),
         float(np.real(p)),
         float(np.imag(p)),
+        ng,
     )
     T = complex(T_r, dT)
     ntot = complex(ntot_r, dntot)
@@ -463,14 +555,14 @@ def _attach_equil_imag(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
 
 
 @overload(_attach_equil_imag, inline="always")
-def _attach_equil_imag_ovl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
+def _attach_equil_imag_ovl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p, ng):
     b0_complex = getattr(b0, "dtype", None) is not None and isinstance(b0.dtype, types.Complex)
     any_complex = b0_complex or isinstance(h, types.Complex) or isinstance(p, types.Complex)
 
     if any_complex:
 
-        def impl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
-            dT, dnj, dntot = _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0.imag, h.imag, p.real, p.imag)
+        def impl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p, ng):
+            dT, dnj, dntot = _equil_sens(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0.imag, h.imag, p.real, p.imag, ng)
             Ns = nj_r.shape[0]
             nj = np.empty(Ns, dtype=np.complex128)
             for j in range(Ns):
@@ -479,36 +571,38 @@ def _attach_equil_imag_ovl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
 
         return impl
 
-    def impl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p):
+    def impl(T_r, nj_r, ntot_r, M, Af, coeffs, Tint, b0, h, p, ng):
         return T_r, nj_r, ntot_r
 
     return impl
 
 
 @njit(cache=True)
-def equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, nj_init):
+def equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, ng, nj_init):
     """Complex-step-capable HP equilibrium: real solve + IFT-spliced imaginary part.
 
     For the complex path **all** of ``(b0, h, p, nj_init)`` must be complex128
     (the consumer recovers a whole complex column), even where the imaginary part
-    is zero.  Returns ``(T, nj, ntot, flag, nit)``.
+    is zero.  ``ng`` is the number of gaseous species (``ng..Ns-1`` are condensed).
+    Returns ``(T, nj, ntot, flag, nit)``.
     """
     Ne = Af.shape[0]
-    dim = Ne + 2
+    Ns = Af.shape[1]
+    dim = Ne + 2 + (Ns - ng)
     nj = nj_init.real.copy()
     b0r = b0.real.copy()
     M = np.zeros((dim, dim))
-    T_r, ntot_r, flag, nit = equilibrate_hp(coeffs, Tint, Af, b0r, h.real, p.real, p_ref, float(T_init), nj, M)
-    T, njc, ntot = _attach_equil_imag(T_r, nj, ntot_r, M, Af, coeffs, Tint, b0, h, p)
+    T_r, ntot_r, flag, nit = equilibrate_hp(coeffs, Tint, Af, b0r, h.real, p.real, p_ref, float(T_init), ng, nj, M)
+    T, njc, ntot = _attach_equil_imag(T_r, nj, ntot_r, M, Af, coeffs, Tint, b0, h, p, ng)
     return T, njc, ntot, flag, nit
 
 
 @njit(cache=True)
-def equil_state_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, nj_init):
+def equil_state_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, ng, nj_init):
     """HP equilibrium reduced to ``(T, rho, c_eq, ntot, flag, nit)``; dtype-generic."""
-    T, nj, ntot, flag, nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, nj_init)
+    T, nj, ntot, flag, nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, ng, nj_init)
     rho = p / (RU * ntot * T)
-    c_eq = equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p)
+    c_eq = equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p, ng)
     return T, rho, c_eq, ntot, flag, nit
 
 
@@ -516,17 +610,19 @@ def equil_state_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, nj_init):
 # Fixed-temperature (TP) equilibrium
 # ---------------------------------------------------------------------------
 @njit(cache=True)
-def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
-    """Solve gas-phase TP equilibrium at fixed ``T`` in place; return ``(ntot, flag, nit)``.
+def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, ng, nj):
+    """Solve TP equilibrium (gas + condensed) at fixed ``T`` in place; return ``(ntot, flag, nit)``.
 
-    The fixed-temperature companion of :func:`equilibrate_hp`: the reduced CEA system drops
-    the energy row and the ``d ln T`` unknown, leaving the element-potential + total-mole
-    block at the prescribed ``T``.  ``nj`` is in/out (warm start -> converged moles
-    [mol/kg]).  Real arithmetic (the public TP path is not complex-stepped).
+    The fixed-temperature companion of :func:`equilibrate_hp`: the reduced CEA system drops the
+    energy row and the ``d ln T`` unknown, leaving the element-potential + total-mole block plus
+    one direct mole unknown per included condensed phase (``dim = Ne+1+Nc``).  Species ``0..ng-1``
+    are gaseous; ``ng..Ns-1`` are pure condensed phases at unit activity.  ``ntot`` is the gas
+    mole total.  Real arithmetic (the public TP path is not complex-stepped).
     """
     Ne = Af.shape[0]
     Ns = Af.shape[1]
-    dim = Ne + 1
+    Nc = Ns - ng
+    dim = Ne + 1 + Nc
 
     cpR = np.empty(Ns)
     hRT = np.empty(Ns)
@@ -536,6 +632,7 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
 
     M = np.zeros((dim, dim))
     rhs = np.zeros(dim)
+    included = np.zeros(Nc, dtype=np.bool_)
 
     # element / species compaction on the real abundance (mirrors equilibrate_hp)
     bscale = 0.0
@@ -546,7 +643,7 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
     for i in range(Ne):
         active_el[i] = b0[i] > 1.0e-13 * bscale
     active_sp = np.empty(Ns, dtype=np.bool_)
-    n_active_sp = 0
+    n_active_gas = 0
     for j in range(Ns):
         ok = True
         for i in range(Ne):
@@ -554,20 +651,30 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
                 ok = False
                 break
         active_sp[j] = ok
-        if ok:
-            n_active_sp += 1
+        if ok and j < ng:
+            n_active_gas += 1
     for j in range(Ns):
         if not active_sp[j]:
             nj[j] = 0.0
+    for c in range(Nc):
+        if nj[ng + c] > 0.0 and active_sp[ng + c]:
+            included[c] = True
+        else:
+            nj[ng + c] = 0.0
+            included[c] = False
 
     ntot = 0.0
-    for j in range(Ns):
+    for j in range(ng):
         ntot += nj[j]
 
     sb0 = 0.0
     for i in range(Ne):
         sb0 += b0[i]
-    uniform = sb0 / (2.0 * n_active_sp)
+    uniform = sb0 / (2.0 * n_active_gas)
+    if ntot <= 0.0:
+        for j in range(ng):
+            nj[j] = uniform if active_sp[j] else 0.0
+        ntot = n_active_gas * uniform
 
     flag = 0
     nit = 0
@@ -576,9 +683,12 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
         nit = it + 1
         species_thermo9(coeffs, Tint, T, cpR, hRT, gRT)
         lnp = np.log(p / p_ref)
-        for j in range(Ns):
+        for j in range(ng):
             if active_sp[j]:
-                fj[j] = gRT[j] + np.log(nj[j] / ntot) + lnp
+                xj = nj[j] / ntot
+                if xj < MOLE_FRAC_FLOOR:
+                    xj = MOLE_FRAC_FLOOR
+                fj[j] = gRT[j] + np.log(xj) + lnp
             else:
                 fj[j] = 0.0
 
@@ -589,34 +699,51 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
 
         sum_n = 0.0
         sum_nf = 0.0
-        for j in range(Ns):
+        for j in range(ng):
             sum_n += nj[j]
             sum_nf += nj[j] * fj[j]
 
-        # element-balance rows (no enthalpy column, no energy row)
+        # element-balance rows (gas coefficients; condensed columns; total-abundance rhs)
         for i in range(Ne):
             bi = 0.0
             rj = 0.0
             for k in range(Ne):
                 s = 0.0
-                for j in range(Ns):
+                for j in range(ng):
                     s += Af[i, j] * Af[k, j] * nj[j]
                 M[i, k] = s
-            for j in range(Ns):
+            for j in range(ng):
                 aij_nj = Af[i, j] * nj[j]
                 bi += aij_nj
                 rj += aij_nj * fj[j]
             M[i, Ne] = bi
-            rhs[i] = b0[i] - bi + rj
+            b_cond = 0.0
+            for c in range(Nc):
+                if included[c]:
+                    a_ic = Af[i, ng + c]
+                    M[i, Ne + 1 + c] = a_ic
+                    b_cond += a_ic * nj[ng + c]
+            rhs[i] = b0[i] - (bi + b_cond) + rj
 
-        # total-mole row
+        # total-mole row (gas only)
         for k in range(Ne):
             bk = 0.0
-            for j in range(Ns):
+            for j in range(ng):
                 bk += Af[k, j] * nj[j]
             M[Ne, k] = bk
         M[Ne, Ne] = sum_n - ntot
         rhs[Ne] = ntot - sum_n + sum_nf
+
+        # condensed equilibrium rows: g_c/RT = sum_i a_ic pi_i
+        for c in range(Nc):
+            r = Ne + 1 + c
+            if included[c]:
+                for i in range(Ne):
+                    M[r, i] = Af[i, ng + c]
+                rhs[r] = gRT[ng + c]
+            else:
+                M[r, r] = 1.0
+                rhs[r] = 0.0
 
         for i in range(Ne):
             if not active_el[i]:
@@ -635,33 +762,69 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
             if n_reset >= 2:
                 break
             n_reset += 1
-            for j in range(Ns):
+            for j in range(ng):
                 nj[j] = uniform if active_sp[j] else 0.0
-            ntot = n_active_sp * uniform
+            for c in range(Nc):
+                nj[ng + c] = 0.0
+                included[c] = False
+            ntot = n_active_gas * uniform
             continue
         dln_n = x[Ne]
 
-        conv_species = 0.0
+        # Admit an excluded condensed phase that wants to form before stepping (see equilibrate_hp).
+        admitted = False
+        for c in range(Nc):
+            if (not included[c]) and active_sp[ng + c]:
+                drive = gRT[ng + c]
+                for i in range(Ne):
+                    drive -= Af[i, ng + c] * x[i]
+                if drive < -CONDENSED_INCLUDE_TOL:
+                    seed = 0.0
+                    for i in range(Ne):
+                        if Af[i, ng + c] > 0.0:
+                            s = 0.5 * b0[i] / Af[i, ng + c]
+                            if seed == 0.0 or s < seed:
+                                seed = s
+                    included[c] = True
+                    nj[ng + c] = seed if seed > 0.0 else 1.0e-6
+                    admitted = True
+        if admitted:
+            continue
+
+        conv = 0.0
         for j in range(Ns):
+            dln_nj[j] = 0.0
+        for j in range(ng):
             acc = dln_n - fj[j]
             for i in range(Ne):
                 acc += Af[i, j] * x[i]
             dln_nj[j] = acc
             w = (nj[j] / ntot) * abs(acc)
-            if w > conv_species:
-                conv_species = w
+            if w > conv:
+                conv = w
+        for c in range(Nc):
+            if included[c] and nj[ng + c] > 0.0:
+                w = abs(x[Ne + 1 + c]) / nj[ng + c]
+                if w > conv:
+                    conv = w
 
-        if conv_species < TOL and abs(dln_n) < TOL:
+        if conv < TOL and abs(dln_n) < TOL:
             flag = 1
             break
 
         lam = _cea_lambda(nj, ntot, dln_nj, dln_n, 0.0)
-        for j in range(Ns):
+        for j in range(ng):
             nj[j] = nj[j] * np.exp(lam * dln_nj[j])
         ntot = ntot * np.exp(lam * dln_n)
+        for c in range(Nc):
+            if included[c]:
+                nj[ng + c] += lam * x[Ne + 1 + c]
+                if nj[ng + c] <= 0.0:
+                    nj[ng + c] = 0.0
+                    included[c] = False
 
     ntot = 0.0
-    for j in range(Ns):
+    for j in range(ng):
         ntot += nj[j]
     return ntot, flag, nit
 
@@ -670,8 +833,14 @@ def equilibrate_tp(coeffs, Tint, Af, b0, T, p, p_ref, nj):
 # Sound speeds
 # ---------------------------------------------------------------------------
 @njit(cache=True)
-def equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p):
-    """Equilibrium speed of sound [m/s] from the converged TP-sensitivity block."""
+def equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p, ng):
+    """Equilibrium speed of sound [m/s] from the converged TP-sensitivity block.
+
+    Species ``0..ng-1`` are gaseous; any condensed species (``ng..Ns-1``) are treated as
+    frozen at acoustic frequency (a solid does not re-form on the wave time scale), so the
+    re-equilibration sensitivity spans the gas only, while the condensed mass still loads the
+    density through the gas ``ntot``.  This is an approximation for a two-phase sound speed.
+    """
     Ne = Af.shape[0]
     Ns = Af.shape[1]
     dt = nj.dtype
@@ -689,12 +858,12 @@ def equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p):
     for i in range(Ne):
         for k in range(Ne):
             s = nj[0] * 0.0
-            for j in range(Ns):
+            for j in range(ng):
                 s += Af[i, j] * Af[k, j] * nj[j]
             Msens[i, k] = s
         bi = nj[0] * 0.0
         bih = nj[0] * 0.0
-        for j in range(Ns):
+        for j in range(ng):
             bi += Af[i, j] * nj[j]
             bih += Af[i, j] * nj[j] * hRT[j]
         Msens[i, Ne] = bi
@@ -703,24 +872,23 @@ def equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p):
         rhsP[i] = bi
     Msens[Ne, Ne] = nj[0] * 0.0
     sum_nh = nj[0] * 0.0
-    for j in range(Ns):
+    for j in range(ng):
         sum_nh += nj[j] * hRT[j]
     rhsT[Ne] = -sum_nh
     rhsP[Ne] = ntot
 
-    # Decouple elements with no appreciable products (an inert with zero abundance,
-    # e.g. argon on a non-argon feed): their sensitivity row is null -> identity it,
-    # mirroring the HP solve's keep_el compaction so the block stays non-singular.
-    # Located on the real moles (complex-step safe).
+    # Decouple elements with no appreciable gas products (an inert with zero abundance, or an
+    # element locked entirely in a frozen condensed phase): their sensitivity row is null ->
+    # identity it, mirroring the HP compaction so the block stays non-singular.  Real moles.
     maxn = 0.0
-    for j in range(Ns):
+    for j in range(ng):
         nr = nj[j].real
         if nr > maxn:
             maxn = nr
     floor = 1.0e-30 * maxn
     for i in range(Ne):
         active = False
-        for j in range(Ns):
+        for j in range(ng):
             if Af[i, j] != 0.0 and nj[j].real > floor:
                 active = True
                 break
@@ -741,7 +909,7 @@ def equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p):
     dVdP = -1.0 + dlnn_dlnP
 
     cp_eq = nj[0] * 0.0
-    for j in range(Ns):
+    for j in range(ng):
         dln_nj_dlnT = xT[Ne] + hRT[j]
         for i in range(Ne):
             dln_nj_dlnT += Af[i, j] * xT[i]

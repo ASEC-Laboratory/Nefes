@@ -18,7 +18,9 @@ Two per-edge models share one library + stream set:
   streams.  No element inversion, no "element-distinguishable" restriction, so the
   unburnt composition can be any mixture of arbitrarily many co-injected fuels.
 * ``EQ_KERNEL`` -- the burnt side: HP chemical equilibrium of the elemental
-  composition ``Z = xi @ Zfeed`` over the full library.
+  composition ``Z = xi @ Zfeed`` over the product species -- gaseous first, then any
+  high-temperature condensed products (e.g. graphite), which the kernel treats as pure
+  phases at unit activity.
 
 The kinetic-energy coupling is exact: the closures recover the static state at
 ``h = h_t - u^2/2``.  Because static ``p`` is the band-1 unknown, ``G(h) = h_t -
@@ -32,10 +34,13 @@ caps or floors.
 
     [ p_ref, T_init, T_init_frozen,
       coeffs(Ns*MI*9), Tint(Ns*(MI-1)), A(Ne*Ns), element_weights(Ne),
-      Zfeed(K*Ne), Nfeed(K*Nf), feed_coeffs(Nf*MI*9), feed_Tint(Nf*(MI-1)) ]
+      Zfeed(K*Ne), Nfeed(K*Nf), feed_coeffs(Nf*MI*9), feed_Tint(Nf*(MI-1)),
+      prod_A(Ne*Np), prod_coeffs(Np*MI*9), prod_Tint(Np*(MI-1)) ]
 
-``ti = [Ne, Ns, MI, MI-1, Nf, K]`` (``MI`` = max NASA intervals; ``Nf`` = feed-
-species union; ``K`` = number of feed streams = transported mixture fractions).
+``ti = [Ne, Ns, MI, MI-1, Nf, K, Np, Ng]`` (``MI`` = max NASA intervals; ``Nf`` = feed-
+species union; ``K`` = number of feed streams = transported mixture fractions; ``Np`` =
+number of equilibrium product species, ordered gas-then-condensed; ``Ng`` = the gas count,
+so products ``Ng..Np-1`` are the condensed phases).
 """
 
 import numpy as np
@@ -84,12 +89,17 @@ def pack_equilibrium(lib, stream_Y, T_init=3000.0, T_init_frozen=300.0):
     feed_coeffs = np.ascontiguousarray(coeffs[feed_idx], dtype=np.float64)  # (Nf, MI, 9)
     feed_Tint = np.ascontiguousarray(Tint[feed_idx], dtype=np.float64)  # (Nf, MI-1)
 
-    # Product subset for the HP-equilibrium (burnt) kernel: gas-phase species only.  Condensed
-    # feed species (e.g. liquid fuel) stay in the full arrays -- so the frozen reconstruction and
-    # the feed enthalpy datum can use them -- but never appear as equilibrium products (their
-    # polynomials are invalid at flame temperature).  An all-gas library makes this the full set.
+    # Product subset for the HP-equilibrium (burnt) kernel.  Gaseous products come first, then
+    # any condensed products (a high-temperature phase such as graphite), so the kernel splits
+    # them by a single count ``Ng``: gas species carry the mole-fraction/pressure potential
+    # while condensed products are pure phases at unit activity.  Condensed *feed* species (e.g.
+    # liquid fuel) stay in the full arrays for the frozen reconstruction but are not products.
     prod_mask = np.asarray(getattr(lib, "product_mask", np.ones(Ns, bool)), dtype=bool)
-    prod_idx = np.nonzero(prod_mask)[0].astype(np.int64)
+    phase = np.asarray(getattr(lib, "species_phase", np.zeros(Ns, dtype=np.int64)), dtype=np.int64)
+    gas_prod = [j for j in range(Ns) if prod_mask[j] and phase[j] == 0]
+    cond_prod = [j for j in range(Ns) if prod_mask[j] and phase[j] != 0]
+    prod_idx = np.array(gas_prod + cond_prod, dtype=np.int64)
+    Ng = len(gas_prod)
     Np = prod_idx.shape[0]
     prod_A = np.ascontiguousarray(A[:, prod_idx], dtype=np.float64)  # (Ne, Np)
     prod_coeffs = np.ascontiguousarray(coeffs[prod_idx], dtype=np.float64)  # (Np, MI, 9)
@@ -112,16 +122,17 @@ def pack_equilibrium(lib, stream_Y, T_init=3000.0, T_init_frozen=300.0):
             prod_Tint.ravel(),
         ]
     ).astype(np.float64)
-    ti = np.array([Ne, Ns, MI, MIm1, Nf, K, Np], dtype=np.int64)
+    ti = np.array([Ne, Ns, MI, MIm1, Nf, K, Np, Ng], dtype=np.int64)
     return np.ascontiguousarray(tf), np.ascontiguousarray(ti)
 
 
 @njit(cache=True)
 def _product_blocks(tf, ti):
-    """Slice the gas-phase product subset ``(prod_coeffs, prod_Tint, prod_A, ew)`` from a bundle.
+    """Slice the product subset ``(prod_coeffs, prod_Tint, prod_A, ew)`` from a bundle.
 
-    The burnt HP-equilibrium kernel solves over these (Np) species, not the full library, so a
-    condensed feed species never enters the product set.
+    The burnt HP-equilibrium kernel solves over these ``Np`` product species (gaseous first,
+    then condensed products; ``ti[7] = Ng`` is the gas count), not the full library -- so a
+    condensed *feed* species never enters the product set.
     """
     Ne = ti[0]
     Ns = ti[1]
@@ -153,6 +164,7 @@ def eq_kernel_state_from_Z(tf, ti, Z_el, h, p):
     """
     Ne = ti[0]
     Np = ti[6]
+    ng = ti[7]
     p_ref = tf[0]
     T_init = tf[1]
     coeffs, Tint, Af, ew = _product_blocks(tf, ti)
@@ -160,10 +172,11 @@ def eq_kernel_state_from_Z(tf, ti, Z_el, h, p):
     sb = 0.0
     for i in range(Ne):
         sb += b0[i].real
-    guess = sb / (2.0 * Np)
-    nj_init = np.full(Np, guess)
+    nj_init = np.full(Np, sb / (2.0 * ng))  # gas products seeded uniformly
+    for j in range(ng, Np):
+        nj_init[j] = 0.0  # condensed products start absent (admitted by the phase test)
     # flag/nit are the solver's convergence diagnostics; unused on this path
-    T, rho, c, ntot, _flag, _nit = equil_state_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, nj_init)
+    T, rho, c, ntot, _flag, _nit = equil_state_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_init, ng, nj_init)
     return T, rho, c, 1.0 / ntot
 
 
@@ -184,16 +197,19 @@ def eq_kernel_state_from_Z_warm(tf, ti, Z_el, h, p, cache):
     """
     Ne = ti[0]
     Np = ti[6]
+    ng = ti[7]
     p_ref = tf[0]
     T_init = tf[1]
     coeffs, Tint, Af, ew = _product_blocks(tf, ti)
     b0 = Z_el / ew
 
-    # Default: the robust uniform composition guess at the cold T_init.
+    # Default: gas products at the robust uniform guess, condensed products absent.
     sb = 0.0
     for i in range(Ne):
         sb += b0[i].real
-    nj_init = np.full(Np, sb / (2.0 * Np))
+    nj_init = np.full(Np, sb / (2.0 * ng))
+    for j in range(ng, Np):
+        nj_init[j] = 0.0
     T_start = T_init
     has_cache = cache.shape[0] == Np + 1
     if has_cache and cache[Np] > 0.0:  # a populated cache: warm-start composition *and* temperature
@@ -203,9 +219,9 @@ def eq_kernel_state_from_Z_warm(tf, ti, Z_el, h, p, cache):
                 nj_init[j] = cache[j]  # exactly-zero (underflowed) species keep the uniform guess
 
     # flag/nit are the solver's convergence diagnostics; unused on this path
-    T, nj, ntot, _flag, _nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_start, nj_init)
+    T, nj, ntot, _flag, _nit = equilibrate_hp_cs(coeffs, Tint, Af, b0, h, p, p_ref, T_start, ng, nj_init)
     rho = p / (RU * ntot * T)
-    c = equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p)
+    c = equilibrium_sound_speed(coeffs, Tint, Af, nj, ntot, T, p, ng)
     if has_cache:  # store the converged (real) composition + temperature for the next solve
         for j in range(Np):
             cache[j] = nj[j].real
