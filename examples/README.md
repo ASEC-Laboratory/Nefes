@@ -34,6 +34,15 @@ Each notebook opens with its network topology drawn by the **Nemo** UI, then bui
   in ~13 Newton steps, fully subsonic (max `M` ≈ 0.65). Tabulates the converged states,
   checks the global **mass balance**, draws the network as a **Sankey**, and runs the
   **multiport scattering** perturbation layer with per-terminal source attribution.
+- **`can_annular_combustor.ipynb`** (+ **`can_annular_combustor.yaml`**) — the **reacting
+  showcase**: a whole can-annular combustor with its **secondary-air system**. One plenum
+  distributes compressor-discharge air to a **ring of eight reacting Jet-A(L) cans** (dome
+  swirl air, dilution and cooling along each liner) plus a turbine-cooling **bypass**; the
+  cans are cross-linked by flame-tube **interconnectors** (a **non-tree** ring) and collected
+  through a **choked NGV** throat that sets the combustor pressure. 63 elements / 77 edges,
+  fully subsonic. Shows the air budget, an axial profile through one can, the choked-throat
+  pressure lever, **staged fuelling** driving emergent interconnector cross-flow, and
+  turbine-inlet-temperature control. `plotly`, Nefes theme.
 - **`huge_network_stress.ipynb`** — **generates** a 1000+ element network programmatically
   and solves its steady mean flow as a scale stress test, then extracts its end-to-end
   perturbation behaviour.

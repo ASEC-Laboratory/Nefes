@@ -137,6 +137,7 @@ def plot_network_topology(
     title=None,
     height=None,
     width=None,
+    positions=None,
 ):
     """Plot the element/edge topology of a :class:`~nefes.shell.network.Network`.
 
@@ -175,6 +176,11 @@ def plot_network_topology(
         field when ``color_by`` is set.
     height, width : int, optional
         Figure size in pixels.
+    positions : mapping or array-like, optional
+        Explicit node coordinates, overriding the automatic layered layout.  Either a
+        mapping ``{element_index: (x, y)}`` or an ``(n, 2)`` array of ``(x, y)`` rows in
+        element order.  Use it to draw a network in its physical arrangement (a ring of
+        cans, an annulus) instead of the default left-to-right layering.
 
     Returns
     -------
@@ -184,7 +190,19 @@ def plot_network_topology(
     edges = network._edges  # list of (tail, head, area)
     edge_names = network._edge_names
     n = len(elements)
-    x, y = _positions(n, [(t, h) for (t, h, _a) in edges])
+    if positions is None:
+        x, y = _positions(n, [(t, h) for (t, h, _a) in edges])
+    else:
+        if isinstance(positions, dict):
+            missing = [i for i in range(n) if i not in positions]
+            if missing:
+                raise ValueError(f"positions is missing coordinates for element indices {missing}")
+            pts = np.asarray([positions[i] for i in range(n)], dtype=float)
+        else:
+            pts = np.asarray(positions, dtype=float)
+        if pts.shape != (n, 2):
+            raise ValueError(f"positions must have shape ({n}, 2) for {n} elements, got {pts.shape}")
+        x, y = pts[:, 0], pts[:, 1]
 
     # Every overlay field but ``area`` (which lives on the network) needs a converged solution.
     if any(f and f != "area" for f in (color_by, width_by)) and solution is None:

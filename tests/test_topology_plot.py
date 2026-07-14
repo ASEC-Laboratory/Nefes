@@ -58,6 +58,48 @@ def test_positions_spread_within_a_layer():
     assert pytest.approx(y[2] + y[3], abs=1e-12) == 0.0  # centered
 
 
+def _node_xy(fig):
+    """Collect (x, y) of every node marker across the per-role scatter traces."""
+    pts = {}
+    for tr in fig.data:
+        if tr.name in ("edges", None) or tr.text is None:
+            continue
+        for label, xi, yi in zip(tr.text, tr.x, tr.y):
+            if label and label[0].isdigit() and ":" in label:
+                pts[int(label.split(":")[0])] = (xi, yi)
+    return pts
+
+
+def test_positions_override_layout_as_dict():
+    net = _branched_net()
+    n = len(net._elements)
+    given = {i: (2.0 * i, -3.0 * i) for i in range(n)}
+    fig = plot_network_topology(net, positions=given)
+    got = _node_xy(fig)
+    for i in range(n):
+        assert got[i] == pytest.approx(given[i])
+
+
+def test_positions_override_layout_as_array():
+    net = _linear_net()
+    pts = [(0.0, 0.0), (1.0, 5.0), (2.0, 0.0)]
+    fig = plot_network_topology(net, positions=pts)
+    got = _node_xy(fig)
+    assert got[1] == pytest.approx((1.0, 5.0))
+
+
+def test_positions_wrong_shape_rejected():
+    net = _linear_net()  # 3 elements
+    with pytest.raises(ValueError, match="shape"):
+        plot_network_topology(net, positions=[(0.0, 0.0), (1.0, 0.0)])
+
+
+def test_positions_dict_missing_index_rejected():
+    net = _linear_net()  # elements 0, 1, 2
+    with pytest.raises(ValueError, match="missing"):
+        plot_network_topology(net, positions={0: (0.0, 0.0), 1: (1.0, 0.0)})
+
+
 def test_linear_figure_has_nodes_and_edge_arrows():
     fig = plot_network_topology(_linear_net())
     # one node trace per role: inlet, interior (duct), outlet -> 3 roles + 1 edge-midpoint trace
