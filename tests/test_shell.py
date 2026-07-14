@@ -340,6 +340,53 @@ def test_edge_between_rejects_ambiguous_pair():
         net.edge_between(a, b)
 
 
+def _splitting_network():
+    """inlet -> splitter -> two branches -> two outlets, with named elements."""
+    net = Network(perfect_gas(R_AIR, GAMMA))
+    a = net.add(cat.mass_flow_inlet(5.0, 300.0, name="in"))
+    s = net.add(cat.splitter(name="split"))
+    b = net.add(cat.duct(0.5, name="d1"))
+    c = net.add(cat.duct(0.5, name="d2"))
+    o1 = net.add(cat.pressure_outlet(101325.0, name="out1"))
+    o2 = net.add(cat.pressure_outlet(101325.0, name="out2"))
+    e_in = net.connect(a, s, 0.05)
+    e_b = net.connect(s, b, 0.03)
+    e_c = net.connect(s, c, 0.03)
+    net.connect(b, o1, 0.03)
+    net.connect(c, o2, 0.03)
+    return net, {"a": a, "s": s, "b": b, "c": c, "e_in": e_in, "e_b": e_b, "e_c": e_c}
+
+
+def test_edges_of_incident_and_direction():
+    net, r = _splitting_network()
+    s, e_in, e_b, e_c = r["s"], r["e_in"], r["e_b"], r["e_c"]
+    # a splitter with one inflow and two outflows: all three are incident
+    assert net.edges_of(s) == sorted([e_in, e_b, e_c])
+    assert net.edges_of("split", "in") == [e_in]  # the element is the head
+    assert net.edges_of("split", "out") == sorted([e_b, e_c])  # the element is the tail
+    # name and index resolve to the same answer, and a leaf element has one edge
+    assert net.edges_of("in") == net.edges_of(r["a"]) == [e_in]
+
+
+def test_edges_of_rejects_bad_direction_and_name():
+    net, _ = _splitting_network()
+    with pytest.raises(ValueError, match="direction must be"):
+        net.edges_of("split", "sideways")
+    with pytest.raises(KeyError):
+        net.edges_of("nope")
+
+
+def test_nodes_of_inverts_edges_of():
+    net, r = _splitting_network()
+    # nodes_of returns (tail, head) and round-trips against edge_between for every edge
+    for e in net.edges_of("split"):
+        t, h = net.nodes_of(e)
+        assert net.edge_between(t, h) == e
+    assert net.nodes_of(r["e_b"]) == (r["s"], r["b"])
+    with pytest.raises(IndexError):
+        net.nodes_of(999)
+
+
 def test_set_dynamic_source_deferred_attach():
     # Wire the network first, take the flame's reference edge from connect()'s return, then attach
     # the dynamic source -- no edge index is guessed before the topology exists.

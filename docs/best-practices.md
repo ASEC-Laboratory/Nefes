@@ -100,6 +100,15 @@ spec = net.element("flame")             # the element itself, by name or index
 e = net.edge_between(i_cold, i_flame)   # the edge id joining two nodes (e.g. a flame's ref_edge)
 ```
 
+When only one endpoint is known, walk the topology instead of hand-counting: `edges_of` gives an element's incident edges (and `nodes_of` inverts it), so you never reach into a private edge list.
+
+```python
+outs = net.edges_of("split", "out")     # edge ids leaving a splitter (it is the tail)
+ins = net.edges_of("split", "in")       # edge ids entering it (it is the head); "both" is the default
+t, h = net.nodes_of(outs[0])            # the (tail, head) elements an edge connects
+net.element(t).name, net.element(h).name
+```
+
 Element names are unique (a factory default like `duct` is auto-numbered `duct-1`; an explicit `name=` is kept), so a name is a stable handle for lookups and for parameter addresses (§5).
 
 **From a saved case (a UI export or a previous `save`).**

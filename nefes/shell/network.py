@@ -242,6 +242,92 @@ class Network:
             raise ValueError(f"multiple edges from element {tail} to element {head}: {matches}")
         return matches[0]
 
+    def edges_of(self, element, direction: str = "both") -> List[int]:
+        """Ids of the edges incident to an element, resolved by name or node index.
+
+        The companion to :meth:`edge_between` for when only one endpoint is known: it returns
+        every edge touching ``element`` rather than the single edge between an ordered pair.
+        The ids index the same edge table as :meth:`connect`'s return and :meth:`edge_between`,
+        so they read straight off a solution (``sol.edge(e)``, ``sol.field(name)[e]``).
+
+        Parameters
+        ----------
+        element : int or str
+            Node index (as returned by :meth:`add`) or the element's display name.
+        direction : {"both", "in", "out"}, optional
+            Which incident edges to return: ``"out"`` for edges *leaving* the element (it is
+            the edge's tail), ``"in"`` for edges *entering* it (it is the edge's head), or
+            ``"both"`` (default) for either.  This is the wiring orientation, not the solved
+            flow direction (which may run either way along an edge).
+
+        Returns
+        -------
+        list of int
+            The incident edge ids, in ascending order (empty if the element has no edges).
+
+        Raises
+        ------
+        KeyError
+            Unknown element name or node index out of range (via :meth:`element_index`).
+        ValueError
+            ``direction`` is not one of ``"both"``, ``"in"``, ``"out"``.
+
+        See also
+        --------
+        edge_between : the single edge between a known ordered pair of elements.
+        nodes_of : the ``(tail, head)`` elements a known edge connects.
+
+        Examples
+        --------
+        >>> net.edges_of("plenum", direction="out")  # doctest: +SKIP
+        [2, 5, 8, 11]
+        """
+        if direction not in ("both", "in", "out"):
+            raise ValueError(f"direction must be 'both', 'in', or 'out'; got {direction!r}")
+        node = self.element_index(element)
+        want_out = direction in ("both", "out")
+        want_in = direction in ("both", "in")
+        return [i for i, (t, h, _a) in enumerate(self._edges) if (want_out and t == node) or (want_in and h == node)]
+
+    def nodes_of(self, edge: int) -> Tuple[int, int]:
+        """The ``(tail, head)`` element indices an edge connects.
+
+        The inverse of :meth:`edges_of`: given an edge id (from :meth:`connect`,
+        :meth:`edge_between`, or :meth:`edges_of`) it returns the two elements the edge joins,
+        tail first (the source endpoint in the wiring orientation), head second.  Resolve
+        either index to its name or spec with :meth:`element`.
+
+        Parameters
+        ----------
+        edge : int
+            Edge id, in ``range(len(edges))``.
+
+        Returns
+        -------
+        tuple of int
+            The ``(tail, head)`` node indices.
+
+        Raises
+        ------
+        IndexError
+            ``edge`` is not a valid edge id for this network.
+
+        See also
+        --------
+        edges_of : the edges incident to a known element.
+
+        Examples
+        --------
+        >>> t, h = net.nodes_of(0)  # doctest: +SKIP
+        >>> net.element(t).name, net.element(h).name  # doctest: +SKIP
+        ('inlet', 'duct')
+        """
+        n = len(self._edges)
+        if not 0 <= edge < n:
+            raise IndexError(f"edge id {edge} out of range for a network with {n} edge(s)")
+        t, h, _a = self._edges[edge]
+        return int(t), int(h)
+
     def set_dynamic_source(self, node, source) -> int:
         """Attach (or replace) the dynamic-source descriptor on an *already-added* element.
 
