@@ -58,4 +58,13 @@ Within a solve, each continuation stage begins from the converged state of the p
 Across the reacting recovery, the equilibrium solve at each edge is warm-started from a cache of its previous composition and temperature, so the innermost thermodynamic iteration converges in a few steps rather than from a cold guess.
 Because a warm start only supplies an initial iterate and never enters a residual, it changes the *cost* of a solve but not its *result* — the converged state is invariant to the warm start, a property checked directly so that the caches can never silently perturb the answer.
 
+## The subsonic-scope backstop
+
+The steady equations admit, beside the physical subsonic root, a spurious supersonic one at over-critical operating points, and a cold seed can land on it; the present scope is subsonic (see [scope and limitations](../theory/limitations.md)), so a converged solve that carries a supersonic edge is checked before it is returned.
+When it does, the solver re-solves once from a near-stagnation seed, which reliably reaches the subsonic branch when one exists, and keeps that recovery only if it lowers the peak Mach number.
+What remains after the recovery is then judged in two bands.
+A flow a hair past a sonic throat, an over-driven orifice that chokes and sits just supersonic on the isentropic relation, is kept with a warning as a near-choke state at the edge of the scope.
+A flow running *far* past the speed of sound is instead the spurious or ill-posed branch, the signature of an over-critical demand or a resistance-free loop (see [the modeling guide](../reference/modeling-guide.md)), and is returned marked not converged, so a wildly supersonic result is never handed back as an accepted solution.
+The guard is on by default and can be turned off (`nefes.config.enforce_subsonic = False`, or per solve) to accept the raw branch regardless of Mach number; genuine choking is untouched, since a real throat pins at Mach one and stays below the supersonic threshold (tests: `tests/test_subsonic_scope.py`).
+
 With the mean-flow operating point found robustly, the acoustic operator is assembled about it and the analyses proceed; what remains of the design track is the practice that keeps all of this reproducible across environments, the subject of [reproducibility](reproducibility.md).

@@ -38,6 +38,14 @@ from .report import _Reporter, states_table
 # the spurious supersonic branch (which runs well above it).
 SUPERSONIC_TOL = 1.01
 
+# Mach above which an unremovable supersonic edge is a clear scope violation rather than a
+# marginal near-choke overshoot, so the solve is not reported as converged.  Between SUPERSONIC_TOL
+# and this bound the edge is a hair past a sonic throat (e.g. an over-driven orifice) and is kept
+# with a warning; above it the state is on the spurious/ill-posed supersonic branch a resistance-
+# free loop or over-critical demand can produce (running to many times sonic), which must never be
+# handed back as an accepted solution.
+SUPERSONIC_REJECT = 1.5
+
 # Fischer-Burmeister smoothing width for the choking complementarity residual
 # (``fischer_burmeister(a, b, EPS_FB)`` in the area-change / pressure-outlet kernels).
 # Its arguments are dimensionless margins -- a relative Mach deficit ``1 - M`` and a
@@ -576,8 +584,12 @@ def solve(
         modeling scope).  ``None`` (default) follows the global ``nefes.config.enforce_subsonic``.
         When active, a converged solution carrying a genuinely supersonic edge (a spurious branch
         a cold start can reach) is re-solved once from a near-stagnation seed that lands the
-        subsonic branch; a warning is issued only if that re-solve cannot remove the supersonic
-        edge (so a real scope violation is never returned silently).
+        subsonic branch.  If that re-solve still cannot remove the supersonic edge, a marginal
+        overshoot just past a sonic throat is kept with a warning, but a state running far past
+        sonic (above ``SUPERSONIC_REJECT``, the spurious / ill-posed branch a resistance-free loop
+        or over-critical demand produces) is returned with ``converged = False`` and a warning, so
+        a wildly supersonic result is never handed back as accepted.  With the guard off the raw
+        branch is returned as converged regardless of Mach number.
 
     Returns
     -------
@@ -643,7 +655,11 @@ def solve(
     # root beside the physical subsonic one at over-critical operating points, and a cold seed
     # can land on it; the choking model is unaffected (a real throat still pins at M = 1).  When
     # subsonic enforcement is on, a converged solution carrying a genuinely supersonic edge is
-    # re-solved once from a near-stagnation seed, which reliably reaches the subsonic branch.
+    # re-solved once from a near-stagnation seed, which reliably reaches the subsonic branch.  If
+    # even that re-solve cannot remove the supersonic edge, the edge is kept but a warning is
+    # raised; when it runs *far* past sonic (above SUPERSONIC_REJECT) the state is on the spurious
+    # / ill-posed branch and is not reported as converged, so a wildly supersonic result is never
+    # handed back as accepted -- the caller opts out with enforce_subsonic=False.
     enforce = config.enforce_subsonic if enforce_subsonic is None else bool(enforce_subsonic)
     if enforce and converged:
         m_max = float(np.max(np.abs(states_table(prob, x2d, caloric=False)[ES_M, :].real)))
@@ -664,12 +680,21 @@ def solve(
                 x2d, converged, norm = recov.x, recov.converged, recov.residual_norm
                 total_it += recov.iterations
                 m_max = rec_m
-            if m_max > SUPERSONIC_TOL:
+            if m_max > SUPERSONIC_REJECT:
+                converged = False  # far past sonic: the spurious branch, never accept it
                 warnings.warn(
-                    f"the steady solve carries a supersonic edge (max M = {m_max:.2f}); the "
-                    "subsonic-scope re-solve could not remove it. The flow may be genuinely "
-                    "supersonic, which is outside the present (subsonic) scope, or the case is "
-                    "ill-posed. Set nefes.config.enforce_subsonic = False to accept this branch.",
+                    f"the steady solve carries a supersonic edge (max M = {m_max:.2f}) far past "
+                    "sonic; the subsonic-scope re-solve could not remove it, so the result is "
+                    "reported as not converged. The case is likely ill-posed (for example a "
+                    "resistance-free loop) or genuinely supersonic, which is outside the present "
+                    "(subsonic) scope. Set nefes.config.enforce_subsonic = False to accept it.",
+                    stacklevel=2,
+                )
+            elif m_max > SUPERSONIC_TOL:
+                warnings.warn(
+                    f"the steady solve carries a marginally supersonic edge (max M = {m_max:.2f}); "
+                    "the subsonic-scope re-solve could not pull it below sonic. It is kept as a "
+                    "near-choke state, but is at the edge of the present (subsonic) scope.",
                     stacklevel=2,
                 )
     return SolveResult(x=x2d, converged=converged, iterations=total_it, residual_norm=norm, history=history)

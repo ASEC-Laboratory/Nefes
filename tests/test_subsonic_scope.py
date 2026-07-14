@@ -98,3 +98,45 @@ def test_subsonic_case_is_untouched_by_the_backstop():
     off = net.solve(enforce_subsonic=False)
     assert on.field("M").max() < 0.5
     assert np.allclose(on.field("M"), off.field("M"), rtol=1e-10)
+
+
+def _resistance_free_ring():
+    """Two bare (resistance-free) parallel paths between the same pair of junctions.
+
+    ``in -> j0``; then ``j0 -> j1 -> j2`` and ``j0 -> j3 -> j2`` with no loss on the ring
+    edges; then ``j2 -> out``.  The split between the two equal-pressure paths is a
+    circulation the mean-flow balances do not pin down, so a solve can grow it until the
+    tiny ring edges run supersonic -- the failure the can-annular interconnector ring hit
+    before its tubes were given real friction.  The backstop cannot recover it (there is no
+    resistance to damp the circulation), which is exactly the case that must not be accepted.
+    """
+    return nefes.Network(
+        nodes=[
+            cat.mass_flow_inlet(10.0, 300.0, name="in"),
+            cat.junction(name="j0"),
+            cat.junction(name="j1"),
+            cat.junction(name="j2"),
+            cat.junction(name="j3"),
+            cat.pressure_outlet(1.0e5, 300.0, name="out"),
+        ],
+        edges=[(0, 1, 0.05), (1, 2, 0.001), (2, 3, 0.001), (1, 4, 0.001), (4, 3, 0.001), (3, 5, 0.05)],
+        p_ref=101325.0,
+        T_ref=300.0,
+        mdot_ref=10.0,
+    )
+
+
+def test_unremovable_supersonic_is_not_converged():
+    """When the backstop cannot remove a supersonic edge, the result is reported NOT converged."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sol = _resistance_free_ring().solve()  # enforce on (default)
+    assert not sol.converged  # a wildly supersonic branch is never accepted as converged
+    assert [w for w in caught if "supersonic" in str(w.message)]  # and it says why
+
+
+def test_switch_off_accepts_the_supersonic_branch_as_converged():
+    """With the guard off the raw supersonic branch is returned as converged (the opt-out)."""
+    sol = _resistance_free_ring().solve(enforce_subsonic=False)
+    assert sol.converged
+    assert sol.field("M").max() > 1.0  # the accepted branch really is supersonic

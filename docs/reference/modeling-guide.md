@@ -38,6 +38,14 @@ Where several streams meet or split, the choice between a **static-pressure junc
 A static-pressure junction feeding a fast port hands that branch more total pressure than the feed possesses — free energy that the network cannot dissipate, leaving it with no steady solution — so a plenum distributing to high-speed branches must be a splitter, while a low-speed header merging comparable streams may be a junction (see [elements](../theory/elements.md)).
 A divider whose split is imposed rather than discovered is the **forced splitter**, which fixes the branch fractions and keeps total-pressure continuity on the one free branch.
 
+## Loops need resistance
+
+When the topology closes a loop, every connection carrying flow around that loop must have a real resistance, a pipe or a loss, not a bare lossless link.
+A ring of junctions (or splitters) tied to one another by resistance-free connections has no unique steady flow: a circulation can run around the loop without changing any node's pressure or upsetting any mass balance, so the mean-flow equations leave the size of that circulation undetermined.
+The solver has nothing to pin it to, and can grow the circulation until the connecting passages run far past the speed of sound, a non-physical result that is a symptom of the missing resistance rather than a solver fault.
+The remedy is to model the loop the way the hardware is built: an interconnector tube between combustor cans, a balance pipe between manifolds, or a bypass line is a **pipe** (friction and length) or at least a **loss**, so the flow around the loop is set by the small pressure differences that actually drive it.
+A physical loop always carries resistance; leaving it out is the modeling error, and giving the connectors their resistance both restores a unique solution and keeps it comfortably subsonic.
+
 ## Where the orifice analogy ends
 
 Some components resist the orifice picture, and it is worth knowing the limits.
