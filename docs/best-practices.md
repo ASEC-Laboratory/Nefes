@@ -101,13 +101,17 @@ e = net.edge_between(i_cold, i_flame)   # the edge id joining two nodes (e.g. a 
 ```
 
 When only one endpoint is known, walk the topology instead of hand-counting: `edges_of` gives an element's incident edges (and `nodes_of` inverts it), so you never reach into a private edge list.
+Both take a name or a node index, and the ids they return index the same edge table as `connect`, so they read straight off a solution (`sol.edge(e)`, `sol.field(name)[e]`).
 
 ```python
 outs = net.edges_of("split", "out")     # edge ids leaving a splitter (it is the tail)
-ins = net.edges_of("split", "in")       # edge ids entering it (it is the head); "both" is the default
+ins  = net.edges_of("split", "in")      # edge ids entering it (it is the head); "both" is the default
 t, h = net.nodes_of(outs[0])            # the (tail, head) elements an edge connects
 net.element(t).name, net.element(h).name
 ```
+
+`edges_of`'s `direction` is the wiring orientation (which endpoint an edge was attached to), not the solved flow direction, which may run either way along an edge.
+`edge_between(tail, head)` is the single-edge counterpart: it wants the ordered pair and raises if no edge, or more than one, joins them.
 
 Element names are unique (a factory default like `duct` is auto-numbered `duct-1`; an explicit `name=` is kept), so a name is a stable handle for lookups and for parameter addresses (§5).
 
@@ -325,6 +329,7 @@ res = nefes.parameter_study(
     warm_start=True,  # chain solve(x0=prev.x) from the last converged point
     keep_solutions=True,  # set False for large sweeps to drop the Solution objects
     on_fail="raise",  # "continue" records converged=False, probes NaN, and marches on
+    progress=True,  # print a per-point status line (index, swept value, converged / iters / |R|)
 )
 
 res.probes["dp"]  # ndarray shaped like the grid (here (12,)); NaN where a point failed

@@ -105,6 +105,7 @@ def parameter_study(
     warm_start: bool = True,
     keep_solutions: bool = True,
     on_fail: str = "raise",
+    progress: bool = False,
     **solve_kw,
 ):
     """Solve the mean flow over a grid of parameter values, warm-started point to point.
@@ -137,6 +138,11 @@ def parameter_study(
         What to do when a point fails to converge: ``"raise"`` (default) stops with a
         pointed error; ``"continue"`` records ``converged=False`` (probes ``NaN``) and
         marches on, warm-starting from the last converged state.
+    progress : bool, optional
+        Print a one-line status per point as it solves (default ``False``): the point index,
+        its swept address values, and whether it converged, in how many iterations, and its
+        residual norm.  A lightweight progress readout for long sweeps; leaves the returned
+        :class:`StudyResult` unchanged.
     **solve_kw
         Forwarded to :meth:`Network.solve` at every point (e.g. ``tol``, ``verbose``).
 
@@ -180,6 +186,10 @@ def parameter_study(
         if solutions is not None:
             solutions.append(sol)
         converged[k] = bool(sol.converged)
+        if progress:
+            at = ", ".join(f"{a}={point[a]:g}" for a in addresses)
+            status = f"converged in {sol.iterations} iters" if sol.converged else "NOT converged"
+            print(f"[{k + 1}/{n}] {at}  ->  {status}  (|R|={sol.residual_norm:.1e})", flush=True)
         if sol.converged:
             x_prev = sol.x
             if probe is not None:

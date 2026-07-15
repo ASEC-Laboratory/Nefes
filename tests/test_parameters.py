@@ -456,6 +456,22 @@ def test_parameter_study_grid_shape_and_zip():
     assert zipped.shape == (2,)
 
 
+def test_parameter_study_progress_prints_per_point(capsys):
+    net = _simple_network()
+    res = nefes.parameter_study(net, {"in.mdot": [0.20, 0.24]}, progress=True)
+    assert res.converged.all()
+    out = capsys.readouterr().out
+    # one status line per point, carrying the index, the swept value, and the convergence result
+    assert "[1/2]" in out and "[2/2]" in out
+    assert "in.mdot=0.2" in out and "converged" in out
+
+
+def test_parameter_study_silent_by_default(capsys):
+    net = _simple_network()
+    nefes.parameter_study(net, {"in.mdot": [0.20, 0.24]})
+    assert capsys.readouterr().out == ""
+
+
 def test_parameter_study_fail_closed_address():
     net = _simple_network()
     with pytest.raises(KeyError, match="in"):
