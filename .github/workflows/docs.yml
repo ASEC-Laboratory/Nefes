@@ -1,0 +1,66 @@
+name: docs
+
+# Manual-only: build the Quarto documentation site and publish it to GitHub Pages
+# when you press "Run workflow" in the Actions tab. There is no push or pull-request
+# trigger yet, so nothing is published automatically.
+on:
+  workflow_dispatch:
+
+# The deploy job needs these: contents to check the repository out, and the two Pages
+# permissions to upload the built site and publish it.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight publish finish rather than cancelling it midway; a second run waits.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the Quarto command-line tool
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      # The docs extra pulls jupyter, quartodoc, and griffe (<2). Installing in place keeps
+      # imports resolving from this checkout; numba compiles on first import when the
+      # gallery notebooks execute during the render.
+      - name: Install nefes with its documentation dependencies
+        run: python -m pip install -e ".[docs]"
+
+      # build_examples.py executes the "full" gallery notebooks through a kernel named
+      # python3; register it against this interpreter so those notebooks import nefes.
+      - name: Register the notebook kernel
+        run: python -m ipykernel install --user --name python3
+
+      # QUARTO_PYTHON points Quarto's own execution at the same interpreter. The render
+      # runs the pre-render steps (quartodoc build, build_examples.py) and writes docs/_site.
+      - name: Render the site
+        env:
+          QUARTO_PYTHON: python
+        run: quarto render docs
+
+      - name: Upload the site as a Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
