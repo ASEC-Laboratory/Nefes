@@ -134,7 +134,25 @@ The lossless splitter is an isentropic distribution plenum: with $h_t$ delivered
 The static-pressure junction must be used *only* where every port runs at low Mach number.
 At a fast port, equal static pressure plus the port's velocity head hands the branch a total pressure $p_t \approx p + \tfrac{1}{2}\varrho u^2$ — more total pressure than the feed possesses — which is free energy and a second-law violation.
 It should be noted that the consequence is not merely a small error: the surplus must be destroyed somewhere downstream, and if no element can do so the network has *no steady solution at all* and the solver can only stall.
-The rule of thumb is therefore that a plenum feeding fast branches takes a splitter (common $p_t$), while a low-speed header collecting comparable streams takes a static-pressure junction (common $p$).
+The rule of thumb is therefore that a plenum feeding fast branches takes a splitter (common $p_t$), while a low-speed header collecting comparable streams takes a static-pressure junction (common $p$); a merge with a port that is not slow takes the mixing junction below, which lifts the low-Mach restriction by charging the mixing loss instead of ignoring it.
+
+**Mixing junction.**
+The mixing junction is the general merge that respects the second law at any port Mach number.
+It ties every port to a common *effective* total pressure,
+
+$$
+R_{1+i} = p_{t,i}^{\mathrm{eff}} - p_{t,0}^{\mathrm{eff}} - \kappa\text{-term},
+\qquad
+p_{t,k}^{\mathrm{eff}} = p_{t,k} - (1-\sigma)\,(p_{t,k}-p_k)\,\chi_k,
+\qquad i = 1,\dots,n-1,
+$$
+
+where $\chi_k$ is the smooth inflow indicator (one on an inflow port, zero on an outflow) and $\sigma \in [0,1]$ is the dynamic-head recovery.
+An inflow gives up the unrecovered fraction $(1-\sigma)$ of its dynamic head $p_{t,k}-p_k$ on entering the mix, while an outflow ($\chi_k \to 0$) leaves at the common node total pressure.
+The couplings therefore hold the node total pressure at or below every inflow's, $p_t^{\mathrm{node}} \le p_{t,i}$, so no branch ever gains total pressure.
+With the total enthalpy and composition mass-averaged by the same donor as the junction, and specific entropy decreasing in total pressure (at fixed enthalpy and composition) and concave in enthalpy, the mass-averaged outflow entropy is at or above the feed mean: the entropy production $\dot S_{\mathrm{gen}} = \dot m\, s^{\mathrm{node}} - \sum_{\text{in}} \dot m_i\, s_i \ge 0$ by construction, whatever the port Mach numbers.
+The recovery spans the two idealizations it generalizes: $\sigma = 1$ recovers the full dynamic head and reduces to the lossless splitter, while at low Mach ($p_t \to p$) the element collapses to the static-pressure junction for any $\sigma$.
+Its default $\sigma = 0$ is the full dump loss of a plenum, the most dissipative and the safe choice; because it accepts a fast port without manufacturing free energy it is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
 
 **Forced splitter.**
 A flow divider whose split is imposed rather than discovered is a variant of the splitter: with one inflow at port $0$, the first $n - 2$ outflow ports each carry a fixed fraction $\beta_i$ of the inflow rate, and the last outflow port carries the remainder while keeping total-pressure continuity with the inflow.

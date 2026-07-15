@@ -36,6 +36,8 @@ For acoustic work a length-bearing passage should be given its length, since the
 
 Where several streams meet or split, the choice between a **static-pressure junction** and a **lossless splitter** is not cosmetic and is governed by a firm rule: use the static-pressure junction only where every port runs at low Mach number, and the splitter wherever a plenum feeds a fast branch.
 A static-pressure junction feeding a fast port hands that branch more total pressure than the feed possesses — free energy that the network cannot dissipate, leaving it with no steady solution — so a plenum distributing to high-speed branches must be a splitter, while a low-speed header merging comparable streams may be a junction (see [elements](../theory/elements.md)).
+Where streams *merge* and a port is not slow, use the **mixing junction**: it ties the ports to a common effective total pressure, charging each inflow the loss of its unrecovered dynamic head, so it never manufactures total pressure and generates entropy at any port Mach number.
+It is the general merge (its `recovery` runs from a plenum's full dump loss at $0$ to the lossless splitter at $1$, and it collapses to the junction at low Mach), and unlike the splitter it converges on merges of unequal total pressure.
 A divider whose split is imposed rather than discovered is the **forced splitter**, which fixes the branch fractions and keeps total-pressure continuity on the one free branch.
 
 ## Loops need resistance

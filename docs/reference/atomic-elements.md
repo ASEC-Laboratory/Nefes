@@ -60,6 +60,7 @@ descriptor. Single-port boundaries can also carry an explicit `PerturbationBC`
 | `mass_source` | `MASS_SOURCE` (14) | 2 | mass/momentum/energy/composition injection | default |
 | `junction` | `JUNCTION` (6) | variable | common **static** pressure $p_i=p_0$ | default (+$\mathbf{M}$ if plenum) |
 | `splitter` | `SPLITTER` (7) | variable | common **total** pressure $p_{t,i}=p_{t,0}$ | default (+$\mathbf{M}$ if plenum) |
+| `mixing_junction` | `MIXING_JUNCTION` (22) | variable | common **effective total** pressure $p_{t,i}^{\text{eff}}=p_{t,0}^{\text{eff}}$ (second law) | default |
 | `forced_splitter` | `FORCED_SPLITTER` (19) | variable | $\dot m_{\text{out},k}=\beta_k\dot m_\text{in}$ | default |
 | *supersonic inlet/outlet* | (9 / 10) | 1 | **reserved — deferred** (v1 is subsonic) | — |
 
@@ -310,6 +311,24 @@ branch (exactly what `helmholtz_resonator` assembles).
 ### `splitter(volume=0.0)`
 As `junction`, but ties the ports to a **common total pressure** ($p_{t,i} = p_{t,0}$,
 lossless) — the idealization when the manifold recovers dynamic head. Same optional `volume`.
+
+### `mixing_junction(recovery=0.0)`
+The general merge that obeys the second law at any port Mach number. It ties the ports to a
+**common effective total pressure** $p_{t,i}^{\text{eff}} = p_{t,0}^{\text{eff}}$ with
+$p_{t,k}^{\text{eff}} = p_{t,k} - (1-\sigma)(p_{t,k}-p_k)\chi_k$, where $\chi_k$ is the smooth
+inflow indicator and $\sigma$ is `recovery`. Each inflow gives up the unrecovered fraction of
+its dynamic head on entering the mix, so the node total pressure never rises above the feeds and
+the mass-averaged outflow entropy never falls below the feed mean (entropy production $\ge 0$).
+Use it instead of `junction` where a merging port is not slow: the `junction` would there hand a
+fast branch more total pressure than the feed carries (free energy, a second-law violation and
+often no steady solution at all). `recovery` $= 0$ (the default) is the full dump loss of a
+plenum, `recovery` $= 1$ reduces to the lossless `splitter`; at low Mach the element collapses to
+`junction` for any value. Unlike `junction`/`splitter` it carries no chamber compliance (a
+lengthless mixing node); model a resonating plenum with a `junction` or `cavity` volume.
+
+| Argument | Symbol | Meaning | Units | Default / constraint |
+| --- | --- | --- | --- | --- |
+| `recovery` | $\sigma$ | fraction of each inflow's dynamic head recovered as total pressure | — | `0.0`, $\in[0,1]$ |
 
 ### `forced_splitter(fractions)`
 One inflow (port 0) split into $N$ outflows at **prescribed mass fractions**:

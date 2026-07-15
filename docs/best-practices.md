@@ -154,8 +154,9 @@ Internal (2-port and manifolds):
 | `linear_resistance(R, ...)` | linear loss `R * mdot` (survives zero mean flow) |
 | `duct(length=0.0, name="duct")` | lossless constant-area duct (acoustic phase) |
 | `pipe(length, diameter, friction_factor, ...)` | duct + Darcy-Weisbach friction |
-| `junction(name="junction", volume=0.0)` | static-pressure manifold (optional plenum) |
+| `junction(name="junction", volume=0.0)` | static-pressure manifold (optional plenum); low-Mach ports only |
 | `splitter(volume=0.0)` | total-pressure manifold |
+| `mixing_junction(recovery=0.0, ...)` | second-law merge for non-slow ports (never manufactures total pressure) |
 | `forced_splitter(fractions, ...)` | one inflow split at prescribed mass fractions |
 | `cavity(volume, ...)` | lumped volume: wall to mean flow, compliance to acoustics |
 
