@@ -220,6 +220,19 @@ def test_composite_view_reads_the_throat():
     assert sol.composite(orf).throat == cv.throat
 
 
+def test_repr_survives_a_composite_element():
+    # a composite carries no dynamic_source attribute; the summaries must not assume it
+    net = Network(CFG, p_ref=P0, T_ref=T0, mdot_ref=1.0)
+    i = net.add(cat.total_pressure_inlet(PT, T0))
+    orf = net.add(cat.orifice(AT, name="orifice"))
+    o = net.add(cat.pressure_outlet(P0, T0))
+    net.connect(i, orf, A1)
+    net.connect(orf, o, A2)
+    text, html = repr(net), net._repr_html_()
+    assert "orifice" in text and "orifice" in html
+    assert "<table" in html
+
+
 def test_show_internal_hides_composite_edges():
     pc, xc = _orifice_composite()
     net = Network(CFG, p_ref=P0, T_ref=T0, mdot_ref=1.0)

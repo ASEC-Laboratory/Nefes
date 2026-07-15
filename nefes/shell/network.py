@@ -987,7 +987,11 @@ class Network:
         if n_el:
             lines.append("")
             rows = [
-                (str(i), self._node_label(i), self._type_name(el) + (" *" if el.dynamic_source is not None else ""))
+                (
+                    str(i),
+                    self._node_label(i),
+                    self._type_name(el) + (" *" if getattr(el, "dynamic_source", None) is not None else ""),
+                )
                 for i, el in enumerate(self._elements[:_REPR_MAX_ROWS])
             ]
             lines += _text_table(("#", "name", "type"), rows, ("r", "l", "l"), indent=2)
@@ -1037,7 +1041,7 @@ class Network:
             for i, el in enumerate(self._elements[:_REPR_MAX_ROWS]):
                 src = (
                     " <span style='color:#2a8a4a' title='carries a dynamic S(omega) source'>&#9733;</span>"
-                    if el.dynamic_source is not None
+                    if getattr(el, "dynamic_source", None) is not None
                     else ""
                 )
                 body.append(
