@@ -256,6 +256,59 @@ def test_general_merge_where_splitter_fails():
     assert not spl.converged
 
 
+def _pinned_merge_network(manifold, mdot_hi=5.0, mdot_lo=3.0, tt_hi=400.0, tt_lo=300.0, a_in=0.02, a_out=0.05):
+    """Two unequal streams merging through ``manifold`` with both inflow rates prescribed.
+
+    Prescribing the mass flows pins the split independently of the manifold, so even the
+    resistance-free ``recovery = 1`` limit is well posed.  Node order: 0, 1 feeds; 2 manifold;
+    3 outlet.  Edges e0 (0->2), e1 (1->2), e2 (2->3).
+    """
+    nodes = [
+        cat.mass_flow_inlet(mdot_hi, tt_hi),
+        cat.mass_flow_inlet(mdot_lo, tt_lo),
+        manifold,
+        cat.pressure_outlet(1.8e5),
+    ]
+    edges = [(0, 2, a_in), (1, 2, a_in), (2, 3, a_out)]
+    return nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=350.0)
+
+
+def test_full_recovery_merge_is_well_posed_when_flows_are_pinned():
+    """At ``recovery = 1`` a merge is well posed when the network pins each inflow's rate.
+
+    The ``recovery = 1`` limit adds no flow resistance of its own (total-pressure equalities only,
+    as the splitter has none), so the flow split must be set by the network rather than the
+    manifold.  With both inflow rates prescribed the split is pinned, the resistance-free limit
+    converges, the outlet leaves at the weakest feed's total pressure, and the merge is the
+    least dissipative at those rates.  Two bare total-pressure feeds do not pin the split, and the
+    same limit is then under-determined and does not converge.
+    """
+    ideal = _pinned_merge_network(cat.mixing_junction(1.0)).solve()
+    assert ideal.converged, (ideal.residual_norm, ideal.print_residuals())
+    assert ideal.verify() == []
+    assert np.abs(ideal.field("M")).max() < 1.0
+
+    s_ideal = _node_entropy_production(ideal, in_edges=(0, 1), out_edges=(2,))
+    assert s_ideal > 0.0  # a merge is irreversible even at the least-dissipative limit
+
+    pt = ideal.field("p_t")
+    pt_min = min(pt[0], pt[1])
+    assert pt[2] <= pt_min * (1.0 + 1e-6)  # never manufactures total pressure
+    assert pt[2] >= pt_min * 0.99  # leaves at the weakest feed: the minimum-entropy limit
+
+    # At the same prescribed rates the full dump generates more entropy than the ideal recovery.
+    dump = _pinned_merge_network(cat.mixing_junction(0.0)).solve()
+    assert dump.converged
+    assert _node_entropy_production(dump, in_edges=(0, 1), out_edges=(2,)) > s_ideal
+
+    # Without pinning -- two bare total-pressure feeds on the node -- the split is under-determined
+    # and the resistance-free limit does not converge (the splitter's own well-posedness need).
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        bare = _merge_network(cat.mixing_junction(1.0)).solve()
+    assert not bare.converged
+
+
 def test_recovery_parameter_addressing():
     """``recovery`` is a named parameter: readable, writable through with_params, validated."""
     net = _merge_network(cat.mixing_junction(0.0, name="mix"))

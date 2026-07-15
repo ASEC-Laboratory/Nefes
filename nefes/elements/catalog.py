@@ -776,27 +776,35 @@ def mixing_junction(recovery=0.0, name="mixing_junction"):
       to converge.  At low Mach the dynamic head vanishes and this reduces to the common-pressure
       junction.
     * ``recovery -> 1`` removes only each inflow's excess over the *weakest* feed, so the outlet
-      leaves at the minimum inflow total pressure -- the least-dissipative merge the second law
-      allows.  Distributing (a single inflow), ``recovery = 1`` is the lossless :func:`splitter`
-      (the inflow's own total pressure, entropy conserved).  Merging several streams, it is the
-      minimum-entropy limit, in which the weakest feed is left with no driving pressure and its
-      flow becomes indeterminate; that exact limit is ill-posed (as the splitter is for a merge),
-      so a merge takes ``recovery`` strictly below 1 (up to roughly ``0.9`` converges).
+      leaves at the minimum inflow total pressure -- the least dissipation the second law allows.
+      At ``recovery = 1`` the element adds no flow resistance of its own; it imposes pressure
+      equalities alone, exactly like the :func:`splitter`, so the flow split must be pinned by the
+      rest of the network.  Distributing a single inflow this is automatic and ``recovery = 1`` is
+      the lossless :func:`splitter` (the inflow's own total pressure, entropy conserved).  Merging
+      several streams it is well posed only when every inflow's rate is pinned by the network -- a
+      :func:`mass_flow_inlet` on the branch, or a real resistance (a :func:`loss`, an
+      :func:`orifice`, a pipe) in it.  Two :func:`total_pressure_inlet` feeds attached straight to
+      the node leave the split under-determined and will not converge there; that is the
+      splitter's own well-posedness requirement, not a limitation of this element.
 
-    So ``recovery`` trades dissipation for conditioning: raise it toward the least-dissipative
-    ideal, lower it toward the robust dump.  The element accepts any number of ports (>= 2) with
-    directions discovered by the solve, so it is the general manifold; unlike the junction and
-    splitter it carries no acoustic chamber compliance (a lengthless mixing node, model a
-    resonating plenum with a :func:`junction` or :func:`cavity` volume).
+    At ``recovery < 1`` each inflow keeps a dump term ``(1 - sigma)(p_t - p)`` that grows with its
+    own dynamic head, a self-supplied resistance that pins the split with no help from the network.
+    That is why the default ``recovery = 0`` converges robustly on any topology, and why a merge
+    whose feeds are not otherwise pinned should keep ``recovery`` below 1 (up to roughly ``0.9``
+    is safe regardless of pinning).  So ``recovery`` trades dissipation for conditioning: raise it
+    toward the least-dissipative ideal, lower it toward the robust dump.  The element accepts any
+    number of ports (>= 2) with directions discovered by the solve, so it is the general manifold;
+    unlike the junction and splitter it carries no acoustic chamber compliance (a lengthless mixing
+    node, model a resonating plenum with a :func:`junction` or :func:`cavity` volume).
 
     Parameters
     ----------
     recovery : float, optional
-        Fraction of each inflow's dynamic head recovered as total pressure through the mix,
-        in ``[0, 1]`` (default ``0.0``, the robust full dump loss).  Raise it toward ``1`` (the
-        least-dissipative ideal) for a lower-loss mix; a merge should stay below 1, where the
-        limit is ill-posed.  The endpoints are reached to the solver's smoothing tolerance, not
-        bit-exactly.
+        Dynamic-head recovery in ``[0, 1]`` (default ``0.0``, the robust full dump loss).  Raise
+        it toward ``1`` (the least-dissipative ideal) for a lower-loss mix.  At ``recovery = 1`` a
+        merge is well posed only if the network pins every inflow's rate (a mass-flow inlet or a
+        branch resistance); a merge whose feeds are otherwise unpinned should stay below 1.  The
+        endpoints are reached to the solver's smoothing tolerance, not bit-exactly.
     name : str, optional
         Display name.
 

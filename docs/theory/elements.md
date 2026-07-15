@@ -163,11 +163,13 @@ An outflow ($\chi_k \to 0$) takes no loss and leaves at the common node total pr
 For any $\sigma$ the couplings hold the node total pressure at or below every inflow's, $p_t^{\mathrm{node}} \le p_{t,i}$, so no branch ever gains total pressure.
 With the total enthalpy and composition mass-averaged by the same donor as the junction, and specific entropy decreasing in total pressure (at fixed enthalpy and composition) and concave in enthalpy, the mass-averaged outflow entropy is at or above the feed mean: the entropy production $\dot S_{\mathrm{gen}} = \dot m\, s^{\mathrm{node}} - \sum_{\text{in}} \dot m_i\, s_i \ge 0$ by construction, whatever the port Mach numbers.
 
-The recovery limit $\sigma = 1$ carries a different meaning for a split than for a merge.
-Distributing a single inflow, the minimum runs over that one feed, so its loss vanishes and every outflow leaves at the inflow's own total pressure: this is exactly the lossless (isentropic) splitter.
-Merging several streams, $\sigma = 1$ is the minimum-entropy limit in which the weakest feed is left with no driving pressure at all, so its flow rate is indeterminate; that exact limit is ill-posed for a merge (as the splitter is), and the conditioning degrades steadily as $\sigma \to 1$ because the private dump term that anchors each port fades out.
-A merge therefore takes $\sigma$ strictly below one (up to roughly $0.9$ converges).
-The default $\sigma = 0$ is the robust full dump; at low Mach its dynamic head vanishes and the element reduces to the static-pressure junction.
+At the recovery limit $\sigma = 1$ the dump term vanishes and the couplings become pure total-pressure equalities, $p_{t,k} - \ell_k = p_t^{\mathrm{node}}$ with $p_t^{\mathrm{node}} = p_t^{\min}$, carrying no relation between a port's mass flow and its pressure drop.
+The element then adds no flow resistance of its own, exactly as the splitter adds none, so the flow split is left to the rest of the network.
+Distributing a single inflow, that is automatic: the minimum runs over the one feed, its loss vanishes, and every outflow leaves at the inflow's own total pressure, which is exactly the lossless (isentropic) splitter.
+Merging several streams, $\sigma = 1$ is the least-dissipative limit, and it is well posed precisely when the network pins each inflow's rate independently of the manifold, through a prescribed inflow (a mass-flow inlet) or a real resistance in its branch (a loss, an orifice, a pipe).
+Two total-pressure reservoirs attached directly to the node do not meet that condition: the weakest feed then sees no pressure drop and its flow rate is undetermined, so the merge has no unique steady state, exactly the requirement the splitter already carries and not a property of the element.
+For $\sigma < 1$ the dump term $(1-\sigma)(p_{t,k}-p_k)$ rises with each inflow's own dynamic head, a self-supplied resistance that pins the split without help from the network, so lower recovery converges on any topology; the conditioning degrades smoothly as $\sigma \to 1$ and that self-resistance fades.
+The default $\sigma = 0$ is the robust full dump, well posed for any wiring; at low Mach its dynamic head vanishes and the element reduces to the static-pressure junction.
 Because it charges a fast inflow its mixing loss instead of manufacturing free energy, the mixing junction is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
 
 **Forced splitter.**

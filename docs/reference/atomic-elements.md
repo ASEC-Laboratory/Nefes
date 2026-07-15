@@ -325,13 +325,17 @@ branch more total pressure than the feed carries (free energy, a second-law viol
 steady solution at all). `recovery` sets the loss between two limits: $0$ (the default) is the
 full dump loss of a plenum (each inflow gives up its whole dynamic head), the most dissipative and
 best-conditioned merge; $\to 1$ removes only each inflow's excess over the weakest feed, so the
-outlet leaves at the minimum inflow total pressure, the least dissipation the second law allows.
-Distributing (a single inflow), $\sigma = 1$ is the lossless (isentropic) `splitter`; merging, it
-is the minimum-entropy limit, which is **ill-posed exactly at 1** (the weakest feed is left with no
-driving pressure) and worsens in conditioning as $\sigma \to 1$, so a merge should stay below it
-(up to $\approx 0.9$ converges). At low Mach the $\sigma = 0$ default reduces to `junction`. Unlike
-`junction`/`splitter` it carries no chamber compliance (a lengthless mixing node); model a
-resonating plenum with a `junction` or `cavity` volume.
+outlet leaves at the minimum inflow total pressure, the least dissipation the second law allows. At
+$\sigma = 1$ the element adds no flow resistance of its own (pressure equalities only, like the
+`splitter`), so the flow split must be pinned by the network: distributing one inflow this is
+automatic and $\sigma = 1$ is the lossless (isentropic) `splitter`; merging, it is well posed only
+when every inflow's rate is pinned by a `mass_flow_inlet` or a branch resistance (a `loss`,
+`orifice`, or pipe) -- two bare `total_pressure_inlet` feeds on the node leave the split
+under-determined, the splitter's own requirement. Below $1$ each inflow's dump term is a
+self-supplied resistance that pins the split unaided, so the default $\sigma = 0$ converges on any
+topology and reduces to `junction` at low Mach. Unlike `junction`/`splitter` it carries no chamber
+compliance (a lengthless mixing node); model a resonating plenum with a `junction` or `cavity`
+volume.
 
 | Argument | Symbol | Meaning | Units | Default / constraint |
 | --- | --- | --- | --- | --- |
