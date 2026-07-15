@@ -21,6 +21,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
+    MIXING_JUNCTION,
     P_OUTLET,
     PT_INLET,
     SPLITTER,
@@ -750,6 +751,60 @@ def splitter(name="splitter", volume=0.0):
     ElementSpec
     """
     return ElementSpec(SPLITTER, _manifold_block("splitter", volume), name)
+
+
+def mixing_junction(recovery=0.0, name="mixing_junction"):
+    """A variable-port merge manifold that respects the second law.
+
+    The alternative to :func:`junction` when the merging streams are not all at low Mach
+    number.  The static-pressure junction ties every port to a common static pressure, which
+    at a fast port hands the branch its full velocity head as extra total pressure (more than
+    the feed carries), a manufacture of free energy that the second law forbids.  The mixing
+    junction instead ties every port to a common *effective* total pressure: each inflow gives
+    up the unrecovered fraction of its dynamic head (the total-to-static difference) on
+    entering the mix, and each outflow leaves at the resulting node total pressure.  The node
+    total pressure then stays at or below every inflow's, so no branch gains total pressure and
+    the mass-averaged outflow entropy is at or above the feed mean (entropy production is
+    non-negative by construction).  Total enthalpy and composition mix by mass through the same
+    donor as the junction, so mass, energy and species are conserved exactly.
+
+    Like the junction it accepts any number of ports (>= 2) with directions discovered by the
+    solve, so it is the general merge element; unlike the junction it carries no acoustic
+    chamber compliance (it is a lengthless mixing node, model a resonating plenum with a
+    :func:`junction` or :func:`cavity` volume).
+
+    Parameters
+    ----------
+    name : str, optional
+        Display name.
+    recovery : float, optional
+        Fraction of each inflow's dynamic head recovered as total pressure through the mix,
+        in ``[0, 1]`` (default ``0.0``).  ``0`` dissipates the whole dynamic head (the plenum
+        or sudden-dump limit, the most dissipative and the safe default); ``1`` recovers all
+        of it and reproduces the lossless :func:`splitter`.  At low Mach number the dynamic
+        head vanishes and the element collapses to the common-pressure junction for any value.
+
+    Returns
+    -------
+    ElementSpec
+
+    See Also
+    --------
+    junction : the common-static-pressure header (valid only when every port is low-Mach).
+    splitter : the lossless common-total-pressure manifold (the ``recovery = 1`` limit).
+
+    Examples
+    --------
+    >>> import nefes.elements.catalog as cat
+    >>> m = cat.mixing_junction(recovery=0.0)  # a dump-mixing plenum
+    """
+    sigma = float(recovery)
+    if not (0.0 <= sigma <= 1.0):
+        raise ValueError(
+            f"mixing_junction: recovery must lie in [0, 1] (0 = full dump loss, 1 = lossless "
+            f"splitter); got {recovery}"
+        )
+    return ElementSpec(MIXING_JUNCTION, [sigma], name)
 
 
 def forced_splitter(fractions, name="splitter"):

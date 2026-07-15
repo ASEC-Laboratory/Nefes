@@ -38,6 +38,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
+    MIXING_JUNCTION,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -449,6 +450,15 @@ ELEMENT_PARAMS: Dict[int, Tuple[ParamDescriptor, ...]] = {
     ),
     JUNCTION: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
     SPLITTER: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
+    MIXING_JUNCTION: (
+        ParamDescriptor(
+            "recovery",
+            lo=0.0,
+            hi=1.0,
+            slot=0,
+            doc="dynamic-head recovery (0 = full dump loss / plenum, 1 = lossless splitter)",
+        ),
+    ),
     FORCED_SPLITTER: (
         ParamDescriptor(
             "fractions",

@@ -26,6 +26,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
+    MIXING_JUNCTION,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -263,6 +264,35 @@ def node_residual(n, rid, row_ptr, col_edge, orient, npar_f, npar_fptr, eps, eps
                 R[r0 + i] = est[ES_P, e0] - est[ES_P, ei] - kappa * (si * est[ES_MDOT, ei])
             else:
                 R[r0 + i] = est[ES_PT, e0] - est[ES_PT, ei] - kappa * (si * est[ES_MDOT, ei])
+        return
+
+    if rid == MIXING_JUNCTION:
+        # Dump-mixing manifold: a variable-port merge that obeys the second law by never
+        # handing an outflow more total pressure than the feeds possess.  Mass balance, then
+        # (deg - 1) rows tying each port's *effective* total pressure to port 0's.  A port's
+        # effective total pressure removes the unrecovered fraction of its inflow dynamic head
+        # (p_t - p): an inflow entering the mix loses (1 - sigma) of its dynamic head, an
+        # outflow leaves at the node total pressure (its inflow indicator ~ 0).  With sigma =
+        # npar_f[pb+0] in [0, 1] the node total pressure stays at or below every inflow's, so
+        # the mass-averaged outflow entropy is at or above the feed mean (S_gen >= 0).  sigma = 0
+        # fully dissipates the dynamic head (a plenum); sigma = 1 recovers the lossless splitter.
+        # At low Mach (p_t -> p) it collapses to the common-pressure junction for any sigma.
+        acc = est[ES_MDOT, col_edge[base]] * 0.0
+        for i in range(deg):
+            acc = acc + orient[base + i] * est[ES_MDOT, col_edge[base + i]]
+        R[r0] = acc
+        sigma = npar_f[pb + 0]
+        e0 = col_edge[base]
+        s0 = orient[base]
+        # inflow indicator: smooth_step(mdot into the node, eps) -> 1 inflow, 0 outflow
+        chi0 = smooth_step(-s0 * est[ES_MDOT, e0], eps)
+        pteff0 = est[ES_PT, e0] - (1.0 - sigma) * (est[ES_PT, e0] - est[ES_P, e0]) * chi0
+        for i in range(1, deg):
+            ei = col_edge[base + i]
+            si = orient[base + i]
+            chi = smooth_step(-si * est[ES_MDOT, ei], eps)
+            pteff = est[ES_PT, ei] - (1.0 - sigma) * (est[ES_PT, ei] - est[ES_P, ei]) * chi
+            R[r0 + i] = pteff0 - pteff - kappa * (si * est[ES_MDOT, ei])
         return
 
     if rid == FORCED_SPLITTER:
