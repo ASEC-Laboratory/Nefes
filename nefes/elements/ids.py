@@ -26,7 +26,7 @@ CAVITY = 18  # 1-port finite-volume cavity: mean flow is a wall (mdot = 0); acou
 FORCED_SPLITTER = 19  # flow-divider manifold: 1 inflow (port 0) + N outflows, (N-1) outflow rates forced to fractions
 PIPE = 20  # 2-port length-bearing pipe: Darcy-Weisbach friction (Pt drop K = f*L/D) + the duct acoustic phase
 TRANSFER_MATRIX = 21  # 2-port element: mean flow == isentropic area change; perturbation uses a user transfer matrix
-MIXING_JUNCTION = 22  # variable-port merge: dump-mixing manifold that never manufactures total pressure (second law)
+MIXER = 22  # variable-port merge: dump-mixing manifold that never manufactures total pressure (second law)
 
 # Acoustic-stamp ids: the perturbation stamp an element uses in place of its default
 # CSD linearization.  The dynamic-source S is carried on the element's DynamicSource
@@ -145,7 +145,7 @@ def port_kinds(rid, deg):
     The single source of truth for an element's per-port roles, keyed on the local integer
     port index (port ``i`` is entry ``i`` of the returned list).  Fixed-port elements read the
     :data:`_PORT_KINDS_FIXED` table; the variable-port manifolds are handled by rule -- the
-    static-pressure junction, the lossless splitter and the mixing junction are symmetric
+    static-pressure junction, the lossless splitter and the mixer are symmetric
     (every port :data:`PORT_ANY`), while the forced splitter pins port 0 as its single inflow
     (:data:`PORT_TARGET`) and the remaining ``deg - 1`` outflows as :data:`PORT_SOURCE`.
 
@@ -168,7 +168,7 @@ def port_kinds(rid, deg):
     fixed = _PORT_KINDS_FIXED.get(rid)
     if fixed is not None:
         return list(fixed)
-    if rid in (JUNCTION, SPLITTER, MIXING_JUNCTION):
+    if rid in (JUNCTION, SPLITTER, MIXER):
         return [PORT_ANY] * deg
     if rid == FORCED_SPLITTER:
         return [PORT_TARGET] + [PORT_SOURCE] * (deg - 1)
@@ -192,7 +192,7 @@ ALLOWS_AREA_CHANGE = {
     SUDDEN_AREA_CHANGE: True,
     JUNCTION: True,
     SPLITTER: True,
-    MIXING_JUNCTION: True,  # variable-port merge manifold; imposes no area-equality constraint
+    MIXER: True,  # variable-port merge manifold; imposes no area-equality constraint
     FORCED_SPLITTER: True,  # manifold (flow divider); imposes no area-equality constraint
     DUCT: False,
     PIPE: False,  # constant-area length-bearing pipe (like the duct, both ports share one area)
@@ -214,7 +214,7 @@ ELEMENT_TYPE_NAMES = {
     LOSS: "LossElement",
     JUNCTION: "JunctionStaticP",
     SPLITTER: "LosslessSplitter",
-    MIXING_JUNCTION: "MixingJunction",
+    MIXER: "Mixer",
     FORCED_SPLITTER: "ForcedSplitter",
     DUCT: "Duct",
     SUPERSONIC_INLET: "SupersonicInlet",

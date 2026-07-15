@@ -115,9 +115,7 @@ _UI_NODE_BUILDERS = {
     ),
     "JunctionStaticP": lambda a: cat.junction(volume=a.get("volume", 0.0) or 0.0),
     "LosslessSplitter": lambda a: cat.splitter(volume=a.get("volume", 0.0) or 0.0),
-    "MixingJunction": lambda a: cat.mixing_junction(
-        recovery=a.get("recovery", 1.0) if a.get("recovery") is not None else 1.0
-    ),
+    "Mixer": lambda a: cat.mixer(recovery=a.get("recovery", 1.0) if a.get("recovery") is not None else 1.0),
     "ForcedSplitter": lambda a: cat.forced_splitter(_parse_fractions(a.get("fractions"))),
     # Composite elements: each expands at build time into its atomic recipe (see
     # nefes.elements.catalog); the UI carries only the composite's own parameters.

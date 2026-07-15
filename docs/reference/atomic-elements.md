@@ -60,7 +60,7 @@ descriptor. Single-port boundaries can also carry an explicit `PerturbationBC`
 | `mass_source` | `MASS_SOURCE` (14) | 2 | mass/momentum/energy/composition injection | default |
 | `junction` | `JUNCTION` (6) | variable | common **static** pressure $p_i=p_0$ | default (+$\mathbf{M}$ if plenum) |
 | `splitter` | `SPLITTER` (7) | variable | common **total** pressure $p_{t,i}=p_{t,0}$ | default (+$\mathbf{M}$ if plenum) |
-| `mixing_junction` | `MIXING_JUNCTION` (22) | variable | common **effective total** pressure $p_{t,i}^{\text{eff}}=p_{t,0}^{\text{eff}}$ (second law) | default |
+| `mixer` | `MIXER` (22) | variable | common **effective total** pressure $p_{t,i}^{\text{eff}}=p_{t,0}^{\text{eff}}$ (second law) | default |
 | `forced_splitter` | `FORCED_SPLITTER` (19) | variable | $\dot m_{\text{out},k}=\beta_k\dot m_\text{in}$ | default |
 | *supersonic inlet/outlet* | (9 / 10) | 1 | **reserved — deferred** (v1 is subsonic) | — |
 
@@ -312,7 +312,7 @@ branch (exactly what `helmholtz_resonator` assembles).
 As `junction`, but ties the ports to a **common total pressure** ($p_{t,i} = p_{t,0}$,
 lossless) — the idealization when the manifold recovers dynamic head. Same optional `volume`.
 
-### `mixing_junction(recovery=1.0)`
+### `mixer(recovery=1.0)`
 The general merge that obeys the second law at any port Mach number. It ties the ports to a
 **common effective total pressure** $p_{t,i}^{\text{eff}} = p_{t,0}^{\text{eff}}$, removing from
 each inflow a loss

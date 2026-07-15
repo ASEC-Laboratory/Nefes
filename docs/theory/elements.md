@@ -134,10 +134,10 @@ The lossless splitter is an isentropic distribution plenum: with $h_t$ delivered
 The static-pressure junction must be used *only* where every port runs at low Mach number.
 At a fast port, equal static pressure plus the port's velocity head hands the branch a total pressure $p_t \approx p + \tfrac{1}{2}\varrho u^2$ — more total pressure than the feed possesses — which is free energy and a second-law violation.
 It should be noted that the consequence is not merely a small error: the surplus must be destroyed somewhere downstream, and if no element can do so the network has *no steady solution at all* and the solver can only stall.
-The rule of thumb is therefore that a plenum feeding fast branches takes a splitter (common $p_t$), while a low-speed header collecting comparable streams takes a static-pressure junction (common $p$); a merge with a port that is not slow takes the mixing junction below, which lifts the low-Mach restriction by charging the mixing loss instead of ignoring it.
+The rule of thumb is therefore that a plenum feeding fast branches takes a splitter (common $p_t$), while a low-speed header collecting comparable streams takes a static-pressure junction (common $p$); a merge with a port that is not slow takes the mixer below, which lifts the low-Mach restriction by charging the mixing loss instead of ignoring it.
 
-**Mixing junction.**
-The mixing junction is the general merge that respects the second law at any port Mach number.
+**Mixer.**
+The mixer is the general merge that respects the second law at any port Mach number.
 It ties every port to a common *effective* total pressure,
 
 $$
@@ -169,9 +169,9 @@ Distributing a single inflow, that is automatic: the minimum runs over the one f
 Merging several streams, $\sigma = 1$ is the least-dissipative limit, and it is well posed precisely when the network pins each inflow's rate independently of the manifold, through a prescribed inflow (a mass-flow inlet) or a real resistance in its branch (a loss, an orifice, a pipe).
 Two total-pressure reservoirs attached directly to the node do not meet that condition: the weakest feed then sees no pressure drop and its flow rate is undetermined, so the merge has no unique steady state, exactly the requirement the splitter already carries and not a property of the element.
 For $\sigma < 1$ the dump term $(1-\sigma)(p_{t,k}-p_k)$ rises with each inflow's own dynamic head, a self-supplied resistance that pins the split without help from the network, so lower recovery converges on any topology; the conditioning degrades smoothly as $\sigma \to 1$ and that self-resistance fades.
-The default is $\sigma = 1$, the least-dissipative ideal, which asks that each inflow be pinned by the network; the solve carries a topological check that warns when a mixing junction near this limit is reached by two or more total-pressure inlets through no resistance, the under-pinned merge above.
+The default is $\sigma = 1$, the least-dissipative ideal, which asks that each inflow be pinned by the network; the solve carries a topological check that warns when a mixer near this limit is reached by two or more total-pressure inlets through no resistance, the under-pinned merge above.
 Lowering $\sigma$ toward $0$ gives the robust full dump, well posed for any wiring, which at low Mach reduces to the static-pressure junction.
-Because it charges a fast inflow its mixing loss instead of manufacturing free energy, the mixing junction is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
+Because it charges a fast inflow its mixing loss instead of manufacturing free energy, the mixer is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
 
 **Forced splitter.**
 A flow divider whose split is imposed rather than discovered is a variant of the splitter: with one inflow at port $0$, the first $n - 2$ outflow ports each carry a fixed fraction $\beta_i$ of the inflow rate, and the last outflow port carries the remainder while keeping total-pressure continuity with the inflow.

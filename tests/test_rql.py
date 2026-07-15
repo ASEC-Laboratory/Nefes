@@ -119,7 +119,7 @@ def test_auto_marker_matches_explicit_hard_closure():
         assert np.allclose(ea[q], eh[q], rtol=1e-5, atol=1e-5 * np.abs(eh[q]).max())
 
 
-def test_burnt_survives_a_fresh_mixing_junction():
+def test_burnt_survives_a_fresh_mixer():
     # The quench air here enters as its own inlet and merges at a junction (rather than an
     # inline mass source), exercising the JUNCTION noisy-OR: burnt rich products + fresh
     # air -> the merged (lean) edge stays burnt.

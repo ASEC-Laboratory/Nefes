@@ -26,7 +26,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -36,7 +36,7 @@ from .ids import (
     WALL,
 )
 
-# Mixing-junction smooth-minimum tuning, as fractions of a port total pressure.  The ideal
+# Mixer smooth-minimum tuning, as fractions of a port total pressure.  The ideal
 # (recovery = 1) merge holds the node total pressure at the smallest inflow total pressure;
 # MIX_MIN_SMOOTH is the smoothing width of that minimum (a small under-estimate that keeps the
 # weakest feed feasible), and MIX_MIN_SEED seeds the running minimum above every port so the
@@ -274,7 +274,7 @@ def node_residual(n, rid, row_ptr, col_edge, orient, npar_f, npar_fptr, eps, eps
                 R[r0 + i] = est[ES_PT, e0] - est[ES_PT, ei] - kappa * (si * est[ES_MDOT, ei])
         return
 
-    if rid == MIXING_JUNCTION:
+    if rid == MIXER:
         # Merge manifold that obeys the second law by never handing an outflow more total
         # pressure than the feeds possess.  Mass balance, then (deg - 1) rows tying each port's
         # *effective* total pressure to port 0's.  A port's effective total pressure removes its

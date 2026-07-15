@@ -77,7 +77,7 @@ from ..elements.ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -1237,8 +1237,8 @@ def _spec_to_ui(spec):
         return "JunctionStaticP", _manifold_attrs(fp)
     if rid == SPLITTER:
         return "LosslessSplitter", _manifold_attrs(fp)
-    if rid == MIXING_JUNCTION:
-        return "MixingJunction", {"recovery": float(fp[0])}
+    if rid == MIXER:
+        return "Mixer", {"recovery": float(fp[0])}
     if rid == FORCED_SPLITTER:
         # fparams are the N-1 controlled outflow betas, in port order
         return "ForcedSplitter", {"fractions": ", ".join(f"{float(b):g}" for b in fp)}

@@ -38,7 +38,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -450,7 +450,7 @@ ELEMENT_PARAMS: Dict[int, Tuple[ParamDescriptor, ...]] = {
     ),
     JUNCTION: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
     SPLITTER: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
-    MIXING_JUNCTION: (
+    MIXER: (
         ParamDescriptor(
             "recovery",
             lo=0.0,

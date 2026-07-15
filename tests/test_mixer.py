@@ -1,8 +1,8 @@
-"""The mixing junction: a variable-port manifold that obeys the second law.
+"""The mixer: a variable-port manifold that obeys the second law.
 
 The static-pressure ``junction`` ties every port to a common static pressure, which at a fast
 port hands the branch its velocity head as extra total pressure (more than the feed carries) --
-free energy the second law forbids.  The ``mixing_junction`` ties every port to a common
+free energy the second law forbids.  The ``mixer`` ties every port to a common
 *effective* total pressure instead: each inflow gives up a loss on entering, so the node total
 pressure never rises above the feeds and the mass-averaged outflow entropy never falls below the
 feed mean.  ``recovery`` sets that loss between the least-dissipative ideal (``1``, the default:
@@ -27,7 +27,7 @@ from nefes.assembly.recover import ES_M, ES_P, ES_PT
 from nefes.elements import catalog as cat
 from nefes.perturbation import PerturbationBC, perturbation_response
 from nefes.shell.build import build_problem
-from nefes.shell.diagnostics import diagnose_mixing_junctions
+from nefes.shell.diagnostics import diagnose_mixers
 from nefes.solver import solve
 from nefes.solver.report import states_table
 
@@ -71,7 +71,7 @@ def _node_entropy_production(sol, in_edges, out_edges):
 
 def test_merge_converges_and_respects_second_law():
     """A merge of two unequal streams converges, stays subsonic, and generates entropy."""
-    sol = _merge_network(cat.mixing_junction(0.0)).solve()
+    sol = _merge_network(cat.mixer(0.0)).solve()
     assert sol.converged, (sol.residual_norm, sol.print_residuals())
     assert sol.verify() == []
     assert np.abs(sol.field("M")).max() < 1.0
@@ -84,11 +84,11 @@ def test_merge_converges_and_respects_second_law():
     assert pt[2] <= min(pt[0], pt[1]) * (1.0 + 1e-6)
 
 
-def test_junction_manufactures_total_pressure_where_mixing_junction_does_not():
+def test_junction_manufactures_total_pressure_where_mixer_does_not():
     """The documented failure: a slow plenum feeding a fast branch.
 
     The static-pressure junction hands the fast branch more total pressure than the feed
-    carries (entropy production goes negative); the mixing junction keeps the branch at or
+    carries (entropy production goes negative); the mixer keeps the branch at or
     below the feed and generates entropy.
     """
 
@@ -104,7 +104,7 @@ def test_junction_manufactures_total_pressure_where_mixing_junction_does_not():
         return nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=300.0).solve()
 
     jun = build(cat.junction())
-    mix = build(cat.mixing_junction(0.0))
+    mix = build(cat.mixer(0.0))
     assert jun.converged and mix.converged
 
     feed_pt = jun.field("p_t")[0]
@@ -112,7 +112,7 @@ def test_junction_manufactures_total_pressure_where_mixing_junction_does_not():
     assert jun.field("p_t")[2] > feed_pt * 1.05
     assert _node_entropy_production(jun, in_edges=(0,), out_edges=(1, 2)) < 0.0  # second-law violation
 
-    # The mixing junction does not: the fast branch stays at or below the feed, entropy grows.
+    # The mixer does not: the fast branch stays at or below the feed, entropy grows.
     assert mix.field("p_t")[2] <= feed_pt * (1.0 + 1e-6)
     assert _node_entropy_production(mix, in_edges=(0,), out_edges=(1, 2)) > 0.0
 
@@ -137,14 +137,14 @@ def _restricted_merge_problem(manifold, a=0.05, K=50.0):
 
 
 def test_reduces_to_junction_residual_at_low_mach():
-    """As the port Mach falls the mixing-junction and junction kernels coincide.
+    """As the port Mach falls the mixer and junction kernels coincide.
 
     The two residuals differ only in the manifold rows, and there by exactly the outflow
-    dynamic head ``p_t - p`` (the term the mixing junction dumps and the junction keeps).  So
-    the mixing-junction solution nearly solves the *junction* problem, with a residual equal to
+    dynamic head ``p_t - p`` (the term the mixer dumps and the junction keeps).  So
+    the mixer solution nearly solves the *junction* problem, with a residual equal to
     that dynamic head, which is ``O(M^2)`` and vanishes as ``M -> 0``.
     """
-    prob_mix = _restricted_merge_problem(cat.mixing_junction(0.0))
+    prob_mix = _restricted_merge_problem(cat.mixer(0.0))
     prob_jun = _restricted_merge_problem(cat.junction())  # identical topology and state layout
     res = solve(prob_mix)
     assert res.converged
@@ -155,7 +155,7 @@ def test_reduces_to_junction_residual_at_low_mach():
     r_jun = residual(prob_jun, x, eps, 1.0e-5, 0.0)
     est = states_table(prob_mix, x)
 
-    assert np.abs(r_mix).max() < 1.0e-4  # the mixing junction solved its own problem
+    assert np.abs(r_mix).max() < 1.0e-4  # the mixer solved its own problem
     manifold_mach = np.abs(est[ES_M, :3]).max()
     dyn_head = float(est[ES_PT, 2] - est[ES_P, 2])  # dynamic head on the manifold outflow edge
     # The junction residual at the mixing solution equals that (small) outflow dynamic head.
@@ -184,13 +184,13 @@ def test_high_recovery_distribution_is_near_isentropic():
     the splitter), while recovery 0 dumps it.  The ideal is reached to the smoothing tolerance,
     so the match to the splitter is close, not bit-exact.
     """
-    hi = _distribution_network(cat.mixing_junction(1.0)).solve()
-    lo = _distribution_network(cat.mixing_junction(0.0)).solve()
+    hi = _distribution_network(cat.mixer(1.0)).solve()
+    lo = _distribution_network(cat.mixer(0.0)).solve()
     spl = _distribution_network(cat.splitter()).solve()
     assert hi.converged and lo.converged and spl.converged
 
     # Same composition and temperature into every branch, so the only entropy is the pressure
-    # loss.  The splitter is lossless; raising recovery moves the mixing junction toward it, so
+    # loss.  The splitter is lossless; raising recovery moves the mixer toward it, so
     # recovery 1 dissipates less than the recovery 0 dump (and never violates the second law).
     s_hi = _node_entropy_production(hi, in_edges=(0,), out_edges=(1, 2))
     s_lo = _node_entropy_production(lo, in_edges=(0,), out_edges=(1, 2))
@@ -230,7 +230,7 @@ def test_recovery_lowers_merge_entropy_toward_the_minimum():
     sgen = []
     out_pt = []
     for recovery in (0.0, 0.5, 0.9):
-        sol = _resisted_merge_network(cat.mixing_junction(recovery)).solve()
+        sol = _resisted_merge_network(cat.mixer(recovery)).solve()
         assert sol.converged, recovery
         assert np.abs(sol.field("M")).max() < 1.0
         s = _node_entropy_production(sol, in_edges=(0, 1), out_edges=(2,))
@@ -242,14 +242,14 @@ def test_recovery_lowers_merge_entropy_toward_the_minimum():
 
 
 def test_general_merge_where_splitter_fails():
-    """The mixing junction is the general merge element: it converges where the splitter cannot.
+    """The mixer is the general merge element: it converges where the splitter cannot.
 
     Merging two streams of unequal total pressure is infeasible for the lossless splitter
-    (which forces a single common total pressure); the mixing junction reconciles them through
+    (which forces a single common total pressure); the mixer reconciles them through
     the mixing loss and converges, at the robust dump and at a low-loss recovery alike.
     """
-    dump = _merge_network(cat.mixing_junction(0.0), pt_hi=2.4e5, pt_lo=2.0e5).solve()
-    lean = _resisted_merge_network(cat.mixing_junction(0.9)).solve()
+    dump = _merge_network(cat.mixer(0.0), pt_hi=2.4e5, pt_lo=2.0e5).solve()
+    lean = _resisted_merge_network(cat.mixer(0.9)).solve()
     with warnings.catch_warnings():  # the splitter deliberately fails to converge on the merge
         warnings.simplefilter("ignore")
         spl = _merge_network(cat.splitter(), pt_hi=2.4e5, pt_lo=2.0e5).solve()
@@ -285,7 +285,7 @@ def test_full_recovery_merge_is_well_posed_when_flows_are_pinned():
     least dissipative at those rates.  Two bare total-pressure feeds do not pin the split, and the
     same limit is then under-determined and does not converge.
     """
-    ideal = _pinned_merge_network(cat.mixing_junction(1.0)).solve()
+    ideal = _pinned_merge_network(cat.mixer(1.0)).solve()
     assert ideal.converged, (ideal.residual_norm, ideal.print_residuals())
     assert ideal.verify() == []
     assert np.abs(ideal.field("M")).max() < 1.0
@@ -299,7 +299,7 @@ def test_full_recovery_merge_is_well_posed_when_flows_are_pinned():
     assert pt[2] >= pt_min * 0.99  # leaves at the weakest feed: the minimum-entropy limit
 
     # At the same prescribed rates the full dump generates more entropy than the ideal recovery.
-    dump = _pinned_merge_network(cat.mixing_junction(0.0)).solve()
+    dump = _pinned_merge_network(cat.mixer(0.0)).solve()
     assert dump.converged
     assert _node_entropy_production(dump, in_edges=(0, 1), out_edges=(2,)) > s_ideal
 
@@ -307,39 +307,39 @@ def test_full_recovery_merge_is_well_posed_when_flows_are_pinned():
     # and the resistance-free limit does not converge (the splitter's own well-posedness need).
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        bare = _merge_network(cat.mixing_junction(1.0)).solve()
+        bare = _merge_network(cat.mixer(1.0)).solve()
     assert not bare.converged
 
 
 def test_default_recovery_is_the_least_dissipative_ideal():
     """The default recovery is the least-dissipative ideal, ``1.0``."""
-    assert cat.mixing_junction().fparams[0] == 1.0
+    assert cat.mixer().fparams[0] == 1.0
 
 
 def test_diagnostic_flags_underpinned_high_recovery_merge():
     """A high-recovery merge with unpinned total-pressure feeds is flagged before it fails.
 
-    Two total-pressure inlets attached straight to a ``recovery = 1`` mixing junction leave the
-    flow split under-determined; the solve emits a warning naming the mixing junction and its feeds.
+    Two total-pressure inlets attached straight to a ``recovery = 1`` mixer leave the
+    flow split under-determined; the solve emits a warning naming the mixer and its feeds.
     """
-    net = _merge_network(cat.mixing_junction(1.0, name="mix"))
-    messages = diagnose_mixing_junctions(net)
+    net = _merge_network(cat.mixer(1.0, name="mix"))
+    messages = diagnose_mixers(net)
     assert len(messages) == 1 and "mix" in messages[0]
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         net.solve(max_iter=40)
-    assert any("mixing junction 'mix'" in str(w.message) for w in caught)
+    assert any("mixer 'mix'" in str(w.message) for w in caught)
 
 
 def test_diagnostic_silent_when_pinned_or_distributing_or_low_recovery():
     """The diagnostic stays silent when the split is pinned, distributing, or at low recovery."""
     # both inflow rates prescribed -> the split is pinned
-    assert diagnose_mixing_junctions(_pinned_merge_network(cat.mixing_junction(1.0))) == []
+    assert diagnose_mixers(_pinned_merge_network(cat.mixer(1.0))) == []
     # bare total-pressure feeds, but low recovery self-pins through the dump term
-    assert diagnose_mixing_junctions(_merge_network(cat.mixing_junction(0.9))) == []
+    assert diagnose_mixers(_merge_network(cat.mixer(0.9))) == []
     # a single inflow (distribution) is the lossless splitter, always well posed
-    assert diagnose_mixing_junctions(_distribution_network(cat.mixing_junction(1.0))) == []
+    assert diagnose_mixers(_distribution_network(cat.mixer(1.0))) == []
 
 
 def test_diagnostic_walks_through_lossless_pass_through_to_the_source():
@@ -348,31 +348,31 @@ def test_diagnostic_walks_through_lossless_pass_through_to_the_source():
         cat.total_pressure_inlet(2.2e5, 400.0),
         cat.duct(0.5),
         cat.total_pressure_inlet(2.0e5, 300.0),
-        cat.mixing_junction(1.0, name="mix"),
+        cat.mixer(1.0, name="mix"),
         cat.pressure_outlet(1.8e5),
     ]
     edges = [(0, 1, 0.02), (1, 3, 0.02), (2, 3, 0.02), (3, 4, 0.05)]
     net = nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=350.0)
-    assert len(diagnose_mixing_junctions(net)) == 1  # the duct does not pin the feed
+    assert len(diagnose_mixers(net)) == 1  # the duct does not pin the feed
 
 
 def test_recovery_parameter_addressing():
     """``recovery`` is a named parameter: readable, writable through with_params, validated."""
-    net = _merge_network(cat.mixing_junction(0.0, name="mix"))
+    net = _merge_network(cat.mixer(0.0, name="mix"))
     assert net.get("mix.recovery") == 0.0
     tuned = net.with_params({"mix.recovery": 0.5})
     assert tuned.get("mix.recovery") == 0.5
     assert net.get("mix.recovery") == 0.0  # base network is untouched
 
     with pytest.raises(ValueError):
-        cat.mixing_junction(1.5)
+        cat.mixer(1.5)
     with pytest.raises(ValueError):
-        cat.mixing_junction(-0.1)
+        cat.mixer(-0.1)
 
 
 def test_yaml_roundtrip_preserves_recovery(tmp_path):
-    """A saved-and-reloaded case keeps the mixing junction and its recovery."""
-    net = _merge_network(cat.mixing_junction(0.4, name="mix"))
+    """A saved-and-reloaded case keeps the mixer and its recovery."""
+    net = _merge_network(cat.mixer(0.4, name="mix"))
     path = str(tmp_path / "merge.yaml")
     net.save(path)
     back = nefes.load_case(path)
@@ -382,13 +382,13 @@ def test_yaml_roundtrip_preserves_recovery(tmp_path):
 
 
 def test_perturbation_operator_builds():
-    """The acoustic layer accepts the mixing junction (auto-linearized, no storage stamp)."""
+    """The acoustic layer accepts the mixer (auto-linearized, no storage stamp)."""
     net = nefes.Network(
         _gas(),
         nodes=[
             cat.total_pressure_inlet(2.0e5, 300.0, perturbation_bc=PerturbationBC.hard_wall()),
             cat.total_pressure_inlet(2.0e5, 300.0, perturbation_bc=PerturbationBC.hard_wall()),
-            cat.mixing_junction(0.0),
+            cat.mixer(0.0),
             cat.duct(0.5),
             cat.pressure_outlet(1.8e5, perturbation_bc=PerturbationBC.open_end()),
         ],

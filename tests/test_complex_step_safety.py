@@ -49,7 +49,7 @@ from nefes.elements.ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PIPE,
     PT_INLET,
@@ -327,14 +327,14 @@ def _probe_splitter():
     return build_problem(perfect_gas(R_AIR, GAMMA), els, edges, 30.0, PT_BC, H_REF)
 
 
-def _probe_mixing_junction():
-    # two inflow legs merging (mixing junction: shared effective total pressure).  The
+def _probe_mixer():
+    # two inflow legs merging (mixer: shared effective total pressure).  The
     # inflow indicator smooth_step and the dynamic-head term (p_t - p) must stay analytic
     # through the forward / reverse / near-zero / near-choke sweep on every port.
     els = [
         cat.total_pressure_inlet(PT_BC, TT),
         cat.total_pressure_inlet(PT_BC, TT),
-        cat.mixing_junction(0.5),  # exercise both the dump and the minimum-inflow loss terms
+        cat.mixer(0.5),  # exercise both the dump and the minimum-inflow loss terms
         cat.pressure_outlet(P_OUT),
     ]
     edges = [(0, 2, PA), (1, 2, PA), (2, 3, PA)]
@@ -420,7 +420,7 @@ PROBES = {
     DUCT: _probe_duct,
     JUNCTION: _probe_junction,
     SPLITTER: _probe_splitter,
-    MIXING_JUNCTION: _probe_mixing_junction,
+    MIXER: _probe_mixer,
     FORCED_SPLITTER: _probe_forced_splitter,
     WALL: _probe_wall,
     CAVITY: _probe_cavity,

@@ -21,7 +21,7 @@ from .ids import (
     MASS_FLOW_INLET,
     MASS_FLOW_OUTLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PT_INLET,
     SPLITTER,
@@ -753,7 +753,7 @@ def splitter(name="splitter", volume=0.0):
     return ElementSpec(SPLITTER, _manifold_block("splitter", volume), name)
 
 
-def mixing_junction(recovery=1.0, name="mixing_junction"):
+def mixer(recovery=1.0, name="mixer"):
     """A variable-port manifold that merges and distributes while respecting the second law.
 
     The general alternative to :func:`junction` and :func:`splitter`.  The static-pressure
@@ -761,7 +761,7 @@ def mixing_junction(recovery=1.0, name="mixing_junction"):
     its full velocity head as extra total pressure (more than the feed carries), a manufacture
     of free energy that the second law forbids; the lossless splitter ties every port to a
     common total pressure, which is right for distribution but cannot merge streams of unequal
-    total pressure.  The mixing junction ties every port to a common *effective* total pressure:
+    total pressure.  The mixer ties every port to a common *effective* total pressure:
     each inflow gives up a loss on entering the mix and each outflow leaves at the resulting
     node total pressure.  That node total pressure stays at or below every inflow's, so no
     branch gains total pressure and the mass-averaged outflow entropy is at or above the feed
@@ -820,16 +820,16 @@ def mixing_junction(recovery=1.0, name="mixing_junction"):
     Examples
     --------
     >>> import nefes.elements.catalog as cat
-    >>> ideal = cat.mixing_junction()  # least-dissipative merge (recovery = 1); pin each inflow
-    >>> plenum = cat.mixing_junction(recovery=0.0)  # robust full-dump plenum, converges on any wiring
+    >>> ideal = cat.mixer()  # least-dissipative merge (recovery = 1); pin each inflow
+    >>> plenum = cat.mixer(recovery=0.0)  # robust full-dump plenum, converges on any wiring
     """
     sigma = float(recovery)
     if not (0.0 <= sigma <= 1.0):
         raise ValueError(
-            f"mixing_junction: recovery must lie in [0, 1] (1 = the least-dissipative ideal, "
+            f"mixer: recovery must lie in [0, 1] (1 = the least-dissipative ideal, "
             f"0 = full dump loss); got {recovery}"
         )
-    return ElementSpec(MIXING_JUNCTION, [sigma], name)
+    return ElementSpec(MIXER, [sigma], name)
 
 
 def forced_splitter(fractions, name="splitter"):

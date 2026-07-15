@@ -28,7 +28,7 @@ from ..elements.ids import (
     KIND_PRESSURE,
     MASS_FLOW_INLET,
     MASS_SOURCE,
-    MIXING_JUNCTION,
+    MIXER,
     P_OUTLET,
     PORT_ANY,
     PORT_SOURCE,
@@ -176,7 +176,7 @@ def validate_network(elements: List[ElementSpec], conn: Connectivity, area: np.n
         if expected is not None:
             if deg != expected:
                 raise ValueError(f"{label} expects {expected} port(s) but is connected to {deg} edge(s)")
-        elif rid in (JUNCTION, SPLITTER, MIXING_JUNCTION):
+        elif rid in (JUNCTION, SPLITTER, MIXER):
             if deg < 2:
                 raise ValueError(f"{label} is a manifold and needs >= 2 ports but is connected to {deg} edge(s)")
         elif rid == FORCED_SPLITTER:
