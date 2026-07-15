@@ -456,7 +456,7 @@ ELEMENT_PARAMS: Dict[int, Tuple[ParamDescriptor, ...]] = {
             lo=0.0,
             hi=1.0,
             slot=0,
-            doc="dynamic-head recovery (0 = full dump loss / plenum, 1 = lossless splitter)",
+            doc="dynamic-head recovery (0 = full dump loss / plenum, 1 = least-dissipative ideal)",
         ),
     ),
     FORCED_SPLITTER: (

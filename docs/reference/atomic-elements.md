@@ -314,21 +314,28 @@ lossless) — the idealization when the manifold recovers dynamic head. Same opt
 
 ### `mixing_junction(recovery=0.0)`
 The general merge that obeys the second law at any port Mach number. It ties the ports to a
-**common effective total pressure** $p_{t,i}^{\text{eff}} = p_{t,0}^{\text{eff}}$ with
-$p_{t,k}^{\text{eff}} = p_{t,k} - (1-\sigma)(p_{t,k}-p_k)\chi_k$, where $\chi_k$ is the smooth
-inflow indicator and $\sigma$ is `recovery`. Each inflow gives up the unrecovered fraction of
-its dynamic head on entering the mix, so the node total pressure never rises above the feeds and
-the mass-averaged outflow entropy never falls below the feed mean (entropy production $\ge 0$).
-Use it instead of `junction` where a merging port is not slow: the `junction` would there hand a
-fast branch more total pressure than the feed carries (free energy, a second-law violation and
-often no steady solution at all). `recovery` $= 0$ (the default) is the full dump loss of a
-plenum, `recovery` $= 1$ reduces to the lossless `splitter`; at low Mach the element collapses to
-`junction` for any value. Unlike `junction`/`splitter` it carries no chamber compliance (a
-lengthless mixing node); model a resonating plenum with a `junction` or `cavity` volume.
+**common effective total pressure** $p_{t,i}^{\text{eff}} = p_{t,0}^{\text{eff}}$, removing from
+each inflow a loss
+$\ell_k = \chi_k\big[(1-\sigma)(p_{t,k}-p_k) + \sigma(p_{t,k}-p_t^{\min})\big]$, where $\chi_k$
+is the smooth inflow indicator, $\sigma$ is `recovery`, and $p_t^{\min}$ is the smooth minimum of
+the inflow total pressures. The node total pressure never rises above the feeds, so the
+mass-averaged outflow entropy never falls below the feed mean (entropy production $\ge 0$). Use it
+instead of `junction` where a merging port is not slow: the `junction` would there hand a fast
+branch more total pressure than the feed carries (free energy, a second-law violation and often no
+steady solution at all). `recovery` sets the loss between two limits: $0$ (the default) is the
+full dump loss of a plenum (each inflow gives up its whole dynamic head), the most dissipative and
+best-conditioned merge; $\to 1$ removes only each inflow's excess over the weakest feed, so the
+outlet leaves at the minimum inflow total pressure, the least dissipation the second law allows.
+Distributing (a single inflow), $\sigma = 1$ is the lossless (isentropic) `splitter`; merging, it
+is the minimum-entropy limit, which is **ill-posed exactly at 1** (the weakest feed is left with no
+driving pressure) and worsens in conditioning as $\sigma \to 1$, so a merge should stay below it
+(up to $\approx 0.9$ converges). At low Mach the $\sigma = 0$ default reduces to `junction`. Unlike
+`junction`/`splitter` it carries no chamber compliance (a lengthless mixing node); model a
+resonating plenum with a `junction` or `cavity` volume.
 
 | Argument | Symbol | Meaning | Units | Default / constraint |
 | --- | --- | --- | --- | --- |
-| `recovery` | $\sigma$ | fraction of each inflow's dynamic head recovered as total pressure | — | `0.0`, $\in[0,1]$ |
+| `recovery` | $\sigma$ | dynamic-head recovery: $0$ = full dump loss, $\to 1$ = least-dissipative ideal | — | `0.0`, $\in[0,1]$ |
 
 ### `forced_splitter(fractions)`
 One inflow (port 0) split into $N$ outflows at **prescribed mass fractions**:

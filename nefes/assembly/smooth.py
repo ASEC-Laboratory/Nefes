@@ -32,6 +32,20 @@ def smooth_abs(x, delta):
 
 
 @njit(cache=True)
+def smooth_min(a, b, delta):
+    """``min(a, b)`` regularized as ``0.5 * (a + b - sqrt((a - b)^2 + delta^2))``.
+
+    ``smooth_min(a, a) = a - delta/2``; the smoothed value never exceeds the true
+    minimum (it under-estimates by ``delta^2 / (4|a - b|)`` when the two are well
+    separated, ``delta/2`` when they are equal), so a feasibility ceiling built from it
+    stays on the safe side.  Analytic on the real axis (the ``+ delta^2`` floor keeps the
+    radicand positive), so the complex-step derivative is exact.
+    """
+    d = a - b
+    return 0.5 * (a + b - np.sqrt(d * d + delta * delta))
+
+
+@njit(cache=True)
 def smooth_pos(x, delta):
     """``max(x, 0)`` regularized: ``0.5 * (x + sqrt(x^2 + delta^2))``.
 

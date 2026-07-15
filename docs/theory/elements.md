@@ -143,16 +143,32 @@ It ties every port to a common *effective* total pressure,
 $$
 R_{1+i} = p_{t,i}^{\mathrm{eff}} - p_{t,0}^{\mathrm{eff}} - \kappa\text{-term},
 \qquad
-p_{t,k}^{\mathrm{eff}} = p_{t,k} - (1-\sigma)\,(p_{t,k}-p_k)\,\chi_k,
+p_{t,k}^{\mathrm{eff}} = p_{t,k} - \ell_k,
 \qquad i = 1,\dots,n-1,
 $$
 
-where $\chi_k$ is the smooth inflow indicator (one on an inflow port, zero on an outflow) and $\sigma \in [0,1]$ is the dynamic-head recovery.
-An inflow gives up the unrecovered fraction $(1-\sigma)$ of its dynamic head $p_{t,k}-p_k$ on entering the mix, while an outflow ($\chi_k \to 0$) leaves at the common node total pressure.
-The couplings therefore hold the node total pressure at or below every inflow's, $p_t^{\mathrm{node}} \le p_{t,i}$, so no branch ever gains total pressure.
+where the inflow loss interpolates between two limits set by the recovery $\sigma \in [0,1]$:
+
+$$
+\ell_k = \chi_k\Big[(1-\sigma)\,\underbrace{(p_{t,k}-p_k)}_{\text{dynamic head}} + \sigma\,\underbrace{(p_{t,k}-p_t^{\min})}_{\text{excess over weakest feed}}\Big],
+\qquad
+p_t^{\min} = \min_{j\,\in\,\text{inflows}} p_{t,j},
+$$
+
+with $\chi_k$ the smooth inflow indicator (one on an inflow port, zero on an outflow) and $p_t^{\min}$ the smooth minimum over the inflow total pressures.
+The two limits are the worst and best merges the state allows.
+At $\sigma = 0$ each inflow surrenders its whole dynamic head $p_{t,k}-p_k$, the full dump loss of a plenum: the most dissipative merge, and the best conditioned because the loss is a private per-port quantity.
+At $\sigma = 1$ each inflow surrenders only its excess over the weakest feed $p_{t,k}-p_t^{\min}$, so every port leaves at the minimum inflow total pressure, the least dissipation the second law permits for the given streams.
+An outflow ($\chi_k \to 0$) takes no loss and leaves at the common node total pressure.
+For any $\sigma$ the couplings hold the node total pressure at or below every inflow's, $p_t^{\mathrm{node}} \le p_{t,i}$, so no branch ever gains total pressure.
 With the total enthalpy and composition mass-averaged by the same donor as the junction, and specific entropy decreasing in total pressure (at fixed enthalpy and composition) and concave in enthalpy, the mass-averaged outflow entropy is at or above the feed mean: the entropy production $\dot S_{\mathrm{gen}} = \dot m\, s^{\mathrm{node}} - \sum_{\text{in}} \dot m_i\, s_i \ge 0$ by construction, whatever the port Mach numbers.
-The recovery spans the two idealizations it generalizes: $\sigma = 1$ recovers the full dynamic head and reduces to the lossless splitter, while at low Mach ($p_t \to p$) the element collapses to the static-pressure junction for any $\sigma$.
-Its default $\sigma = 0$ is the full dump loss of a plenum, the most dissipative and the safe choice; because it accepts a fast port without manufacturing free energy it is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
+
+The recovery limit $\sigma = 1$ carries a different meaning for a split than for a merge.
+Distributing a single inflow, the minimum runs over that one feed, so its loss vanishes and every outflow leaves at the inflow's own total pressure: this is exactly the lossless (isentropic) splitter.
+Merging several streams, $\sigma = 1$ is the minimum-entropy limit in which the weakest feed is left with no driving pressure at all, so its flow rate is indeterminate; that exact limit is ill-posed for a merge (as the splitter is), and the conditioning degrades steadily as $\sigma \to 1$ because the private dump term that anchors each port fades out.
+A merge therefore takes $\sigma$ strictly below one (up to roughly $0.9$ converges).
+The default $\sigma = 0$ is the robust full dump; at low Mach its dynamic head vanishes and the element reduces to the static-pressure junction.
+Because it charges a fast inflow its mixing loss instead of manufacturing free energy, the mixing junction is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
 
 **Forced splitter.**
 A flow divider whose split is imposed rather than discovered is a variant of the splitter: with one inflow at port $0$, the first $n - 2$ outflow ports each carry a fixed fraction $\beta_i$ of the inflow rate, and the last outflow port carries the remainder while keeping total-pressure continuity with the inflow.

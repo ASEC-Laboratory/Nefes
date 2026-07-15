@@ -754,35 +754,51 @@ def splitter(name="splitter", volume=0.0):
 
 
 def mixing_junction(recovery=0.0, name="mixing_junction"):
-    """A variable-port merge manifold that respects the second law.
+    """A variable-port manifold that merges and distributes while respecting the second law.
 
-    The alternative to :func:`junction` when the merging streams are not all at low Mach
-    number.  The static-pressure junction ties every port to a common static pressure, which
-    at a fast port hands the branch its full velocity head as extra total pressure (more than
-    the feed carries), a manufacture of free energy that the second law forbids.  The mixing
-    junction instead ties every port to a common *effective* total pressure: each inflow gives
-    up the unrecovered fraction of its dynamic head (the total-to-static difference) on
-    entering the mix, and each outflow leaves at the resulting node total pressure.  The node
-    total pressure then stays at or below every inflow's, so no branch gains total pressure and
-    the mass-averaged outflow entropy is at or above the feed mean (entropy production is
-    non-negative by construction).  Total enthalpy and composition mix by mass through the same
-    donor as the junction, so mass, energy and species are conserved exactly.
+    The general alternative to :func:`junction` and :func:`splitter`.  The static-pressure
+    junction ties every port to a common static pressure, which at a fast port hands the branch
+    its full velocity head as extra total pressure (more than the feed carries), a manufacture
+    of free energy that the second law forbids; the lossless splitter ties every port to a
+    common total pressure, which is right for distribution but cannot merge streams of unequal
+    total pressure.  The mixing junction ties every port to a common *effective* total pressure:
+    each inflow gives up a loss on entering the mix and each outflow leaves at the resulting
+    node total pressure.  That node total pressure stays at or below every inflow's, so no
+    branch gains total pressure and the mass-averaged outflow entropy is at or above the feed
+    mean (entropy production is non-negative by construction).  Total enthalpy and composition
+    mix by mass through the same donor as the junction, so mass, energy and species are
+    conserved exactly.
 
-    Like the junction it accepts any number of ports (>= 2) with directions discovered by the
-    solve, so it is the general merge element; unlike the junction it carries no acoustic
-    chamber compliance (it is a lengthless mixing node, model a resonating plenum with a
-    :func:`junction` or :func:`cavity` volume).
+    The inflow loss is set by ``recovery`` between two bounds:
+
+    * ``recovery = 0`` (the default) removes each inflow's whole dynamic head -- the plenum or
+      sudden-dump limit, the most dissipative merge and the best conditioned, so the most robust
+      to converge.  At low Mach the dynamic head vanishes and this reduces to the common-pressure
+      junction.
+    * ``recovery -> 1`` removes only each inflow's excess over the *weakest* feed, so the outlet
+      leaves at the minimum inflow total pressure -- the least-dissipative merge the second law
+      allows.  Distributing (a single inflow), ``recovery = 1`` is the lossless :func:`splitter`
+      (the inflow's own total pressure, entropy conserved).  Merging several streams, it is the
+      minimum-entropy limit, in which the weakest feed is left with no driving pressure and its
+      flow becomes indeterminate; that exact limit is ill-posed (as the splitter is for a merge),
+      so a merge takes ``recovery`` strictly below 1 (up to roughly ``0.9`` converges).
+
+    So ``recovery`` trades dissipation for conditioning: raise it toward the least-dissipative
+    ideal, lower it toward the robust dump.  The element accepts any number of ports (>= 2) with
+    directions discovered by the solve, so it is the general manifold; unlike the junction and
+    splitter it carries no acoustic chamber compliance (a lengthless mixing node, model a
+    resonating plenum with a :func:`junction` or :func:`cavity` volume).
 
     Parameters
     ----------
-    name : str, optional
-        Display name.
     recovery : float, optional
         Fraction of each inflow's dynamic head recovered as total pressure through the mix,
-        in ``[0, 1]`` (default ``0.0``).  ``0`` dissipates the whole dynamic head (the plenum
-        or sudden-dump limit, the most dissipative and the safe default); ``1`` recovers all
-        of it and reproduces the lossless :func:`splitter`.  At low Mach number the dynamic
-        head vanishes and the element collapses to the common-pressure junction for any value.
+        in ``[0, 1]`` (default ``0.0``, the robust full dump loss).  Raise it toward ``1`` (the
+        least-dissipative ideal) for a lower-loss mix; a merge should stay below 1, where the
+        limit is ill-posed.  The endpoints are reached to the solver's smoothing tolerance, not
+        bit-exactly.
+    name : str, optional
+        Display name.
 
     Returns
     -------
@@ -791,18 +807,19 @@ def mixing_junction(recovery=0.0, name="mixing_junction"):
     See Also
     --------
     junction : the common-static-pressure header (valid only when every port is low-Mach).
-    splitter : the lossless common-total-pressure manifold (the ``recovery = 1`` limit).
+    splitter : the lossless common-total-pressure manifold (the ``recovery = 1`` distribution limit).
 
     Examples
     --------
     >>> import nefes.elements.catalog as cat
-    >>> m = cat.mixing_junction(recovery=0.0)  # a dump-mixing plenum
+    >>> plenum = cat.mixing_junction()  # a robust full-dump plenum (recovery = 0)
+    >>> gentle = cat.mixing_junction(recovery=0.8)  # a lower-loss merge, still well posed
     """
     sigma = float(recovery)
     if not (0.0 <= sigma <= 1.0):
         raise ValueError(
-            f"mixing_junction: recovery must lie in [0, 1] (0 = full dump loss, 1 = lossless "
-            f"splitter); got {recovery}"
+            f"mixing_junction: recovery must lie in [0, 1] (0 = full dump loss, 1 = the "
+            f"least-dissipative ideal); got {recovery}"
         )
     return ElementSpec(MIXING_JUNCTION, [sigma], name)
 

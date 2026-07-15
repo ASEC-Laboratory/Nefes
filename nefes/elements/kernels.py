@@ -11,7 +11,7 @@ to zero by the solver.
 from numba import njit
 
 from ..assembly.recover import ES_AREA, ES_C, ES_M, ES_MDOT, ES_P, ES_PT, ES_RHO, ES_U
-from ..assembly.smooth import fischer_burmeister, smooth_abs, smooth_pos, smooth_step
+from ..assembly.smooth import fischer_burmeister, smooth_abs, smooth_min, smooth_pos, smooth_step
 from .ids import (
     CAVITY,
     CHOKED_NOZZLE_OUTLET,
@@ -35,6 +35,14 @@ from .ids import (
     TRANSFER_MATRIX,
     WALL,
 )
+
+# Mixing-junction smooth-minimum tuning, as fractions of a port total pressure.  The ideal
+# (recovery = 1) merge holds the node total pressure at the smallest inflow total pressure;
+# MIX_MIN_SMOOTH is the smoothing width of that minimum (a small under-estimate that keeps the
+# weakest feed feasible), and MIX_MIN_SEED seeds the running minimum above every port so the
+# first inflow sets it.
+MIX_MIN_SMOOTH = 0.005
+MIX_MIN_SEED = 0.5
 
 
 @njit(cache=True)
@@ -267,31 +275,59 @@ def node_residual(n, rid, row_ptr, col_edge, orient, npar_f, npar_fptr, eps, eps
         return
 
     if rid == MIXING_JUNCTION:
-        # Dump-mixing manifold: a variable-port merge that obeys the second law by never
-        # handing an outflow more total pressure than the feeds possess.  Mass balance, then
-        # (deg - 1) rows tying each port's *effective* total pressure to port 0's.  A port's
-        # effective total pressure removes the unrecovered fraction of its inflow dynamic head
-        # (p_t - p): an inflow entering the mix loses (1 - sigma) of its dynamic head, an
-        # outflow leaves at the node total pressure (its inflow indicator ~ 0).  With sigma =
-        # npar_f[pb+0] in [0, 1] the node total pressure stays at or below every inflow's, so
-        # the mass-averaged outflow entropy is at or above the feed mean (S_gen >= 0).  sigma = 0
-        # fully dissipates the dynamic head (a plenum); sigma = 1 recovers the lossless splitter.
-        # At low Mach (p_t -> p) it collapses to the common-pressure junction for any sigma.
-        acc = est[ES_MDOT, col_edge[base]] * 0.0
-        for i in range(deg):
-            acc = acc + orient[base + i] * est[ES_MDOT, col_edge[base + i]]
-        R[r0] = acc
-        sigma = npar_f[pb + 0]
+        # Merge manifold that obeys the second law by never handing an outflow more total
+        # pressure than the feeds possess.  Mass balance, then (deg - 1) rows tying each port's
+        # *effective* total pressure to port 0's.  A port's effective total pressure removes its
+        # inflow loss, interpolated by sigma = npar_f[pb+0] in [0, 1] between the full dump loss
+        # (sigma = 0: the whole dynamic head p_t - p) and the ideal loss (sigma = 1: only the
+        # excess over the weakest inflow, p_t - min_inflow p_t):
+        #   loss_k = chi_k * [ (1 - sigma)*(p_t,k - p_k) + sigma*(p_t,k - pt_min) ]
+        # with chi_k the smooth inflow indicator (1 in, 0 out) and pt_min the smooth minimum of
+        # the inflow total pressures.  So sigma = 1 recovers the lossless splitter when
+        # distributing (one inflow -> its own p_t, zero loss) and the minimum-entropy mixer when
+        # merging (the outlet leaves at the weakest feed's total pressure), sigma = 0 fully
+        # dissipates the dynamic head (a plenum), and at low Mach it collapses to the
+        # common-pressure junction for any sigma.
         e0 = col_edge[base]
+        sigma = npar_f[pb + 0]
+        # A port total pressure sets the (relative) smoothing / seed scales; it is kept complex
+        # (not .real) because it depends on the flow state, so the complex-step derivative must
+        # carry it.
+        pt_ref = est[ES_PT, e0]
+        delta = MIX_MIN_SMOOTH * pt_ref
+        excl = MIX_MIN_SEED * pt_ref
+        # First pass: mass balance, and the smooth minimum of the inflow total pressures.  Each
+        # outflow is lifted clear of the minimum by excl (its inflow weight chi ~ 0), so the
+        # minimum is taken over the inflows only; smooth_min under-estimates, keeping the
+        # feasibility ceiling on the safe side (pt_min <= every clear inflow's p_t).
+        acc = est[ES_MDOT, e0] * 0.0
+        pt_min = acc
+        for i in range(deg):
+            ei = col_edge[base + i]
+            si = orient[base + i]
+            acc = acc + si * est[ES_MDOT, ei]
+            chi = smooth_step(-si * est[ES_MDOT, ei], eps)  # inflow indicator (1 in, 0 out)
+            q = est[ES_PT, ei] + (1.0 - chi) * excl  # an outflow (chi -> 0) sits at p_t + excl
+            pt_min = q if i == 0 else smooth_min(pt_min, q, delta)
+        R[r0] = acc
+        # Second pass: each port's effective total pressure, tied to port 0's.  smooth_pos floors
+        # the ideal-loss term at zero, so a transiently over-estimated pt_min can never make the
+        # inflow gain total pressure (which would pump the flow backward); at the converged state
+        # pt_min <= p_t and the floor is inactive.
         s0 = orient[base]
-        # inflow indicator: smooth_step(mdot into the node, eps) -> 1 inflow, 0 outflow
         chi0 = smooth_step(-s0 * est[ES_MDOT, e0], eps)
-        pteff0 = est[ES_PT, e0] - (1.0 - sigma) * (est[ES_PT, e0] - est[ES_P, e0]) * chi0
+        loss0 = chi0 * (
+            (1.0 - sigma) * (est[ES_PT, e0] - est[ES_P, e0]) + sigma * smooth_pos(est[ES_PT, e0] - pt_min, delta)
+        )
+        pteff0 = est[ES_PT, e0] - loss0
         for i in range(1, deg):
             ei = col_edge[base + i]
             si = orient[base + i]
             chi = smooth_step(-si * est[ES_MDOT, ei], eps)
-            pteff = est[ES_PT, ei] - (1.0 - sigma) * (est[ES_PT, ei] - est[ES_P, ei]) * chi
+            loss = chi * (
+                (1.0 - sigma) * (est[ES_PT, ei] - est[ES_P, ei]) + sigma * smooth_pos(est[ES_PT, ei] - pt_min, delta)
+            )
+            pteff = est[ES_PT, ei] - loss
             R[r0 + i] = pteff0 - pteff - kappa * (si * est[ES_MDOT, ei])
         return
 

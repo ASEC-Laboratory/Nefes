@@ -1,15 +1,18 @@
-"""The mixing junction: a variable-port merge that obeys the second law.
+"""The mixing junction: a variable-port manifold that obeys the second law.
 
 The static-pressure ``junction`` ties every port to a common static pressure, which at a fast
 port hands the branch its velocity head as extra total pressure (more than the feed carries) --
 free energy the second law forbids.  The ``mixing_junction`` ties every port to a common
-*effective* total pressure instead: each inflow gives up the unrecovered fraction of its
-dynamic head on entering, so the node total pressure never rises above the feeds and the
-mass-averaged outflow entropy never falls below the feed mean.
+*effective* total pressure instead: each inflow gives up a loss on entering, so the node total
+pressure never rises above the feeds and the mass-averaged outflow entropy never falls below the
+feed mean.  ``recovery`` sets that loss between the full dump (``0``, the robust default) and
+the least-dissipative ideal (``-> 1``): the outlet at the minimum inflow total pressure, which
+is the lossless splitter when distributing and the minimum-entropy limit when merging.
 
 These tests pin the guarantees (non-negative entropy production, no manufactured total
-pressure), the limits (low-Mach merge -> junction, ``recovery = 1`` -> splitter), the parameter
-addressing and YAML round-trip, and that the acoustic operator accepts the new element.
+pressure), the limits (low-Mach merge -> junction, high-recovery distribution -> splitter,
+recovery lowers the merge entropy toward the minimum), the parameter addressing and YAML
+round-trip, and that the acoustic operator accepts the new element.
 """
 
 import warnings
@@ -159,26 +162,81 @@ def test_reduces_to_junction_residual_at_low_mach():
     assert manifold_mach < 0.15
 
 
-def test_recovery_one_matches_splitter():
-    """recovery = 1 recovers the full dynamic head, i.e. the lossless splitter exactly."""
+def _distribution_network(manifold):
+    """One inflow distributed to two pressure outlets (node 1 is the manifold)."""
+    nodes = [
+        cat.total_pressure_inlet(2.0e5, 300.0),
+        manifold,
+        cat.pressure_outlet(1.98e5),
+        cat.pressure_outlet(1.97e5),
+    ]
+    edges = [(0, 1, 0.10), (1, 2, 0.03), (1, 3, 0.03)]
+    return nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=300.0)
 
-    # A gentle distribution case (one inflow, two outflows) where the splitter is well posed:
-    # a large inflow area keeps the inflow well below choke.
-    def build(manifold):
-        nodes = [
-            cat.total_pressure_inlet(2.0e5, 300.0),
-            manifold,
-            cat.pressure_outlet(1.98e5),
-            cat.pressure_outlet(1.97e5),
-        ]
-        edges = [(0, 1, 0.10), (1, 2, 0.03), (1, 3, 0.03)]
-        return nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=300.0).solve()
 
-    mix = build(cat.mixing_junction(1.0))
-    spl = build(cat.splitter())
-    assert mix.converged and spl.converged
-    for name in ("mdot", "T", "p_t", "p"):
-        assert np.allclose(mix.field(name), spl.field(name), rtol=1e-6, atol=1e-6), name
+def test_high_recovery_distribution_is_near_isentropic():
+    """Distributing a single feed, high recovery approaches the lossless splitter.
+
+    A single inflow makes the minimum inflow total pressure its own, so its ideal loss is zero:
+    recovery near 1 recovers essentially all the dynamic head (near-isentropic distribution, like
+    the splitter), while recovery 0 dumps it.  The ideal is reached to the smoothing tolerance,
+    so the match to the splitter is close, not bit-exact.
+    """
+    hi = _distribution_network(cat.mixing_junction(1.0)).solve()
+    lo = _distribution_network(cat.mixing_junction(0.0)).solve()
+    spl = _distribution_network(cat.splitter()).solve()
+    assert hi.converged and lo.converged and spl.converged
+
+    # Same composition and temperature into every branch, so the only entropy is the pressure
+    # loss.  The splitter is lossless; raising recovery moves the mixing junction toward it, so
+    # recovery 1 dissipates less than the recovery 0 dump (and never violates the second law).
+    s_hi = _node_entropy_production(hi, in_edges=(0,), out_edges=(1, 2))
+    s_lo = _node_entropy_production(lo, in_edges=(0,), out_edges=(1, 2))
+    s_spl = _node_entropy_production(spl, in_edges=(0,), out_edges=(1, 2))
+    assert abs(s_spl) < 1e-6  # the lossless splitter is isentropic
+    assert -1e-9 <= s_hi < s_lo  # recovery 1 dissipates less than the dump, staying second-law-safe
+
+    # The recovery-1 split flows nearer the lossless splitter than the dump does.
+    spl_mdot = spl.field("mdot")
+    assert np.abs(hi.field("mdot") - spl_mdot).max() < np.abs(lo.field("mdot") - spl_mdot).max()
+
+
+def _resisted_merge_network(manifold):
+    """Two unequal feeds merging through ``manifold``, then a pipe to a pressure outlet.
+
+    The downstream pipe carries the pressure drop, so the merge is well posed across the
+    recovery range.  Node order: 0, 1 feeds; 2 manifold; 3 pipe; 4 outlet.
+    """
+    nodes = [
+        cat.total_pressure_inlet(2.1e5, 400.0),
+        cat.total_pressure_inlet(2.0e5, 300.0),
+        manifold,
+        cat.pipe(1.0, 0.15, 0.03),
+        cat.pressure_outlet(1.5e5),
+    ]
+    edges = [(0, 2, 0.03), (1, 2, 0.03), (2, 3, 0.05), (3, 4, 0.05)]
+    return nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=350.0)
+
+
+def test_recovery_lowers_merge_entropy_toward_the_minimum():
+    """Merging unequal streams, raising recovery lowers the entropy toward the minimum.
+
+    Every recovery generates entropy (a merge is irreversible), but a higher recovery keeps more
+    of the streams' total pressure, so the outlet leaves nearer the weakest feed and the entropy
+    production falls monotonically toward the minimum-entropy limit.
+    """
+    sgen = []
+    out_pt = []
+    for recovery in (0.0, 0.5, 0.9):
+        sol = _resisted_merge_network(cat.mixing_junction(recovery)).solve()
+        assert sol.converged, recovery
+        assert np.abs(sol.field("M")).max() < 1.0
+        s = _node_entropy_production(sol, in_edges=(0, 1), out_edges=(2,))
+        assert s > 0.0  # a merge always generates entropy
+        sgen.append(s)
+        out_pt.append(sol.field("p_t")[2])
+    assert sgen[0] > sgen[1] > sgen[2]  # entropy falls toward the minimum as recovery rises
+    assert out_pt[0] < out_pt[1] < out_pt[2]  # the outlet keeps more total pressure
 
 
 def test_general_merge_where_splitter_fails():
@@ -186,13 +244,15 @@ def test_general_merge_where_splitter_fails():
 
     Merging two streams of unequal total pressure is infeasible for the lossless splitter
     (which forces a single common total pressure); the mixing junction reconciles them through
-    the dump loss and converges.
+    the mixing loss and converges, at the robust dump and at a low-loss recovery alike.
     """
-    mix = _merge_network(cat.mixing_junction(0.0), pt_hi=2.4e5, pt_lo=2.0e5).solve()
-    with warnings.catch_warnings():  # the splitter deliberately fails to converge here
+    dump = _merge_network(cat.mixing_junction(0.0), pt_hi=2.4e5, pt_lo=2.0e5).solve()
+    lean = _resisted_merge_network(cat.mixing_junction(0.9)).solve()
+    with warnings.catch_warnings():  # the splitter deliberately fails to converge on the merge
         warnings.simplefilter("ignore")
         spl = _merge_network(cat.splitter(), pt_hi=2.4e5, pt_lo=2.0e5).solve()
-    assert mix.converged and mix.verify() == []
+    assert dump.converged and dump.verify() == []
+    assert lean.converged  # a low-loss merge, which the lossless splitter cannot represent
     assert not spl.converged
 
 

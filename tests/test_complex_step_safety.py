@@ -334,7 +334,7 @@ def _probe_mixing_junction():
     els = [
         cat.total_pressure_inlet(PT_BC, TT),
         cat.total_pressure_inlet(PT_BC, TT),
-        cat.mixing_junction(),
+        cat.mixing_junction(0.5),  # exercise both the dump and the minimum-inflow loss terms
         cat.pressure_outlet(P_OUT),
     ]
     edges = [(0, 2, PA), (1, 2, PA), (2, 3, PA)]
