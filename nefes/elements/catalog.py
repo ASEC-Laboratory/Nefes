@@ -753,7 +753,7 @@ def splitter(name="splitter", volume=0.0):
     return ElementSpec(SPLITTER, _manifold_block("splitter", volume), name)
 
 
-def mixing_junction(recovery=0.0, name="mixing_junction"):
+def mixing_junction(recovery=1.0, name="mixing_junction"):
     """A variable-port manifold that merges and distributes while respecting the second law.
 
     The general alternative to :func:`junction` and :func:`splitter`.  The static-pressure
@@ -771,28 +771,28 @@ def mixing_junction(recovery=0.0, name="mixing_junction"):
 
     The inflow loss is set by ``recovery`` between two bounds:
 
-    * ``recovery = 0`` (the default) removes each inflow's whole dynamic head -- the plenum or
-      sudden-dump limit, the most dissipative merge and the best conditioned, so the most robust
-      to converge.  At low Mach the dynamic head vanishes and this reduces to the common-pressure
-      junction.
-    * ``recovery -> 1`` removes only each inflow's excess over the *weakest* feed, so the outlet
-      leaves at the minimum inflow total pressure -- the least dissipation the second law allows.
-      At ``recovery = 1`` the element adds no flow resistance of its own; it imposes pressure
-      equalities alone, exactly like the :func:`splitter`, so the flow split must be pinned by the
-      rest of the network.  Distributing a single inflow this is automatic and ``recovery = 1`` is
-      the lossless :func:`splitter` (the inflow's own total pressure, entropy conserved).  Merging
-      several streams it is well posed only when every inflow's rate is pinned by the network -- a
-      :func:`mass_flow_inlet` on the branch, or a real resistance (a :func:`loss`, an
-      :func:`orifice`, a pipe) in it.  Two :func:`total_pressure_inlet` feeds attached straight to
-      the node leave the split under-determined and will not converge there; that is the
-      splitter's own well-posedness requirement, not a limitation of this element.
+    * ``recovery = 1`` (the default) removes only each inflow's excess over the *weakest* feed, so
+      the outlet leaves at the minimum inflow total pressure -- the least dissipation the second law
+      allows (an isentropic split when distributing a single inflow).  At this limit the element
+      adds no flow resistance of its own; it imposes total-pressure equalities alone, exactly like
+      the :func:`splitter`, so **the flow split must be pinned by the network**.  Each inflow branch
+      must carry either a prescribed rate (a :func:`mass_flow_inlet`) or a real resistance (a
+      :func:`loss`, an :func:`orifice`, a pipe); two :func:`total_pressure_inlet` feeds attached
+      straight to the node with nothing between leave the split under-determined and will not
+      converge, exactly as the splitter's own well-posedness requirement, not a limitation of this
+      element.  Distributing a single inflow the requirement is met automatically and ``recovery =
+      1`` is the lossless :func:`splitter`.  The solve warns when it detects an under-pinned high
+      recovery merge.
+    * ``recovery = 0`` removes each inflow's whole dynamic head -- the plenum or sudden-dump limit,
+      the most dissipative merge and the best conditioned, so the most robust to converge.  Each
+      inflow then keeps a dump term ``(1 - sigma)(p_t - p)`` that grows with its own dynamic head, a
+      self-supplied resistance that pins the split with no help from the network, so it converges on
+      any wiring (two bare total-pressure feeds included).  At low Mach the dynamic head vanishes and
+      this reduces to the common-pressure :func:`junction`.
 
-    At ``recovery < 1`` each inflow keeps a dump term ``(1 - sigma)(p_t - p)`` that grows with its
-    own dynamic head, a self-supplied resistance that pins the split with no help from the network.
-    That is why the default ``recovery = 0`` converges robustly on any topology, and why a merge
-    whose feeds are not otherwise pinned should keep ``recovery`` below 1 (up to roughly ``0.9``
-    is safe regardless of pinning).  So ``recovery`` trades dissipation for conditioning: raise it
-    toward the least-dissipative ideal, lower it toward the robust dump.  The element accepts any
+    So ``recovery`` trades dissipation for conditioning: the default ``1`` is the ideal least-loss
+    merge and needs each inflow pinned; lower it toward ``0`` for the robust dump when the feeds are
+    not otherwise pinned (roughly ``0.9`` and below is safe on any wiring).  The element accepts any
     number of ports (>= 2) with directions discovered by the solve, so it is the general manifold;
     unlike the junction and splitter it carries no acoustic chamber compliance (a lengthless mixing
     node, model a resonating plenum with a :func:`junction` or :func:`cavity` volume).
@@ -800,11 +800,11 @@ def mixing_junction(recovery=0.0, name="mixing_junction"):
     Parameters
     ----------
     recovery : float, optional
-        Dynamic-head recovery in ``[0, 1]`` (default ``0.0``, the robust full dump loss).  Raise
-        it toward ``1`` (the least-dissipative ideal) for a lower-loss mix.  At ``recovery = 1`` a
-        merge is well posed only if the network pins every inflow's rate (a mass-flow inlet or a
-        branch resistance); a merge whose feeds are otherwise unpinned should stay below 1.  The
-        endpoints are reached to the solver's smoothing tolerance, not bit-exactly.
+        Dynamic-head recovery in ``[0, 1]`` (default ``1.0``, the least-dissipative ideal).  At
+        ``recovery = 1`` a merge is well posed only if the network pins every inflow's rate (a
+        mass-flow inlet or a branch resistance); lower it toward ``0`` (the robust full dump loss)
+        when the feeds are otherwise unpinned.  The endpoints are reached to the solver's smoothing
+        tolerance, not bit-exactly.
     name : str, optional
         Display name.
 
@@ -820,14 +820,14 @@ def mixing_junction(recovery=0.0, name="mixing_junction"):
     Examples
     --------
     >>> import nefes.elements.catalog as cat
-    >>> plenum = cat.mixing_junction()  # a robust full-dump plenum (recovery = 0)
-    >>> gentle = cat.mixing_junction(recovery=0.8)  # a lower-loss merge, still well posed
+    >>> ideal = cat.mixing_junction()  # least-dissipative merge (recovery = 1); pin each inflow
+    >>> plenum = cat.mixing_junction(recovery=0.0)  # robust full-dump plenum, converges on any wiring
     """
     sigma = float(recovery)
     if not (0.0 <= sigma <= 1.0):
         raise ValueError(
-            f"mixing_junction: recovery must lie in [0, 1] (0 = full dump loss, 1 = the "
-            f"least-dissipative ideal); got {recovery}"
+            f"mixing_junction: recovery must lie in [0, 1] (1 = the least-dissipative ideal, "
+            f"0 = full dump loss); got {recovery}"
         )
     return ElementSpec(MIXING_JUNCTION, [sigma], name)
 

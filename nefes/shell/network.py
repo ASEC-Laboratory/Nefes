@@ -21,6 +21,7 @@ from ..thermo.api import EQ_KERNEL, PERFECT_GAS
 from ..thermo.configure import ThermoConfig, perfect_gas
 from . import checks
 from .build import build_problem, build_problem_from_connectivity
+from .diagnostics import diagnose_mixing_junctions
 from .problem import CompiledProblem
 
 # ES for "edge state"
@@ -787,6 +788,8 @@ class Network:
         non-convergence rather than an opaque linear-algebra failure from the closure.
         """
         prob = self.compile()
+        for message in diagnose_mixing_junctions(self):
+            warnings.warn(message, stacklevel=2)
         res = _solve(prob, x0=x0, **kw)
         sol = Solution(self, prob, res)
         if res.converged:

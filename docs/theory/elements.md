@@ -169,7 +169,8 @@ Distributing a single inflow, that is automatic: the minimum runs over the one f
 Merging several streams, $\sigma = 1$ is the least-dissipative limit, and it is well posed precisely when the network pins each inflow's rate independently of the manifold, through a prescribed inflow (a mass-flow inlet) or a real resistance in its branch (a loss, an orifice, a pipe).
 Two total-pressure reservoirs attached directly to the node do not meet that condition: the weakest feed then sees no pressure drop and its flow rate is undetermined, so the merge has no unique steady state, exactly the requirement the splitter already carries and not a property of the element.
 For $\sigma < 1$ the dump term $(1-\sigma)(p_{t,k}-p_k)$ rises with each inflow's own dynamic head, a self-supplied resistance that pins the split without help from the network, so lower recovery converges on any topology; the conditioning degrades smoothly as $\sigma \to 1$ and that self-resistance fades.
-The default $\sigma = 0$ is the robust full dump, well posed for any wiring; at low Mach its dynamic head vanishes and the element reduces to the static-pressure junction.
+The default is $\sigma = 1$, the least-dissipative ideal, which asks that each inflow be pinned by the network; the solve carries a topological check that warns when a mixing junction near this limit is reached by two or more total-pressure inlets through no resistance, the under-pinned merge above.
+Lowering $\sigma$ toward $0$ gives the robust full dump, well posed for any wiring, which at low Mach reduces to the static-pressure junction.
 Because it charges a fast inflow its mixing loss instead of manufacturing free energy, the mixing junction is the general merge element, converging on merges of unequal total pressure that the lossless splitter cannot represent.
 
 **Forced splitter.**

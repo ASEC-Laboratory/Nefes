@@ -312,7 +312,7 @@ branch (exactly what `helmholtz_resonator` assembles).
 As `junction`, but ties the ports to a **common total pressure** ($p_{t,i} = p_{t,0}$,
 lossless) — the idealization when the manifold recovers dynamic head. Same optional `volume`.
 
-### `mixing_junction(recovery=0.0)`
+### `mixing_junction(recovery=1.0)`
 The general merge that obeys the second law at any port Mach number. It ties the ports to a
 **common effective total pressure** $p_{t,i}^{\text{eff}} = p_{t,0}^{\text{eff}}$, removing from
 each inflow a loss
@@ -322,24 +322,25 @@ the inflow total pressures. The node total pressure never rises above the feeds,
 mass-averaged outflow entropy never falls below the feed mean (entropy production $\ge 0$). Use it
 instead of `junction` where a merging port is not slow: the `junction` would there hand a fast
 branch more total pressure than the feed carries (free energy, a second-law violation and often no
-steady solution at all). `recovery` sets the loss between two limits: $0$ (the default) is the
-full dump loss of a plenum (each inflow gives up its whole dynamic head), the most dissipative and
-best-conditioned merge; $\to 1$ removes only each inflow's excess over the weakest feed, so the
-outlet leaves at the minimum inflow total pressure, the least dissipation the second law allows. At
-$\sigma = 1$ the element adds no flow resistance of its own (pressure equalities only, like the
-`splitter`), so the flow split must be pinned by the network: distributing one inflow this is
+steady solution at all). `recovery` sets the loss between two limits: $1$ (the default) removes
+only each inflow's excess over the weakest feed, so the outlet leaves at the minimum inflow total
+pressure, the least dissipation the second law allows; $0$ is the full dump loss of a plenum (each
+inflow gives up its whole dynamic head), the most dissipative and best-conditioned merge. At the
+default $\sigma = 1$ the element adds no flow resistance of its own (pressure equalities only, like
+the `splitter`), so the flow split must be pinned by the network: distributing one inflow this is
 automatic and $\sigma = 1$ is the lossless (isentropic) `splitter`; merging, it is well posed only
 when every inflow's rate is pinned by a `mass_flow_inlet` or a branch resistance (a `loss`,
 `orifice`, or pipe) -- two bare `total_pressure_inlet` feeds on the node leave the split
-under-determined, the splitter's own requirement. Below $1$ each inflow's dump term is a
-self-supplied resistance that pins the split unaided, so the default $\sigma = 0$ converges on any
+under-determined, the splitter's own requirement, and the solve warns when it detects this. Lower
+`recovery` toward $0$ for the robust dump when the feeds are not otherwise pinned: each inflow's
+dump term is then a self-supplied resistance that pins the split unaided, so it converges on any
 topology and reduces to `junction` at low Mach. Unlike `junction`/`splitter` it carries no chamber
 compliance (a lengthless mixing node); model a resonating plenum with a `junction` or `cavity`
 volume.
 
 | Argument | Symbol | Meaning | Units | Default / constraint |
 | --- | --- | --- | --- | --- |
-| `recovery` | $\sigma$ | dynamic-head recovery: $0$ = full dump loss, $\to 1$ = least-dissipative ideal | — | `0.0`, $\in[0,1]$ |
+| `recovery` | $\sigma$ | dynamic-head recovery: $1$ = least-dissipative ideal, $0$ = full dump loss | — | `1.0`, $\in[0,1]$ |
 
 ### `forced_splitter(fractions)`
 One inflow (port 0) split into $N$ outflows at **prescribed mass fractions**:

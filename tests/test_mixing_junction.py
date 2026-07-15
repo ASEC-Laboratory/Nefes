@@ -5,14 +5,15 @@ port hands the branch its velocity head as extra total pressure (more than the f
 free energy the second law forbids.  The ``mixing_junction`` ties every port to a common
 *effective* total pressure instead: each inflow gives up a loss on entering, so the node total
 pressure never rises above the feeds and the mass-averaged outflow entropy never falls below the
-feed mean.  ``recovery`` sets that loss between the full dump (``0``, the robust default) and
-the least-dissipative ideal (``-> 1``): the outlet at the minimum inflow total pressure, which
-is the lossless splitter when distributing and the minimum-entropy limit when merging.
+feed mean.  ``recovery`` sets that loss between the least-dissipative ideal (``1``, the default:
+the outlet at the minimum inflow total pressure, the lossless splitter when distributing and the
+minimum-entropy limit when merging) and the full dump (``0``, the robust plenum).
 
 These tests pin the guarantees (non-negative entropy production, no manufactured total
 pressure), the limits (low-Mach merge -> junction, high-recovery distribution -> splitter,
-recovery lowers the merge entropy toward the minimum), the parameter addressing and YAML
-round-trip, and that the acoustic operator accepts the new element.
+recovery lowers the merge entropy toward the minimum), the well-posedness diagnostic for an
+under-pinned high-recovery merge, the parameter addressing and YAML round-trip, and that the
+acoustic operator accepts the new element.
 """
 
 import warnings
@@ -26,6 +27,7 @@ from nefes.assembly.recover import ES_M, ES_P, ES_PT
 from nefes.elements import catalog as cat
 from nefes.perturbation import PerturbationBC, perturbation_response
 from nefes.shell.build import build_problem
+from nefes.shell.diagnostics import diagnose_mixing_junctions
 from nefes.solver import solve
 from nefes.solver.report import states_table
 
@@ -307,6 +309,51 @@ def test_full_recovery_merge_is_well_posed_when_flows_are_pinned():
         warnings.simplefilter("ignore")
         bare = _merge_network(cat.mixing_junction(1.0)).solve()
     assert not bare.converged
+
+
+def test_default_recovery_is_the_least_dissipative_ideal():
+    """The default recovery is the least-dissipative ideal, ``1.0``."""
+    assert cat.mixing_junction().fparams[0] == 1.0
+
+
+def test_diagnostic_flags_underpinned_high_recovery_merge():
+    """A high-recovery merge with unpinned total-pressure feeds is flagged before it fails.
+
+    Two total-pressure inlets attached straight to a ``recovery = 1`` mixing junction leave the
+    flow split under-determined; the solve emits a warning naming the mixing junction and its feeds.
+    """
+    net = _merge_network(cat.mixing_junction(1.0, name="mix"))
+    messages = diagnose_mixing_junctions(net)
+    assert len(messages) == 1 and "mix" in messages[0]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        net.solve(max_iter=40)
+    assert any("mixing junction 'mix'" in str(w.message) for w in caught)
+
+
+def test_diagnostic_silent_when_pinned_or_distributing_or_low_recovery():
+    """The diagnostic stays silent when the split is pinned, distributing, or at low recovery."""
+    # both inflow rates prescribed -> the split is pinned
+    assert diagnose_mixing_junctions(_pinned_merge_network(cat.mixing_junction(1.0))) == []
+    # bare total-pressure feeds, but low recovery self-pins through the dump term
+    assert diagnose_mixing_junctions(_merge_network(cat.mixing_junction(0.9))) == []
+    # a single inflow (distribution) is the lossless splitter, always well posed
+    assert diagnose_mixing_junctions(_distribution_network(cat.mixing_junction(1.0))) == []
+
+
+def test_diagnostic_walks_through_lossless_pass_through_to_the_source():
+    """The branch walk sees a fixed pressure source reached through a lossless duct."""
+    nodes = [
+        cat.total_pressure_inlet(2.2e5, 400.0),
+        cat.duct(0.5),
+        cat.total_pressure_inlet(2.0e5, 300.0),
+        cat.mixing_junction(1.0, name="mix"),
+        cat.pressure_outlet(1.8e5),
+    ]
+    edges = [(0, 1, 0.02), (1, 3, 0.02), (2, 3, 0.02), (3, 4, 0.05)]
+    net = nefes.Network(_gas(), nodes, edges, p_ref=1.0e5, T_ref=350.0)
+    assert len(diagnose_mixing_junctions(net)) == 1  # the duct does not pin the feed
 
 
 def test_recovery_parameter_addressing():
