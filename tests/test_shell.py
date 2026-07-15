@@ -329,6 +329,11 @@ def test_edge_between_lookup():
     # display names resolve like node indices, and may be mixed with them
     assert net.edge_between("inlet", "duct") == e0
     assert net.edge_between("duct", c) == e1
+    # orientation is ignored: naming the pair either way returns the same edge id
+    assert net.edge_between("duct", "inlet") == e0
+    assert net.edge_between(c, b) == e1
+    # node ids from array-valued lookups (numpy integers) resolve like plain ints
+    assert net.edge_between(np.int64(a), np.int64(b)) == e0
     with pytest.raises(ValueError, match="no edge"):
         net.edge_between(a, c)
     with pytest.raises(KeyError):
@@ -340,9 +345,25 @@ def test_edge_between_rejects_ambiguous_pair():
     a = net.add(cat.mass_flow_inlet(5.0, 300.0))
     b = net.add(cat.duct(0.5))
     net.connect(a, b, 0.05)
-    net.connect(a, b, 0.05)  # a second parallel edge between the same ordered pair
+    net.connect(b, a, 0.05)  # a second edge joining the pair, wired the other way
+    # with orientation ignored, the antiparallel pair is genuinely ambiguous either way round
     with pytest.raises(ValueError, match="multiple edges"):
         net.edge_between(a, b)
+    with pytest.raises(ValueError, match="multiple edges"):
+        net.edge_between(b, a)
+
+
+def test_element_name_inverts_element_index():
+    net = Network(perfect_gas(R_AIR, GAMMA))
+    a = net.add(cat.mass_flow_inlet(5.0, 300.0, name="inlet"))
+    net.add(cat.pressure_outlet(101325.0, name="outlet"))
+    # index -> label and label -> index are inverses; a label passes through unchanged
+    assert net.element_name(a) == "inlet"
+    assert net.element_index(net.element_name(a)) == a
+    assert net.element_name("outlet") == "outlet"
+    assert net.element_name(np.int64(a)) == "inlet"
+    with pytest.raises(KeyError):
+        net.element_name(99)
 
 
 def _splitting_network():

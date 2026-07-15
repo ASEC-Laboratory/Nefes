@@ -96,6 +96,7 @@ net.connect(n_duct, n_out, 0.05)
 
 ```python
 i = net.element_index("flame")          # node index of the element named "flame"
+name = net.element_name(i)              # the inverse: node index (or name) back to its label
 spec = net.element("flame")             # the element itself, by name or index
 e = net.edge_between("cold", "flame")   # the edge id joining two elements (e.g. a flame's ref_edge)
 ```
@@ -107,11 +108,11 @@ Both take a name or a node index, and the ids they return index the same edge ta
 outs = net.edges_of("split", "out")     # edge ids leaving a splitter (it is the tail)
 ins  = net.edges_of("split", "in")      # edge ids entering it (it is the head); "both" is the default
 t, h = net.nodes_of(outs[0])            # the (tail, head) elements an edge connects
-net.element(t).name, net.element(h).name
+net.element_name(t), net.element_name(h)
 ```
 
 `edges_of`'s `direction` is the wiring orientation (which endpoint an edge was attached to), not the solved flow direction, which may run either way along an edge.
-`edge_between(tail, head)` is the single-edge counterpart: it wants the ordered pair, each a name or a node index, and raises if no edge, or more than one, joins them.
+`edge_between(a, b)` is the single-edge counterpart: it wants the pair, each a name or a node index, and ignores orientation (naming the two elements either way round returns the same edge id), raising only if no edge, or more than one, joins them.
 
 Element names are unique (a factory default like `duct` is auto-numbered `duct-1`; an explicit `name=` is kept), so a name is a stable handle for lookups and for parameter addresses (§5).
 

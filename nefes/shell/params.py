@@ -14,6 +14,7 @@ Main exports: :func:`inventory`, :func:`get_param`, :func:`set_params`,
 
 import copy as _copy
 import difflib
+import numbers
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -165,7 +166,7 @@ def element_index(net, key) -> int:
     KeyError
         Unknown name (with near-match suggestions) or index out of range.
     """
-    if isinstance(key, (int,)) and not isinstance(key, bool):
+    if isinstance(key, numbers.Integral) and not isinstance(key, bool):
         if not 0 <= key < len(net._elements):
             raise KeyError(f"element index {key} out of range [0, {len(net._elements)})")
         return int(key)
@@ -180,7 +181,7 @@ def element_index(net, key) -> int:
 
 def edge_index(net, key) -> int:
     """Resolve an edge reference (index or unique edge name) to its edge id."""
-    if isinstance(key, (int,)) and not isinstance(key, bool):
+    if isinstance(key, numbers.Integral) and not isinstance(key, bool):
         if not 0 <= key < len(net._edges):
             raise KeyError(f"edge index {key} out of range [0, {len(net._edges)})")
         return int(key)

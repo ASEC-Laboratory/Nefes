@@ -229,20 +229,21 @@ class Network:
         self._invalidate()
         return idx
 
-    def edge_between(self, tail, head) -> int:
-        """Return the id of the directed edge from element `tail` to element `head`.
+    def edge_between(self, a, b) -> int:
+        """Return the id of the edge connecting elements `a` and `b`, in either orientation.
 
         A convenience for recovering an edge index after assembly (e.g. to set a dynamic source's
-        ``ref_edge``) when the value returned by :meth:`connect` was not captured.  Raises if no such
-        edge exists, or if more than one connects the same ordered pair.
+        ``ref_edge``) when the value returned by :meth:`connect` was not captured.  The lookup
+        ignores wiring orientation: ``edge_between("cold", "flame")`` and
+        ``edge_between("flame", "cold")`` return the same edge id, since an edge id names the edge
+        regardless of which end you list first.  Read the stored orientation with :meth:`nodes_of`.
 
         Parameters
         ----------
-        tail, head : int or str
-            The ordered pair of endpoints, each given as a node index (as returned by
-            :meth:`add`) or the element's display name.  Names are resolved through
-            :meth:`element_index`, so ``net.edge_between("inlet", "flame")`` reads the same
-            as passing the two node indices.
+        a, b : int or str
+            The two endpoints, each given as a node index (as returned by :meth:`add`) or the
+            element's display name.  Names are resolved through :meth:`element_index`, and the
+            two forms may be mixed.
 
         Returns
         -------
@@ -253,19 +254,21 @@ class Network:
         KeyError
             Unknown element name or node index out of range (via :meth:`element_index`).
         ValueError
-            No edge connects the pair, or more than one does.
+            No edge joins the pair, or more than one does (parallel or antiparallel edges).
 
         See also
         --------
         edges_of : every edge incident to one element, when only one endpoint is known.
+        nodes_of : the ``(tail, head)`` orientation of a known edge.
         element_index : the name-to-index resolution applied to each endpoint.
         """
-        tail, head = self.element_index(tail), self.element_index(head)
-        matches = [i for i, (t, h, _a) in enumerate(self._edges) if t == tail and h == head]
+        a, b = self.element_index(a), self.element_index(b)
+        pair = {a, b}
+        matches = [i for i, (t, h, _area) in enumerate(self._edges) if {t, h} == pair]
         if not matches:
-            raise ValueError(f"no edge from element {tail} to element {head}")
+            raise ValueError(f"no edge between elements {a} and {b}")
         if len(matches) > 1:
-            raise ValueError(f"multiple edges from element {tail} to element {head}: {matches}")
+            raise ValueError(f"multiple edges between elements {a} and {b}: {matches}")
         return matches[0]
 
     def edges_of(self, element, direction: str = "both") -> List[int]:
@@ -418,6 +421,42 @@ class Network:
         from .params import element_index
 
         return element_index(self, key)
+
+    def element_name(self, key) -> str:
+        """Display label of an element, the inverse of :meth:`element_index`.
+
+        Turns a node index (as returned by :meth:`add`, :meth:`nodes_of`, or an ``edges_of``
+        result) back into the element's name, the stable handle used across the API and in
+        parameter addresses.  Passing a name returns it unchanged, so the two are interchangeable
+        wherever a label is wanted.  Falls back to ``#<index>`` for the rare unnamed element.
+
+        Parameters
+        ----------
+        key : int or str
+            Node index or the element's display name.
+
+        Returns
+        -------
+        str
+
+        Raises
+        ------
+        KeyError
+            Unknown name (with near-match suggestions) or index out of range (via
+            :meth:`element_index`).
+
+        Examples
+        --------
+        >>> t, h = net.nodes_of(net.edge_between("cold", "flame"))
+        >>> net.element_name(t), net.element_name(h)
+        ('cold', 'flame')
+
+        See Also
+        --------
+        element_index : the inverse, resolving a label to its node index.
+        element : the full element spec behind a label or index.
+        """
+        return self._node_label(self.element_index(key))
 
     def element(self, key) -> ElementSpec:
         """The element spec behind a node index or display name.
