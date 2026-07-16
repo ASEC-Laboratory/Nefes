@@ -27,7 +27,14 @@ from ..assembly.assemble import jacobian, residual
 from ..assembly.recover import ES_M
 from ..assembly.scaling import compose_scales, measure_inflow_scales
 from ..config import config
-from ..elements.ids import CHOKED_NOZZLE_OUTLET, MASS_FLOW_INLET, MASS_SOURCE, P_OUTLET, PT_INLET
+from ..elements.ids import (
+    CHOKED_NOZZLE_OUTLET,
+    FLAME_HEAT_RELEASE,
+    MASS_FLOW_INLET,
+    MASS_SOURCE,
+    P_OUTLET,
+    PT_INLET,
+)
 from ..thermo.api import EQ_KERNEL, PERFECT_GAS, thermo_state
 from .linear import col_scale, lm_step, newton_step, scaled_system, unflatten
 from .report import _Reporter, states_table
@@ -53,6 +60,12 @@ SUPERSONIC_REJECT = 1.5
 # regime-switch corner equally well at any flow scale.  Unlike the continuation ``eps`` it
 # does not taper with the schedule; it only regularizes the branch, never the equations.
 EPS_FB = 1e-5
+
+# Floor on the propagated mass flow, as a fraction of the reference, when the seed divides a
+# flame's heat release by it to get the enthalpy rise Q_dot / |mdot|.  It only guards the seed's
+# arithmetic where a network propagates no flow onto a flame's edge; the residual's own floor is
+# the continuation's ``eps``.
+MDOT_SEED_FLOOR = 1e-3
 
 # Globalization tuning for the damped Newton in ``_solve_stage``.  These are standard,
 # solver-independent line-search / Levenberg-Marquardt defaults, not physics: the exact values
@@ -263,7 +276,8 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
     splitters divide) and blends the advected scalars (``h_t`` and the feed mixture
     fractions) mass-weighted by that flow.  Because conserved scalars mix linearly, each
     edge lands at its adiabatic-mixing ``(h_t, xi)``, from which the closure recovers the
-    temperature.
+    temperature.  A heat-release flame adds its ``Q_dot / |mdot|`` enthalpy rise on top of
+    that mixing, so the edges downstream of it are seeded burnt rather than unburnt.
 
     Parameters
     ----------
@@ -297,13 +311,17 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
     npar_f = np.asarray(prob.npar_f)
     ptr = np.asarray(prob.npar_fptr)
 
-    # per-node injected (mdot, [h_t, xi...]) for the stream-introducing elements
+    # per-node injected (mdot, [h_t, xi...]) for the stream-introducing elements, and the
+    # heat release of any power-source flame (added to h_t downstream, not a stream of its own)
     inj_mdot = np.zeros(N)
     inj_scal = np.zeros((N, nscal))
     has_inj = np.zeros(N)
+    node_qdot = np.zeros(N)
     for n in range(N):
         pb = ptr[n]
         r = rid[n]
+        if r == FLAME_HEAT_RELEASE:
+            node_qdot[n] = npar_f[pb + 0]
         if r == MASS_FLOW_INLET:
             inj_mdot[n] = npar_f[pb + 0]
             inj_scal[n] = npar_f[pb + 1 : pb + 1 + nscal]
@@ -344,6 +362,14 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
         default = inj_scal[inj_nodes[0]].copy()
     edge_scal = np.tile(default, (E, 1))
     inj_w = inj_mdot * has_inj
+
+    # A heat-release flame raises its outflow total enthalpy by Q_dot / |mdot| rather than
+    # mixing a stream in, so the mass-weighted blend alone would carry the cold feed enthalpy
+    # straight through it and leave every downstream edge at the unburnt temperature.  Because
+    # the mass flow is already propagated, the rise is known per edge and added to h_t (scalar 0)
+    # on each edge leaving a flame.
+    edge_dh = node_qdot[tail] / np.maximum(np.abs(edge_mdot), MDOT_SEED_FLOOR * md)
+
     scal_converged = False
     for _ in range(max_sweeps):
         node_num = (inj_w[:, None] * inj_scal).copy()
@@ -356,6 +382,7 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
         new = edge_scal.copy()
         valid = has_out & good[tail]
         new[valid] = node_mix[tail][valid]
+        new[valid, 0] += edge_dh[valid]
         if np.allclose(new, edge_scal, rtol=1e-12, atol=1e-12):
             edge_scal = new
             scal_converged = True
@@ -614,8 +641,11 @@ def solve(
         raise ValueError(f"kappa_scale must be 'dp' or 'absolute'; got {kappa_scale!r}")
     if x0 is not None:
         x2d = np.array(x0, dtype=np.float64)
-    elif prob.model_id == EQ_KERNEL:
-        # reacting networks need a physically-seeded per-edge guess (wide h_t range)
+    elif prob.model_id == EQ_KERNEL or np.any(np.asarray(prob.node_rid) == FLAME_HEAT_RELEASE):
+        # A physically-seeded per-edge guess is needed wherever h_t spans a wide range between
+        # edges, which a uniform guess cannot straddle: a reacting network (unburnt and burnt
+        # streams sit at very different absolute enthalpies) or a heat-release flame (whose
+        # Q_dot/|mdot| jump leaves the downstream edges hundreds of kelvin above the feed).
         x2d = auto_initial_guess(prob)
     else:
         x2d = initial_guess(prob)

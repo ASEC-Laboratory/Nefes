@@ -21,6 +21,29 @@ where the hatted quantities are the scaled unknowns and $\dot m_{\text{ref}}$, $
 With mass, pressure, and energy residuals each reduced to order unity, "small" means the same thing across every equation, and the convergence test and the linear solve both behave.
 The references are a mix of user anchors and automatic estimates: $p_{\text{ref}}$ and $T_{\text{ref}}$ are set on the network (defaults $101325\,\mathrm{Pa}$ and $300\,\mathrm{K}$; see [reference/parameters](../reference/parameters.md)), $\dot m_{\text{ref}}$ and $h_{\text{ref}}$ are derived at build time from the boundary specification when not overridden (total specified inflow, an isentropic estimate from the largest boundary pressure drop, or a low-Mach fallback for a quiescent network; $h_{\text{ref}} = c_p T_{\text{ref}}$ for a perfect gas), and during the solve the mass and enthalpy scales are re-measured from the realized inlet flows at each continuation ($\kappa$) stage while $p_{\text{ref}}$ stays fixed, so the scaling tracks the flow once it establishes without collapsing at the quiescent start.
 
+## The feed-mixing seed {#sec-solver-seed}
+
+Newton converges from a guess that lies in the basin of the root, and the one quantity that can place a guess far outside it is the total enthalpy, which the network spreads across its edges while the pressure and the mass flow stay comparatively uniform.
+A single uniform enthalpy is therefore an adequate start only when every edge sits near the same $h_t$; where it does not, the solver seeds each edge by propagating the feeds through the graph.
+The mass flows are propagated first (inlets and sources inject, junctions sum, splitters divide), and the advected scalars, $h_t$ and the mixture fractions, are then blended mass-weighted by that flow.
+Because conserved scalars mix linearly, each edge lands at its adiabatic-mixing state, from which the closure recovers the temperature.
+
+Two kinds of network spread $h_t$ far enough to need this.
+A reacting network carries absolute, formation-inclusive enthalpies, so an unburnt air edge and a burnt edge sit at very different $h_t$.
+A network carrying a heat-release flame does the same for a different reason: the flame raises the total enthalpy of its outflow by
+
+$$
+\Delta h_t = \frac{\dot{Q}}{|\overline{\dot m}|},
+$$
+
+where $\dot{Q}$ is the prescribed power, so the edges downstream of it sit hundreds of kelvin above the feed.
+The seed adds this rise on top of the mixing estimate, using the mass flow it has already propagated.
+
+Seeding the burnt side cold is not a matter of a few wasted iterations.
+The enthalpy rise varies as $1/\overline{\dot m}$, so the energy row's sensitivity to the mass flow, $\partial(\Delta h_t)/\partial\overline{\dot m} = -\dot{Q}/\overline{\dot m}^{2}$, steepens without bound as the flow falls.
+A guess on the cold side of that wall sends the first step toward a smaller mass flow, which steepens the wall further; the line search then rejects every trial and the iteration stalls with the flow collapsed toward rest.
+Anticipating the rise in the seed starts the iteration on the shallow side, and the solve converges in a handful of steps at any heat release (tests: `test_heat_release_flame_converges_from_default_seed`, `test_heat_release_flame_default_seed_matches_ramped_solve`).
+
 ## Damped Newton steps {#sec-solver-damping}
 
 Each iteration solves the scaled Newton system, damped in the Levenberg–Marquardt manner so that a step remains well defined even where the Jacobian is momentarily singular, given as:

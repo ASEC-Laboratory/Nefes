@@ -127,3 +127,46 @@ def test_sudden_area_change_chain_cold_start():
     res = solve(prob, x0=initial_guess(prob, mdot0=0.0))
     est = _assert_physical(prob, res)
     assert np.allclose(est[ES_MDOT], mdot, rtol=1e-6)
+
+
+# -- heat-release flame: the h_t jump the default seed must anticipate ------------
+
+
+def _heated_tube(Qdot, mdot=0.5, Tt=300.0, area=0.01, throat=0.006):
+    """``inlet -> duct -> heat_release_flame -> duct -> choked_nozzle`` (perfect gas)."""
+    cfg = perfect_gas(R_AIR, GAMMA)
+    elements = [
+        cat.mass_flow_inlet(mdot, Tt),
+        cat.duct(0.3),
+        cat.heat_release_flame(Qdot),
+        cat.duct(0.6),
+        cat.choked_nozzle_outlet(throat),
+    ]
+    edges = [(i, i + 1, area) for i in range(len(elements) - 1)]
+    return build_problem(cfg, elements, edges, mdot_ref=mdot, p_ref=P_REF, h_ref=CP * Tt), mdot
+
+
+@pytest.mark.parametrize("Qdot", [1.0e4, 2.0e5, 8.0e5])
+def test_heat_release_flame_converges_from_default_seed(Qdot):
+    # The flame raises h_t by Qdot/|mdot|, so a uniform (unburnt) seed puts the default solve
+    # on the steep 1/mdot wall of the energy row and it stalls; the seed must carry the rise.
+    prob, mdot = _heated_tube(Qdot)
+    res = solve(prob)  # no x0: exercises the default seeding path
+    est = _assert_physical(prob, res)
+    assert np.allclose(est[ES_MDOT], mdot, rtol=1e-6)  # series: mass conserved
+    # the flame's heat lands as a total-enthalpy rise across it: Qdot = mdot * (ht_out - ht_in)
+    ht = est[ES_T] * CP + 0.5 * (est[ES_MDOT] / (est[ES_P] / (R_AIR * est[ES_T]) * 0.01)) ** 2
+    assert ht[2] - ht[1] == pytest.approx(Qdot / mdot, rel=1e-6)
+
+
+def test_heat_release_flame_default_seed_matches_ramped_solve():
+    # Ramping Qdot by hand (warm-starting each step from the last) is the workaround the
+    # default seed removes: both paths must land on the same state.
+    prob, _ = _heated_tube(2.0e5)
+    direct = solve(prob)
+    x = None
+    for Q in (2.0e4, 5.0e4, 1.0e5, 2.0e5):  # the manual ramp
+        ramped = solve(_heated_tube(Q)[0], x0=x)
+        assert ramped.converged
+        x = ramped.x
+    assert np.allclose(ramped.x, direct.x, rtol=1e-8)
