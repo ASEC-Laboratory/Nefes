@@ -7,8 +7,8 @@ solver-facing gas-model boundary (edge-state producers and the integer-tagged
 
 Thermochemistry entry points::
 
-    from nefes.thermo import SpeciesLibrary, Thermo
-    lib   = SpeciesLibrary.from_cantera("h2o2.yaml")  # or ThermoInp("thermo.inp").library([...])
+    from nefes.thermo import SpeciesSet, Thermo
+    lib   = SpeciesSet.from_cantera("h2o2.yaml")  # or SpeciesDatabase("thermo.inp").select([...])
     gas   = Thermo(lib)
     props = gas.properties(Y, T, p)                   # cp, h, s, rho, a_frozen, ...
     eq    = gas.equilibrate_HP(Z_elem, h, p)          # -> T, rho, Y, a_equilibrium
@@ -33,11 +33,11 @@ from .api import (
     W_OUT,
     thermo_update,
 )
-from .cea import ThermoInp, default_thermo_inp, read_thermo_inp
 from .configure import ThermoConfig, equilibrium, perfect_gas
 
 # -- thermochemistry: data layer ----------------------------------------------
 from .constants import P_REF, P_REF_BAR, R_UNIVERSAL
+from .database import SpeciesDatabase, default_thermo_inp, read_thermo_inp
 from .equilibrate import (
     EquilibriumResult,
     elemental_abundance,
@@ -60,18 +60,18 @@ from .reduction import (
     get_reducer,
     register_reducer,
 )
-from .species import NASA7, NASA9, Species, SpeciesLibrary, ThermoPoly
+from .species import NASA7, NASA9, Species, SpeciesSet, ThermoPoly
 
 __all__ = [
     # data layer
-    "SpeciesLibrary",
+    "SpeciesSet",
     "Species",
     "ThermoPoly",
     "NASA7",
     "NASA9",
     "Mechanism",
     "Reaction",
-    "ThermoInp",
+    "SpeciesDatabase",
     "read_thermo_inp",
     "default_thermo_inp",
     "R_UNIVERSAL",

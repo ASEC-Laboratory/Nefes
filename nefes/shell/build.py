@@ -291,7 +291,7 @@ def _boundary_scalars(thermo: ThermoConfig, el: ElementSpec, Tt: float, n_elem: 
         return [0.0] + [0.0] * n_elem  # inert backflow placeholder
     xi = np.asarray(donor, dtype=float)
     Y = xi @ stream_Y  # effective feed species mass fractions
-    h_t = enthalpy_mass(thermo.library, Y, Tt)
+    h_t = enthalpy_mass(thermo.species_set, Y, Tt)
     return [h_t] + [float(v) for v in xi]
 
 
@@ -325,7 +325,7 @@ def _mass_source_params(thermo: ThermoConfig, el: ElementSpec, n_elem: int, labe
         )
     xi = np.asarray(donor, dtype=float)
     Y = xi @ stream_Y  # effective injected species mass fractions
-    h_t_src = enthalpy_mass(thermo.library, Y, T_src) + ke
+    h_t_src = enthalpy_mass(thermo.species_set, Y, T_src) + ke
     return [mdot_src, u_inj, h_t_src] + [float(v) for v in xi]
 
 
@@ -357,7 +357,7 @@ def _burnt_seed(conn: Connectivity, flame_nodes) -> np.ndarray:
     return burnt
 
 
-def _feed_donor(library, labels, stream_Y, el, label):
+def _feed_donor(species_set, labels, stream_Y, el, label):
     """Mixture-fraction donor ``xi`` (length ``K``) a feed injects, in declared-stream mode.
 
     The feed's ``composition`` is a blend ``{stream_label: amount}`` over the declared streams;
@@ -373,11 +373,15 @@ def _feed_donor(library, labels, stream_Y, el, label):
             f"{label}: in declared-stream mode a feed's composition must be a {{stream_label: amount}} "
             f"blend over the declared streams {labels}; got {type(comp).__name__}"
         )
-    return resolve_stream_blend(library, labels, stream_Y, comp, el.basis)
+    return resolve_stream_blend(species_set, labels, stream_Y, comp, el.basis)
 
 
-def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
+def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec], p_ref: float):
     """Resolve the network's feed streams and (auto mode) pack the equilibrium bundle.
+
+    A reacting config built with no species set (:func:`nefes.thermo.equilibrium` with
+    ``species_set=None``) also has its **automatic product slate** resolved here, from the
+    network feeds over the packaged NASA Glenn / CEA database, before the streams are packed.
 
     Two modes for the reacting (``EQ_KERNEL``) model:
 
@@ -394,6 +398,17 @@ def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
     Either way the transported scalar count is the number of streams (never the chemical-element
     count, never the product species).
 
+    Parameters
+    ----------
+    thermo : ThermoConfig
+        The gas config; a reacting config may carry an explicit species set, a declared-stream
+        basis, or no species set at all (deferred automatic slate).
+    elements : list of ElementSpec
+        The network elements, in node order (already composite-expanded to atoms).
+    p_ref : float
+        Reference pressure [Pa]; sets the equilibrium probe states when a deferred automatic
+        species_set is reduced.
+
     Returns
     -------
     thermo : ThermoConfig
@@ -405,25 +420,44 @@ def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
         The ``(K, n_species)`` stream mass fractions the donors blend over; ``None`` for a
         non-reacting model.
     """
-    if thermo.model_id != EQ_KERNEL or thermo.library is None:
+    if thermo.model_id != EQ_KERNEL:
         return thermo, None, None
 
     from ..thermo.edge_state import pack_equilibrium
 
-    library = thermo.library
+    species_set = thermo.species_set
+    species_names = thermo.species_names
     feed_nodes = [n for n, el in enumerate(elements) if el.residual_id in STREAM_INTRODUCING]
+
+    if thermo.auto_species_set:
+        # Deferred automatic species set (equilibrium() with no species set): (re)derive the product slate
+        # from the network feeds now, over the packaged NASA Glenn / CEA database.  Re-resolving on
+        # every build lets a feed added after an earlier solve expand the slate as expected.
+        from ..thermo.autoset import auto_product_set
+        from ..thermo.database import SpeciesDatabase
+
+        species_set = auto_product_set(
+            SpeciesDatabase(),
+            [elements[n] for n in feed_nodes],
+            p_ref=p_ref,
+            T_init=thermo.t_init,
+            reducer_name=thermo.reducer,
+            threshold=thermo.reduce_threshold,
+            reduce_above=thermo.reduce_above,
+        )
+        species_names = [s.name for s in species_set.species]
 
     if thermo.stream_Y is not None:  # declared basis: feeds blend over the named streams
         stream_Y = np.asarray(thermo.stream_Y, dtype=np.float64)
         labels = list(thermo.element_names)
         node_donor = {
-            n: _feed_donor(library, labels, stream_Y, elements[n], _node_label(n, elements[n])) for n in feed_nodes
+            n: _feed_donor(species_set, labels, stream_Y, elements[n], _node_label(n, elements[n])) for n in feed_nodes
         }
         return thermo, node_donor, stream_Y
 
     # auto-discovery: the distinct injected compositions are the streams
     comps = [(elements[n].composition_spec, elements[n].basis) for n in feed_nodes]
-    stream_Y, assignment = build_streams(library, comps)
+    stream_Y, assignment = build_streams(species_set, comps)
     K = stream_Y.shape[0]
 
     node_donor = {}
@@ -441,16 +475,20 @@ def finalize_thermo(thermo: ThermoConfig, elements: List[ElementSpec]):
             if nm:
                 labels[k] = nm
 
-    tf, ti = pack_equilibrium(library, stream_Y, thermo.t_init, thermo.t_init_frozen)
+    tf, ti = pack_equilibrium(species_set, stream_Y, thermo.t_init, thermo.t_init_frozen)
     finalized = ThermoConfig(
         model_id=EQ_KERNEL,
         tf=tf,
         ti=ti,
         element_names=labels,
-        species_names=thermo.species_names,
-        library=library,
+        species_names=species_names,
+        species_set=species_set,
         t_init=thermo.t_init,
         t_init_frozen=thermo.t_init_frozen,
+        reducer=thermo.reducer,
+        reduce_threshold=thermo.reduce_threshold,
+        reduce_above=thermo.reduce_above,
+        auto_species_set=thermo.auto_species_set,
     )
     return finalized, node_donor, stream_Y
 
@@ -572,7 +610,7 @@ def build_problem_from_connectivity(
     # transported mixture fractions are the declared streams (feeds blend over them) or, without a
     # declared basis, the distinct injected compositions.  node_donor maps each feed to its donor
     # mixture-fraction vector; stream_Y are the stream mass fractions the donors blend over.
-    thermo, node_donor, stream_Y = finalize_thermo(thermo, elements)
+    thermo, node_donor, stream_Y = finalize_thermo(thermo, elements, p_ref)
 
     degrees = [conn.degree(n) for n in range(n_nodes)]
     node_rid = np.array([el.residual_id for el in elements], dtype=np.int64)
@@ -718,4 +756,5 @@ def build_problem_from_connectivity(
         marker_row=marker_row,
         marker_seed=marker_seed,
         composite_map=composite_map,
+        gas=thermo,
     )

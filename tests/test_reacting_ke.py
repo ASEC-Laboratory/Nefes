@@ -27,9 +27,9 @@ H2O2 = os.path.join(DATA, "h2o2.yaml")
 
 def _premix_cfg():
     """Stoichiometric H2/air as one feed stream; return (cfg, gas, Z, h_t300, Np)."""
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(H2O2)
+    lib = SpeciesSet.from_cantera(H2O2)
     gas = Thermo(lib)
     premix = {"H2": 1.0, "O2": 0.5, "N2": 0.5 * 3.76}
     idx, W = lib.species_index, lib.molar_masses

@@ -14,7 +14,7 @@ R_UNIVERSAL = 8.31446261815324
 P_REF = 101325.0
 
 # Standard-state reference pressure [Pa] of the NASA Glenn / CEA ``thermo.inp``
-# database (NASA-9 coefficients): one bar.  A species library carries its own
+# database (NASA-9 coefficients): one bar.  A species set carries its own
 # ``P_ref`` so the pressure terms in entropy/equilibrium use the value the
 # coefficients were actually referenced to.
 P_REF_BAR = 1.0e5

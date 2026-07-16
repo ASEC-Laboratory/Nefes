@@ -54,7 +54,7 @@ class MixtureState:
 def mixture_properties(lib, Y, T, p):
     """Compute mixture properties for mass fractions ``Y`` at ``(T, p)``.
 
-    ``lib`` is a :class:`~nefes.thermo.species.SpeciesLibrary` (or a ``Mechanism``,
+    ``lib`` is a :class:`~nefes.thermo.species.SpeciesSet` (or a ``Mechanism``,
     which proxies the same thermo interface).  ``Y`` need not be normalized; it is
     renormalized internally so the result is well defined for slightly off-sum
     inputs (e.g. mid-solve compositions).

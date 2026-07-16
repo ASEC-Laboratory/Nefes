@@ -1,16 +1,19 @@
-"""Reader for the NASA Glenn / CEA ``thermo.inp`` species database.
+"""The master species database and the NASA Glenn / CEA ``thermo.inp`` reader.
 
-``thermo.inp`` is the canonical NASA-9 thermodynamic database used by CEA (McBride &
-Gordon). It holds ~2000 species in a fixed-column FORTRAN format. This module gives an
-easy interface over it: parse once, search by name, and select the handful of species you
-actually need into a :class:`~nefes.thermo.species.SpeciesLibrary` that the
-equilibrium/property code consumes directly.
+A :class:`SpeciesDatabase` is the master source of species thermodynamic data: the source
+you draw a working :class:`~nefes.thermo.species.SpeciesSet` from. By default it is the
+packaged NASA Glenn / CEA ``thermo.inp`` (the canonical NASA-9 database of McBride &
+Gordon, ~2000 species in a fixed-column FORTRAN format); a user may point it at another
+``thermo.inp``-format file or at a Cantera-YAML file (only the species block is read)
+through :meth:`SpeciesDatabase.from_file`. Parse once, :meth:`~SpeciesDatabase.search` by
+name, then :meth:`~SpeciesDatabase.select` the handful of species the equilibrium/property
+code consumes directly.
 
-    from nefes.thermo import ThermoInp, Thermo
-    db   = ThermoInp("data/thermo.inp")
-    db.search("H2O")                       # -> ['H2O', 'H2O2', 'H2O(cr)', ...]
-    lib  = db.library(["H2", "O2", "H2O", "OH", "H", "O", "N2"])
-    gas  = Thermo(lib)                      # equilibrium, properties, ...
+    from nefes.thermo import SpeciesDatabase, Thermo
+    db          = SpeciesDatabase()            # the packaged thermo.inp
+    db.search("H2O")                           # -> ['H2O', 'H2O2', 'H2O(cr)', ...]
+    species_set = db.select(["H2", "O2", "H2O", "OH", "H", "O", "N2"])
+    gas         = Thermo(species_set)          # equilibrium, properties, ...
 
 Record layout (per species), mirroring CEA's ``thermo.inp`` reader:
 
@@ -23,7 +26,7 @@ Record layout (per species), mirroring CEA's ``thermo.inp`` reader:
 The exponents are the standard NASA-9 set ``[-2,-1,0,1,2,3,4]``; coefficients are stored
 as the canonical 9-term row ``[a1..a7, b1, b2]``.
 
-Public: :class:`ThermoInp`, :func:`read_thermo_inp`, :func:`default_thermo_inp`.
+Public: :class:`SpeciesDatabase`, :func:`read_thermo_inp`, :func:`default_thermo_inp`.
 """
 
 from __future__ import annotations
@@ -31,12 +34,13 @@ from __future__ import annotations
 import os
 
 import numpy as np
+import yaml
 
-from .constants import P_REF_BAR
+from .constants import P_REF, P_REF_BAR
 from .elements import normalize_element
-from .species import NASA9, Species, SpeciesLibrary
+from .species import NASA9, Species, SpeciesSet, _parse_cantera_doc
 
-__all__ = ["ThermoInp", "read_thermo_inp", "default_thermo_inp"]
+__all__ = ["SpeciesDatabase", "read_thermo_inp", "default_thermo_inp"]
 
 # The NASA Glenn / CEA database is vendored next to this module (``nefes/thermo/data``)
 # and shipped as package data, so it is available without the user naming a path.
@@ -48,7 +52,7 @@ def default_thermo_inp() -> str:
     """Filesystem path to the packaged NASA Glenn / CEA ``thermo.inp`` database.
 
     This is the default species database used whenever a ``thermo.inp`` path is not
-    given explicitly (``ThermoInp()``, ``read_thermo_inp()``, ``SpeciesLibrary.from_cea()``).
+    given explicitly (``SpeciesDatabase()``, ``read_thermo_inp()``, ``SpeciesSet.from_cea()``).
 
     Returns
     -------
@@ -183,17 +187,96 @@ def read_thermo_inp(path=None):
     return out
 
 
-class ThermoInp:
-    """An easy, searchable handle on a parsed ``thermo.inp`` database."""
+class SpeciesDatabase:
+    """The master species database: a searchable set of species with thermodynamic data.
 
-    def __init__(self, path=None):
+    A database is the source a working :class:`~nefes.thermo.species.SpeciesSet` is drawn
+    from. By default it is the packaged NASA Glenn / CEA ``thermo.inp`` (~2000 species); a
+    user may point it at another ``thermo.inp``-format file or at a Cantera-YAML file (only
+    the species block is read) through :meth:`from_file`. Parse once, :meth:`search` by
+    name, then :meth:`select` the species the equilibrium/property code consumes.
+
+    The default constructor (or :meth:`from_thermo_inp`) opens a ``thermo.inp`` database,
+    whose standard state is one bar; :meth:`from_cantera` opens a Cantera-YAML species set,
+    whose standard state is one atm. :meth:`select` inherits that reference pressure unless
+    an explicit ``P_ref`` is passed.
+
+    Parameters
+    ----------
+    path : str, optional
+        A ``thermo.inp``-format file. Defaults to the packaged database
+        (:func:`default_thermo_inp`).
+    species : dict, optional
+        Pre-parsed ``{name: Species}`` records (used by :meth:`from_cantera`); mutually
+        exclusive with ``path``.
+    source : str, optional
+        A label for the ``species`` records, used in messages when no ``path`` is set.
+
+    See Also
+    --------
+    SpeciesDatabase.from_file : Load a database, dispatching on file extension.
+    """
+
+    def __init__(self, path=None, *, species=None, source=None):
+        if species is not None:
+            # In-memory records (e.g. parsed from a Cantera-YAML document); their standard
+            # state is one atm, matching the Cantera/YAML convention.
+            self.species = dict(species)
+            self.path = None
+            self.source = source or "<in-memory>"
+            self.P_ref = P_REF
+            return
         if path is None:
             path = default_thermo_inp()
         if not os.path.isfile(path):
-            raise FileNotFoundError(f"thermo.inp not found: {path!r}")
+            raise FileNotFoundError(f"species database file not found: {path!r}")
         self.path = path
+        self.source = path
         self.species = read_thermo_inp(path)
+        # The NASA Glenn / CEA standard state is one bar.
+        self.P_ref = P_REF_BAR
 
+    # -- constructors ----------------------------------------------------
+    @classmethod
+    def default(cls) -> "SpeciesDatabase":
+        """Return the packaged NASA Glenn / CEA ``thermo.inp`` database."""
+        return cls()
+
+    @classmethod
+    def from_thermo_inp(cls, path=None) -> "SpeciesDatabase":
+        """Load a ``thermo.inp``-format database (the packaged default if ``path`` is ``None``)."""
+        return cls(path)
+
+    @classmethod
+    def from_cantera(cls, source) -> "SpeciesDatabase":
+        """Load a database from a Cantera-YAML file or parsed document (species block only).
+
+        Only the species records (thermo and composition) are read; any reactions and
+        transport data are ignored. ``source`` may be a file path or an already-parsed
+        ``dict`` of such a document.
+        """
+        if isinstance(source, (str, os.PathLike)):
+            with open(source, "r") as fh:
+                doc = yaml.safe_load(fh)
+            src = os.fspath(source)
+        else:
+            doc, src = source, "<dict>"
+        _, species, _ = _parse_cantera_doc(doc)
+        return cls(species={s.name: s for s in species}, source=src)
+
+    @classmethod
+    def from_file(cls, path) -> "SpeciesDatabase":
+        """Load a database, dispatching on the file extension.
+
+        A ``.yaml``/``.yml`` file is read as Cantera-YAML (species block only); any other
+        extension is read as a ``thermo.inp``-format database.
+        """
+        ext = os.path.splitext(os.fspath(path))[1].lower()
+        if ext in (".yaml", ".yml"):
+            return cls.from_cantera(path)
+        return cls.from_thermo_inp(path)
+
+    # -- mapping protocol ------------------------------------------------
     def __contains__(self, name):
         return name in self.species
 
@@ -214,14 +297,19 @@ class ThermoInp:
         s = substring.lower()
         return [n for n in self.species if s in n.lower()]
 
-    def library(self, names=None, P_ref=None):
-        """Build a :class:`SpeciesLibrary` from ``names`` (all if ``None``)."""
+    def select(self, names=None, P_ref=None) -> SpeciesSet:
+        """Build a :class:`~nefes.thermo.species.SpeciesSet` from ``names`` (all if ``None``).
+
+        ``P_ref`` defaults to the database's own standard-state pressure (one bar for a
+        ``thermo.inp`` database, one atm for a Cantera-YAML one).
+        """
         if names is None:
             chosen = list(self.species.values())
         else:
             missing = [n for n in names if n not in self.species]
             if missing:
-                raise KeyError(f"species not in {os.path.basename(self.path)}: {missing}")
+                label = os.path.basename(self.path) if self.path else self.source
+                raise KeyError(f"species not in {label}: {missing}")
             chosen = [self.species[n] for n in names]
 
         elements = []
@@ -229,10 +317,10 @@ class ThermoInp:
             for el in sp.composition:
                 if el not in elements:
                     elements.append(el)
-        return SpeciesLibrary(
+        return SpeciesSet(
             elements=elements,
             species=chosen,
-            P_ref=P_REF_BAR if P_ref is None else P_ref,
+            P_ref=self.P_ref if P_ref is None else P_ref,
         )
 
     def candidate_species(self, elements, *, gas_only=True, exclude_ions=True):

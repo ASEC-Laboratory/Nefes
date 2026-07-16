@@ -24,9 +24,9 @@ RU = 8.314462618
 
 def _reacting_rig():
     """air -> duct -> H2 injector -> duct -> equilibrium flame -> duct -> outlet."""
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(MECH)
+    lib = SpeciesSet.from_cantera(MECH)
     gas = Thermo(lib)
     idx = lib.species_index
     Y = np.zeros(lib.n_species)
@@ -146,10 +146,10 @@ def test_yaml_includes_chemistry_by_default(tmp_path):
 def test_yaml_hard_closure_still_emits_burnt_marker(tmp_path):
     """A hard per-edge closure carries no transported marker, yet the burnt state is well defined
     per edge (frozen -> fresh, equilibrium -> burnt) and must still reach the output."""
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
     from nefes.thermo.api import EQ_FROZEN, EQ_KERNEL
 
-    lib = SpeciesLibrary.from_cantera(MECH)
+    lib = SpeciesSet.from_cantera(MECH)
     gas = Thermo(lib)
     idx = lib.species_index
     Y = np.zeros(lib.n_species)

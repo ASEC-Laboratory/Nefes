@@ -83,9 +83,9 @@ def test_zero_heat_release_is_a_passthrough():
 
 def _h2_air_reactant():
     """Stoichiometric H2/air reactant: (Thermo, species mass fractions, elemental Z)."""
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(MECH_PATH)
+    lib = SpeciesSet.from_cantera(MECH_PATH)
     gas = Thermo(lib)
     idx = lib.species_index
     moles = np.zeros(lib.n_species)

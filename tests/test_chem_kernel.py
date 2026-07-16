@@ -1,8 +1,8 @@
 """Public-API and solver paths agree on the single compiled equilibrium engine.
 
 The thermochemistry has one engine (:mod:`nefes.thermo.kernel`), reached two ways: the
-public ``equilibrate_HP`` / ``Thermo`` API packs a library through
-:mod:`nefes.thermo.equilibrate`, while the network packs the same library-plus-streams into
+public ``equilibrate_HP`` / ``Thermo`` API packs a species_set through
+:mod:`nefes.thermo.equilibrate`, while the network packs the same species_set-plus-streams into
 the flat ``(tf, ti)`` bundle through :mod:`nefes.thermo.edge_state`.  These tests pin that
 the two packings feed the engine identically -- on both NASA-7 (Cantera YAML) and NASA-9
 (NASA Glenn / CEA ``thermo.inp``) data -- exercise the element/species masking (condensed
@@ -33,17 +33,17 @@ def _h2_air(lib, gas, phi):
 
 
 def _nasa7_lib():
-    from nefes.thermo import SpeciesLibrary
+    from nefes.thermo import SpeciesSet
 
-    return SpeciesLibrary.from_cantera(H2O2)
+    return SpeciesSet.from_cantera(H2O2)
 
 
 def _nasa9_lib():
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
-    return ThermoInp(THERMO_INP).library(_NASA9_SPECIES)
+    return SpeciesDatabase(THERMO_INP).select(_NASA9_SPECIES)
 
 
 @pytest.mark.parametrize("which", ["nasa7", "nasa9"])
@@ -119,12 +119,12 @@ def test_kernel_masks_condensed_feed_from_products():
     from the burnt products in the compiled kernel -- matching the masked equilibrium solve, not
     the spurious low temperature you get if the liquid is (wrongly) allowed as a product."""
     from nefes.chem.composition import elemental_Z, enthalpy_mass, species_mass_fractions
-    from nefes.thermo import ThermoInp, equilibrate_HP
+    from nefes.thermo import SpeciesDatabase, equilibrate_HP
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
     products = ["CO2", "H2O", "CO", "H2", "O2", "N2", "OH", "O", "H", "NO", "N", "NO2", "HO2", "H2O2"]
-    lib = ThermoInp(THERMO_INP).library(products + ["Jet-A(L)"])
+    lib = SpeciesDatabase(THERMO_INP).select(products + ["Jet-A(L)"])
     assert not lib.product_mask[lib.species_index["Jet-A(L)"]]
 
     comp = {"Jet-A(L)": 1.0, "O2": 17.75, "N2": 66.7}
@@ -146,21 +146,21 @@ def test_kernel_masks_condensed_feed_from_products():
 
 
 def test_kernel_drops_absent_element():
-    """A carbonless burnt edge in a carbon-bearing library (the parallel-branch case):
+    """A carbonless burnt edge in a carbon-bearing species_set (the parallel-branch case):
     its elemental abundance ``Z`` has a zero carbon entry, so carbon's balance row is
     null -> singular.  The compiled kernel drops carbon and every carbon-bearing
     species (keep_el / keep_sp), exactly as the masked equilibrium solve requires -- so the
     burnt state matches and the complex-step Jacobian stays finite."""
     from nefes.chem.composition import elemental_Z, enthalpy_mass, species_mass_fractions
-    from nefes.thermo import ThermoInp, equilibrate_HP
+    from nefes.thermo import SpeciesDatabase, equilibrate_HP
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
-    # carbon-bearing library, but a carbonless (H2/air) feed
+    # carbon-bearing species_set, but a carbonless (H2/air) feed
     species = ["H2", "O2", "N2", "H2O", "OH", "H", "O", "NO", "CO2", "CO", "CH4"]
-    lib = ThermoInp(THERMO_INP).library(species)
+    lib = SpeciesDatabase(THERMO_INP).select(species)
     elems = [lib.elements[i] for i in range(len(lib.elements))]
-    assert "C" in elems  # carbon is a library element...
+    assert "C" in elems  # carbon is a species_set element...
     ci = elems.index("C")
 
     comp = {"H2": 1.0, "O2": 0.5, "N2": 0.5 * 3.76}
@@ -204,13 +204,13 @@ def test_kernel_cold_near_inert_mixture_stays_finite():
     The equilibrium of cold air is essentially frozen air, so the recovered state must match it.
     """
     from nefes.chem.composition import elemental_Z, enthalpy_mass, species_mass_fractions
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
-    db = ThermoInp(THERMO_INP)
+    db = SpeciesDatabase(THERMO_INP)
     # CEA-style product slate over the jet-fuel/air element pool (as the auto slate builds it).
-    lib = db.library(db.candidate_species({"C", "H", "O", "N", "Ar"}, gas_only=True, exclude_ions=True))
+    lib = db.select(db.candidate_species({"C", "H", "O", "N", "Ar"}, gas_only=True, exclude_ions=True))
 
     # Standard dry air; the trace CO2 seeds carbon, activating the many hydrocarbon products that
     # sit at ~0 mole fraction at 400 K -- the underflow that exercises the log floor.
@@ -231,12 +231,12 @@ def test_kernel_cold_near_inert_mixture_stays_finite():
 # Frozen (unburnt) closure: forward-blend reconstruction from feed-stream xi
 # ---------------------------------------------------------------------------
 def _mixed_feed_lib():
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
     heavy = "C8H18,n-octane"
-    lib = ThermoInp(THERMO_INP).library(["O2", "N2", heavy, "H2", "CH4", "CO2", "H2O", "CO", "OH", "H", "O", "NO"])
+    lib = SpeciesDatabase(THERMO_INP).select(["O2", "N2", heavy, "H2", "CH4", "CO2", "H2O", "CO", "OH", "H", "O", "NO"])
     return lib, heavy
 
 

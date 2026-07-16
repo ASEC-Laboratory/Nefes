@@ -4,7 +4,7 @@ A CEA-style candidate slate (every species reachable from the fed-in elements) i
 but bloated: a hydrocarbon/air pool admits ~100+ gas species while only ~20 are ever
 non-trace at equilibrium. The bloat is pure cost, since the element-potential Newton solve
 scales super-linearly in the species count. A :class:`SpeciesReducer` takes the candidate
-library plus a handful of representative thermodynamic states and returns the subset worth
+species set plus a handful of representative thermodynamic states and returns the subset worth
 keeping.
 
 The reducer is pluggable: the orchestration code selects one by name via
@@ -76,18 +76,18 @@ class ReductionResult:
 
 
 class SpeciesReducer(ABC):
-    """Strategy interface: candidate library + sample states -> kept species subset."""
+    """Strategy interface: candidate species set + sample states -> kept species subset."""
 
     #: registry key / human-facing name
     name = "base"
 
     @abstractmethod
-    def reduce(self, library, samples, *, always_keep=()) -> ReductionResult:
-        """Reduce ``library`` to the species worth keeping.
+    def reduce(self, species_set, samples, *, always_keep=()) -> ReductionResult:
+        """Reduce ``species_set`` to the species worth keeping.
 
         Parameters
         ----------
-        library : nefes.thermo.SpeciesLibrary
+        species_set : nefes.thermo.SpeciesSet
             The candidate product slate to trim.
         samples : sequence of SampleState
             Representative states the reduction should remain valid across.
@@ -107,8 +107,13 @@ class NullReducer(SpeciesReducer):
 
     name = "none"
 
-    def reduce(self, library, samples, *, always_keep=()) -> ReductionResult:
-        kept = list(library.species_names)
+    def __init__(self, **kwargs):
+        # Accept and ignore the trace-threshold dials so the registry can build any reducer
+        # with the same call; keeping every species has no threshold to honour.
+        pass
+
+    def reduce(self, species_set, samples, *, always_keep=()) -> ReductionResult:
+        kept = list(species_set.species_names)
         report = {"reducer": self.name, "n_candidates": len(kept), "n_kept": len(kept)}
         return ReductionResult(species=kept, report=report)
 
@@ -138,15 +143,15 @@ class EquilibriumSamplingReducer(SpeciesReducer):
         self.threshold = float(threshold)
         self.margin = float(margin)
 
-    def reduce(self, library, samples, *, always_keep=()) -> ReductionResult:
-        names = list(library.species_names)
+    def reduce(self, species_set, samples, *, always_keep=()) -> ReductionResult:
+        names = list(species_set.species_names)
         keep_floor = self.threshold / self.margin
         peak = {name: 0.0 for name in names}
         n_ok = 0
         n_failed = 0
         for s in samples:
             try:
-                res = equilibrate_TP(library, s.Z_elem, s.T, s.p)
+                res = equilibrate_TP(species_set, s.Z_elem, s.T, s.p)
             except Exception:
                 # A pathological sample (e.g. an element with no gas product) should not
                 # abort the whole reduction; skip it and note the count.
@@ -165,7 +170,7 @@ class EquilibriumSamplingReducer(SpeciesReducer):
             kept = [name for name in names if peak[name] >= keep_floor]
 
         for name in always_keep:
-            if name not in kept and name in library.species_index:
+            if name not in kept and name in species_set.species_index:
                 kept.append(name)
 
         report = {

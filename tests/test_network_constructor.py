@@ -71,9 +71,9 @@ def test_ports_auto_assigned_in_attachment_order():
 
 
 def test_edge_models_passthrough():
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(MECH)
+    lib = SpeciesSet.from_cantera(MECH)
     gas = Thermo(lib)
     idx = lib.species_index
     Y = np.zeros(lib.n_species)
@@ -110,9 +110,9 @@ def test_marker_gating_matches_explicit_edge_models():
     # The automatic burnt-marker closure (edge_models left unset) reproduces the mean flow of the
     # hand-specified frozen/equilibrium split -- so the explicit knob is an escape hatch, not a
     # requirement, for a reacting network with an equilibrium flame.
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    gas = Thermo(SpeciesLibrary.from_cantera(MECH))
+    gas = Thermo(SpeciesSet.from_cantera(MECH))
 
     def build(models):
         nodes = [
@@ -137,9 +137,9 @@ def test_marker_gating_handles_fresh_dilution_downstream():
     # edge to a frozen reactant: the sticky (noisy-OR) marker keeps it burnt, so the auto path
     # re-equilibrates the diluted zone and reproduces the pinned all-equilibrium closure with
     # no edge_models (the staged-combustion / exhaust-gas-recirculation case).
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    gas = Thermo(SpeciesLibrary.from_cantera(MECH))
+    gas = Thermo(SpeciesSet.from_cantera(MECH))
 
     def build(models):
         nodes = [

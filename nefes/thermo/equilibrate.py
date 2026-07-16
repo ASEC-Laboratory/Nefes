@@ -131,7 +131,7 @@ def equilibrate_HP(lib, Z_elem, h, p, T_guess=2000.0):
 
     Parameters
     ----------
-    lib : SpeciesLibrary or Mechanism
+    lib : SpeciesSet or Mechanism
         The species data (NASA polynomials and the element matrix).
     Z_elem : dict or numpy.ndarray
         Elemental *mass* fractions, either ``{element: fraction}`` or an array aligned to
@@ -174,7 +174,7 @@ def equilibrate_TP(lib, Z_elem, T, p):
 
     Parameters
     ----------
-    lib : SpeciesLibrary or Mechanism
+    lib : SpeciesSet or Mechanism
         The species data (NASA polynomials and the element matrix).
     Z_elem : dict or numpy.ndarray
         Elemental *mass* fractions, either ``{element: fraction}`` or an array aligned to

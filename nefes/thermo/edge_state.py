@@ -1,6 +1,6 @@
 """Equilibrium / frozen edge-state producers: the network side of the thermochemistry.
 
-A :class:`nefes.thermo.SpeciesLibrary` (the species *data* -- NASA polynomials and
+A :class:`nefes.thermo.SpeciesSet` (the species *data* -- NASA polynomials and
 the element matrix, all chemical equilibrium needs) is packed into the immutable
 ``(tf, ti)`` array bundle together with the network's **feed streams**.  A feed
 stream is one distinct injected composition (an oxidizer, a diluent, a fuel,
@@ -11,7 +11,7 @@ forward blend of ``xi`` (see :mod:`nefes.composition`).  The compiled kernels in
 equilibrium solve, so all chemistry stays behind the single thermo boundary and
 inside the network's ``@njit`` residual path.
 
-Two per-edge models share one library + stream set:
+Two per-edge models share one species_set + stream set:
 
 * ``EQ_FROZEN`` -- the unburnt side: a frozen (non-reacting) real-gas state whose
   species moles are the **forward blend** ``n_feed = xi @ Nfeed`` of the feed
@@ -65,13 +65,13 @@ AUTO_REDUCE_THRESHOLD = 40
 
 
 def pack_equilibrium(lib, stream_Y, T_init=3000.0, T_init_frozen=300.0):
-    """Pack a ``nefes.thermo.SpeciesLibrary`` + its feed streams into ``(tf, ti)``.
+    """Pack a ``nefes.thermo.SpeciesSet`` + its feed streams into ``(tf, ti)``.
 
     ``stream_Y`` is ``(K, n_species)`` mass fractions, one row per distinct feed
     stream (:func:`nefes.composition.build_streams`).  ``K = 0`` packs a stream-less
     bundle -- valid for the standalone equilibrium kernel
     (:func:`eq_kernel_state_from_Z`) but not for an ``EQ_FROZEN`` edge, which needs
-    streams to reconstruct from.  ``lib`` may be a ``SpeciesLibrary`` or a
+    streams to reconstruct from.  ``lib`` may be a ``SpeciesSet`` or a
     ``Mechanism`` (which proxies the same data surface).
     """
     coeffs, Tint = lib.nasa9_arrays()  # (Ns, MI, 9), (Ns, MI-1)
@@ -131,7 +131,7 @@ def _product_blocks(tf, ti):
     """Slice the product subset ``(prod_coeffs, prod_Tint, prod_A, ew)`` from a bundle.
 
     The burnt HP-equilibrium kernel solves over these ``Np`` product species (gaseous first,
-    then condensed products; ``ti[7] = Ng`` is the gas count), not the full library -- so a
+    then condensed products; ``ti[7] = Ng`` is the gas count), not the full species_set -- so a
     condensed *feed* species never enters the product set.
     """
     Ne = ti[0]

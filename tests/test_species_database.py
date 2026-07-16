@@ -1,13 +1,13 @@
 """NASA Glenn / CEA ``thermo.inp`` reader.
 
-The bulk is Cantera-free (parse, search, build a library, run equilibrium on NASA-9 data).
+The bulk is Cantera-free (parse, search, build a species_set, run equilibrium on NASA-9 data).
 A final cross-check against Cantera is skipped when Cantera or ``thermo.inp`` is absent.
 """
 
 import numpy as np
 import pytest
 
-from nefes.thermo import SpeciesLibrary, Thermo, ThermoInp, default_thermo_inp, read_thermo_inp
+from nefes.thermo import SpeciesDatabase, SpeciesSet, Thermo, default_thermo_inp, read_thermo_inp
 
 
 def test_packaged_thermo_inp_is_the_default():
@@ -17,8 +17,8 @@ def test_packaged_thermo_inp_is_the_default():
     path = default_thermo_inp()
     assert os.path.isfile(path) and path.endswith("thermo.inp")
     # Every no-path entry point reads the same packaged database.
-    assert len(read_thermo_inp()) == len(ThermoInp()) > 1000
-    lib = SpeciesLibrary.from_cea(species=["H2", "O2", "H2O", "N2"])
+    assert len(read_thermo_inp()) == len(SpeciesDatabase()) > 1000
+    lib = SpeciesSet.from_cea(species=["H2", "O2", "H2O", "N2"])
     assert [s.name for s in lib.species] == ["H2", "O2", "H2O", "N2"]
 
 
@@ -40,8 +40,8 @@ def test_species_record_fields(thermo_inp):
 
 
 def test_library_build_is_nasa9_and_one_bar(thermo_inp):
-    lib = thermo_inp.library(["H2", "O2", "H2O", "N2"])
-    assert isinstance(lib, SpeciesLibrary)
+    lib = thermo_inp.select(["H2", "O2", "H2O", "N2"])
+    assert isinstance(lib, SpeciesSet)
     assert [s.name for s in lib.species] == ["H2", "O2", "H2O", "N2"]
     assert set(lib.elements) == {"H", "O", "N"}
     # CEA standard state is one bar.
@@ -50,18 +50,18 @@ def test_library_build_is_nasa9_and_one_bar(thermo_inp):
 
 def test_library_missing_species_errors(thermo_inp):
     with pytest.raises(KeyError):
-        thermo_inp.library(["H2", "NOTREAL"])
+        thermo_inp.select(["H2", "NOTREAL"])
 
 
 def test_from_cea_classmethod(thermo_inp, tmp_path):
-    # SpeciesLibrary.from_cea is the one-call path.
+    # SpeciesSet.from_cea is the one-call path.
     path = thermo_inp.path
-    lib = SpeciesLibrary.from_cea(path, species=["H2", "O2", "H2O", "OH", "H", "O", "N2"])
+    lib = SpeciesSet.from_cea(path, species=["H2", "O2", "H2O", "OH", "H", "O", "N2"])
     assert lib.n_species == 7
 
 
 def test_cea_thermo_complex_step(thermo_inp):
-    lib = thermo_inp.library(["H2", "O2", "H2O", "OH", "H", "O", "N2"])
+    lib = thermo_inp.select(["H2", "O2", "H2O", "OH", "H", "O", "N2"])
     T = 2000.0
     eps = 1e-200
     dhRT = lib.h_RT(T + 1j * eps).imag / eps
@@ -70,7 +70,7 @@ def test_cea_thermo_complex_step(thermo_inp):
 
 
 def test_cea_equilibrium_runs(thermo_inp):
-    lib = thermo_inp.library(["H2", "O2", "H2O", "OH", "H", "O", "HO2", "H2O2", "N2"])
+    lib = thermo_inp.select(["H2", "O2", "H2O", "OH", "H", "O", "HO2", "H2O2", "N2"])
     gas = Thermo(lib)
     idx = lib.species_index
     X = np.zeros(lib.n_species)
@@ -90,7 +90,7 @@ def test_cea_flame_matches_cantera(thermo_inp, cantera):
     # End-to-end: NASA-9 CEA data + 1-bar reference reproduces a Cantera HP
     # flame within the thermodynamic-data provenance difference (a few K).
     ct = cantera
-    lib = thermo_inp.library(["H2", "O2", "H2O", "OH", "H", "O", "HO2", "H2O2", "N2"])
+    lib = thermo_inp.select(["H2", "O2", "H2O", "OH", "H", "O", "HO2", "H2O2", "N2"])
     gas = Thermo(lib)
     idx = lib.species_index
     X = np.zeros(lib.n_species)

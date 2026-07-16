@@ -241,13 +241,13 @@ def test_reacting_no_flame_is_equilibrium_everywhere(tmp_path):
 
 def test_reacting_burnt_matches_standalone_equilibrium(tmp_path):
     from nefes.chem.composition import resolve_composition
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
     net = load_case(_series_reacting(tmp_path, name="ref.yaml"))
     sol = net.solve()
     est = states_table(net.compile(), sol.x)
 
-    lib = SpeciesLibrary.from_cantera(MECH).subset(["H2", "O2", "N2", "H2O", "OH", "H", "O", "HO2"])
+    lib = SpeciesSet.from_cantera(MECH).subset(["H2", "O2", "N2", "H2O", "OH", "H", "O", "HO2"])
     gas = Thermo(lib)
     Y, Z = resolve_composition(lib, {"H2": 1.0, "O2": 0.5, "N2": 1.88}, basis="mole")
     # the recovered burnt T is the *static* temperature, so compare against the HP
@@ -313,7 +313,7 @@ def test_auto_slate_h2_air_runs_raw(tmp_path):
     names = net.gas.species_names
     for feed in ("H2", "O2", "N2"):
         assert feed in names
-    report = net.gas.library.reduction_report
+    report = net.gas.species_set.reduction_report
     assert report["reducer"] == "none"
     assert report["n_candidates"] == report["n_kept"]
     net.solve()  # converges
@@ -323,7 +323,7 @@ def test_auto_slate_hydrocarbon_reduces(tmp_path):
     # CH4/air -> {C,H,O,N} admits ~115 gas species -> reduced.
     net = load_case(_auto_reacting(tmp_path, "CH4:1.0, O2:2.0, N2:7.52", "auto_ch4.yaml"))
     names = net.gas.species_names
-    report = net.gas.library.reduction_report
+    report = net.gas.species_set.reduction_report
     assert report["reducer"] == "equilibrium_sampling"
     assert report["n_candidates"] > 100
     assert report["n_kept"] < report["n_candidates"]  # actually trimmed
@@ -334,9 +334,9 @@ def test_auto_slate_hydrocarbon_reduces(tmp_path):
 
 
 def test_auto_slate_liquid_fuel_feed(tmp_path):
-    # A condensed feed (liquid Jet-A) is carried in the library but masked out of the products.
+    # A condensed feed (liquid Jet-A) is carried in the species_set but masked out of the products.
     net = load_case(_auto_reacting(tmp_path, "Jet-A(L):1.0, O2:17.75, N2:66.7", "auto_jeta.yaml"))
-    lib = net.gas.library
+    lib = net.gas.species_set
     assert "Jet-A(L)" in lib.species_names
     assert not lib.product_mask[lib.species_index["Jet-A(L)"]]  # feed-only, never a product
     assert lib.product_mask[lib.species_index["CO2"]]

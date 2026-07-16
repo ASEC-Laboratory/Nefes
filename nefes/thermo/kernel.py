@@ -1,7 +1,7 @@
 """Compiled (``@njit``) chemistry kernel: the element-potential equilibrium engine.
 
 This is the single equilibrium and thermodynamics engine of the thermochemistry.  It
-consumes the canonical **9-term** NASA arrays that ``SpeciesLibrary.nasa9_arrays()`` packs
+consumes the canonical **9-term** NASA arrays that ``SpeciesSet.nasa9_arrays()`` packs
 (NASA-7 Cantera YAML and NASA-9 NASA Glenn / CEA ``thermo.inp`` data reduced to the same
 representation), solves chemical equilibrium (HP and TP), and evaluates species/mixture
 thermodynamics and the equilibrium speed of sound.  Being numba-compiled, it runs both
@@ -30,7 +30,7 @@ equilibrium loop branches (damping, convergence, interval choice), so it runs in
 the implicit-function theorem through the converged reduced matrix.  Interval
 selection branches only on ``T.real`` so the chosen polynomial stays complex-analytic,
 which also makes the species-thermodynamics and frozen-property path (used by
-:func:`mixture_properties` and ``SpeciesLibrary.cp_R`` and friends) fully
+:func:`mixture_properties` and ``SpeciesSet.cp_R`` and friends) fully
 complex-transparent.
 """
 

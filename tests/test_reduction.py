@@ -14,8 +14,8 @@ from nefes.thermo import (
     NullReducer,
     ReductionResult,
     SampleState,
+    SpeciesDatabase,
     SpeciesReducer,
-    ThermoInp,
     available_reducers,
     equilibrate_HP,
     equilibrate_TP,
@@ -29,7 +29,7 @@ _Z_CH4_AIR = {"C": 0.0413, "H": 0.0139, "O": 0.2201, "N": 0.7247}
 
 @pytest.fixture(scope="module")
 def db():
-    return ThermoInp()
+    return SpeciesDatabase()
 
 
 # --------------------------------------------------------------------------- #
@@ -43,7 +43,7 @@ def test_phase_flag_parsed(db):
 
 
 def test_product_mask_excludes_condensed(db):
-    lib = db.library(["Jet-A(L)", "CO2", "H2O", "N2"])
+    lib = db.select(["Jet-A(L)", "CO2", "H2O", "N2"])
     mask = lib.product_mask
     assert mask.dtype == bool
     j = lib.species_index["Jet-A(L)"]
@@ -87,7 +87,7 @@ def test_candidate_species_gas_only_false_admits_condensed(db):
 # --------------------------------------------------------------------------- #
 def test_condensed_feed_zero_in_products(db):
     names = ["Jet-A(L)", "CO2", "H2O", "CO", "H2", "O2", "N2", "OH", "O", "H", "NO"]
-    lib = db.library(names)
+    lib = db.select(names)
     Z = {"C": 0.069, "H": 0.011, "O": 0.214, "N": 0.706}
     tp = equilibrate_TP(lib, Z, 2300.0, 101325.0)
     h = float(np.real(tp.properties.h))
@@ -103,7 +103,7 @@ def test_condensed_feed_zero_in_products(db):
 # reducers
 # --------------------------------------------------------------------------- #
 def test_null_reducer_is_identity(db):
-    lib = db.library(["CO2", "H2O", "N2"])
+    lib = db.select(["CO2", "H2O", "N2"])
     res = NullReducer().reduce(lib, [])
     assert set(res.species) == {"CO2", "H2O", "N2"}
     assert res.report["n_kept"] == 3
@@ -111,7 +111,7 @@ def test_null_reducer_is_identity(db):
 
 def test_equilibrium_sampling_reducer_trims_chon(db):
     cands = db.candidate_species(["C", "H", "O", "N"])
-    cand_lib = db.library(cands)
+    cand_lib = db.select(cands)
     samples = [SampleState(_Z_CH4_AIR, T, 101325.0) for T in (2200.0, 2800.0)]
     res = EquilibriumSamplingReducer().reduce(cand_lib, samples, always_keep=["N2", "O2"])
     assert isinstance(res, ReductionResult)
@@ -125,7 +125,7 @@ def test_equilibrium_sampling_reducer_trims_chon(db):
 
 
 def test_reducer_always_keep_only_real_species(db):
-    lib = db.library(["CO2", "H2O", "N2"])
+    lib = db.select(["CO2", "H2O", "N2"])
     res = EquilibriumSamplingReducer().reduce(
         lib, [SampleState({"C": 0.3, "O": 0.7}, 1500.0, 101325.0)], always_keep=["NotASpecies"]
     )
@@ -148,13 +148,13 @@ def test_register_custom_reducer(db):
     class KeepFirst(SpeciesReducer):
         name = "keep_first_test"
 
-        def reduce(self, library, samples, *, always_keep=()):
-            return ReductionResult(species=library.species_names[:1], report={"reducer": self.name})
+        def reduce(self, species_set, samples, *, always_keep=()):
+            return ReductionResult(species=species_set.species_names[:1], report={"reducer": self.name})
 
     register_reducer("keep_first_test", KeepFirst)
     assert "keep_first_test" in available_reducers()
     r = get_reducer("keep_first_test")
-    res = r.reduce(db.library(["CO2", "H2O", "N2"]), [])
+    res = r.reduce(db.select(["CO2", "H2O", "N2"]), [])
     assert res.species == ["CO2"]
 
     with pytest.raises(TypeError):

@@ -85,6 +85,10 @@ class CompiledProblem:
     # network carries no composite.  Bridges the user-facing (Case) node/edge ids to the expanded
     # ids the kernels solve on; lets diagnostics hide or project composite internals.
     composite_map: object = None
+    # the finalized thermo config (nefes.thermo.ThermoConfig) this problem was compiled with, its
+    # streams packed and (for a deferred automatic species set) its species slate resolved.  Read above
+    # the kernel line for inspection; lets the network surface the resolved species_set after a build.
+    gas: object = None
 
     @property
     def n_col(self) -> int:

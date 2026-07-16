@@ -216,11 +216,11 @@ def test_lone_stream_drive_is_rejected_as_loading_mode(cantera_lib):
 def test_declared_mode_yaml_round_trip(tmp_path):
     """A declared-stream network saves to and reloads from the UI YAML: the declared basis, the
     stream mode, and the feed blends survive, and the reloaded network reproduces the mixture
-    fractions exactly.  Uses a thermo.inp-based library so the species slate reloads without a
-    recorded mechanism file (a from_cantera library round-trips only with its mechanism)."""
-    from nefes.thermo import SpeciesLibrary
+    fractions exactly.  Uses a thermo.inp-based species_set so the species slate reloads without a
+    recorded mechanism file (a from_cantera species_set round-trips only with its mechanism)."""
+    from nefes.thermo import SpeciesSet
 
-    lib = SpeciesLibrary.from_cea(species=["O2", "N2", "H2", "H2O", "OH", "H", "O"])
+    lib = SpeciesSet.from_cea(species=["O2", "N2", "H2", "H2O", "OH", "H", "O"])
     cfg = equilibrium(lib, streams=STREAMS, mode="declared")
     nodes = [
         cat.mass_flow_inlet(0.02, 300.0, composition={"air": 20.0, "H2": 1.0}, basis="mass", name="premix"),

@@ -1,18 +1,20 @@
-"""Species thermodynamic data and the :class:`SpeciesLibrary` container.
+"""Species thermodynamic data and the :class:`SpeciesSet` container.
 
-A **species library** is the thermochemical *material database*: a set of chemical
-species, each with an element composition, a molar mass and a NASA polynomial for its
-standard-state ``cp/h/s/g`` as a function of temperature. It carries **no reactions**;
-chemical equilibrium needs only the per-species thermodynamics (the element-potential
-formulation). Reactions live in a :class:`nefes.thermo.mechanism.Mechanism`, which
-*associates* a species library with a reaction set (the term "mechanism" is reserved for
-that combination).
+A **species set** is the fixed, ordered set of chemical species an equilibrium or
+property calculation is posed over: each species carries an element composition, a molar
+mass and a NASA polynomial for its standard-state ``cp/h/s/g`` as a function of
+temperature. It carries **no reactions**; chemical equilibrium needs only the per-species
+thermodynamics (the element-potential formulation). Reactions live in a
+:class:`nefes.thermo.mechanism.Mechanism`, which *associates* a species set with a
+reaction set (the term "mechanism" is reserved for that combination).
 
-Libraries load from Cantera's YAML format through a single :meth:`SpeciesLibrary.from_cantera`
-that adapts to its input: a file path (or parsed ``dict``) is read directly with no Cantera
-dependency, supporting the subset of the format this library needs, while a live
-``cantera.Solution`` is extracted through Cantera itself. Per-species ``cp,h,s,g(T)`` are
-evaluated complex-analytically in ``T``.
+A species set is usually drawn from a :class:`~nefes.thermo.database.SpeciesDatabase` (the master
+source) with :meth:`~nefes.thermo.database.SpeciesDatabase.select`. It can also be built
+directly from Cantera's YAML format through :meth:`SpeciesSet.from_cantera`, which adapts
+to its input: a file path (or parsed ``dict``) is read directly with no Cantera dependency,
+supporting the subset of the format the species set needs, while a live ``cantera.Solution`` is
+extracted through Cantera itself. Per-species ``cp,h,s,g(T)`` are evaluated
+complex-analytically in ``T``.
 
 All species share one **canonical 9-term NASA representation** and are evaluated in a
 single vectorized expression over ``(n_species, 9)`` coefficient arrays, with no
@@ -20,7 +22,7 @@ per-species Python loop. Temperature-interval selection branches only on ``Re(T)
 ("locate on the real part"), so the whole evaluation stays complex-step differentiable.
 
 Public: :class:`ThermoPoly`, :func:`NASA7`, :func:`NASA9`, :class:`Species`,
-:class:`SpeciesLibrary`.
+:class:`SpeciesSet`.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ from .constants import P_REF
 from .elements import atomic_weight
 from .kernel import species_thermo9
 
-__all__ = ["ThermoPoly", "NASA7", "NASA9", "Species", "SpeciesLibrary"]
+__all__ = ["ThermoPoly", "NASA7", "NASA9", "Species", "SpeciesSet"]
 
 # Minimum upper temperature [K] of a condensed species' NASA polynomial for it to be admitted
 # as an equilibrium product (vs. feed-only): high-temperature phases such as graphite qualify;
@@ -172,7 +174,7 @@ class Species:
         if not self.molar_mass:
             self.molar_mass = sum(n * atomic_weight(el) for el, n in self.composition.items())
 
-    # Per-species thermo (convenience; the library vectorizes over all species).
+    # Per-species thermo (convenience; the set vectorizes over all species).
     def cp_R(self, T):
         return self.thermo.cp_R(T)
 
@@ -187,10 +189,10 @@ class Species:
 
 
 # ---------------------------------------------------------------------------
-# SpeciesLibrary
+# SpeciesSet
 # ---------------------------------------------------------------------------
 @dataclass
-class SpeciesLibrary:
+class SpeciesSet:
     """An ordered set of species with their thermodynamic data (no reactions).
 
     The element matrix ``element_matrix[i, j]`` is the number of atoms of element ``i`` in
@@ -236,7 +238,7 @@ class SpeciesLibrary:
 
     @property
     def species_names(self):
-        """Species names in library order."""
+        """Species names in species set order."""
         return [s.name for s in self.species]
 
     # -- vectorized thermo packing --------------------------------------
@@ -269,7 +271,7 @@ class SpeciesLibrary:
         """Per-species ``(cp/R, h/RT, g/RT)`` at scalar ``T`` via the compiled evaluator.
 
         Routes through the single kernel evaluator (:func:`nefes.thermo.kernel.species_thermo9`)
-        so the library-level thermodynamics are identical to the equilibrium engine's.  The
+        so the species set-level thermodynamics are identical to the equilibrium engine's.  The
         buffer dtype follows ``T``, so a complex-step ``T`` propagates.
         """
         coeffs, Tint = self.nasa9_arrays()
@@ -324,20 +326,20 @@ class SpeciesLibrary:
 
     # -- subsetting ------------------------------------------------------
     def subset(self, names):
-        """Return a new library restricted to ``names`` (order preserved)."""
+        """Return a new species_set restricted to ``names`` (order preserved)."""
         chosen = [self.species[self.species_index[n]] for n in names]
         used = sorted({el for s in chosen for el in s.composition}, key=lambda e: self.element_index.get(e, 1 << 30))
-        return SpeciesLibrary(elements=used, species=chosen, P_ref=self.P_ref)
+        return SpeciesSet(elements=used, species=chosen, P_ref=self.P_ref)
 
     # -- loaders ---------------------------------------------------------
     @classmethod
     def from_cantera(cls, source):
-        """Build a library from Cantera data, adapting to the input type.
+        """Build a species set from Cantera data, adapting to the input type.
 
         ``source`` may be a Cantera-YAML file path (``str``/``os.PathLike``), an
         already-parsed ``dict`` of such a document, or a live ``cantera.Solution``.  Paths
         and dicts are read directly with no Cantera dependency and honour the subset of the
-        format this library needs (NASA7/NASA9 thermo, no transport); a ``cantera.Solution`` is
+        format the species set needs (NASA7/NASA9 thermo, no transport); a ``cantera.Solution`` is
         extracted through Cantera itself, so passing one requires Cantera to be installed.
 
         The direct-parse routes never touch the runtime/equilibrium code path.
@@ -353,22 +355,23 @@ class SpeciesLibrary:
 
     @classmethod
     def from_dict(cls, doc):
-        """Build a library from an already-parsed Cantera-YAML document."""
+        """Build a species set from an already-parsed Cantera-YAML document."""
         elements, species, _ = _parse_cantera_doc(doc)
         return cls(elements=elements, species=species)
 
     @classmethod
     def from_cea(cls, path=None, species=None, P_ref=None):
-        """Build a library from a NASA Glenn / CEA ``thermo.inp`` file.
+        """Build a species set from a NASA Glenn / CEA ``thermo.inp`` file.
 
-        ``path`` defaults to the packaged ``thermo.inp`` (so the database need not be
-        named). ``species`` selects a subset by name (recommended, as ``thermo.inp`` holds
-        ~2000 species); ``None`` loads every gaseous record. ``P_ref`` defaults to one bar
-        (the database's standard state).
+        A convenience wrapper over :meth:`SpeciesDatabase.select
+        <nefes.thermo.database.SpeciesDatabase.select>`. ``path`` defaults to the packaged
+        ``thermo.inp`` (so the database need not be named). ``species`` selects a subset by
+        name (recommended, as ``thermo.inp`` holds ~2000 species); ``None`` loads every
+        record. ``P_ref`` defaults to one bar (the database's standard state).
         """
-        from .cea import ThermoInp
+        from .database import SpeciesDatabase
 
-        return ThermoInp(path).library(species, P_ref=P_ref)
+        return SpeciesDatabase(path).select(species, P_ref=P_ref)
 
     # -- writer ----------------------------------------------------------
     def to_cantera_dict(self):
@@ -391,7 +394,7 @@ class SpeciesLibrary:
 
 
 # ---------------------------------------------------------------------------
-# Shared (de)serialization helpers used by both SpeciesLibrary and Mechanism
+# Shared (de)serialization helpers used by both SpeciesSet and Mechanism
 # ---------------------------------------------------------------------------
 def _parse_cantera_doc(doc):
     """Return ``(elements, species, raw_reactions)`` from a Cantera-YAML doc."""

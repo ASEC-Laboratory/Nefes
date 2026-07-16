@@ -51,8 +51,8 @@ def product_moles(prob, x):
     return cache[:, :Np]
 
 
-def stream_mass_fractions(elements, library):
-    """The ``(K, Ns)`` full-library mass fractions of the network's distinct feed streams.
+def stream_mass_fractions(elements, species_set):
+    """The ``(K, Ns)`` full-species_set mass fractions of the network's distinct feed streams.
 
     Re-runs the build-time stream discovery (deterministic auto-merge in node order), so
     stream ``k`` aligns with the transported mixture fraction ``xi[k]`` and the scalar
@@ -62,7 +62,7 @@ def stream_mass_fractions(elements, library):
     ----------
     elements : list of ElementSpec
         The network elements (in node order).
-    library : nefes.thermo.SpeciesLibrary
+    species_set : nefes.thermo.SpeciesSet
         The species data.
 
     Returns
@@ -78,7 +78,7 @@ def stream_mass_fractions(elements, library):
     for el in elements:
         atomic.extend(el.sub_elements if is_composite(el) else (el,))
     comps = [(el.composition_spec, el.basis) for el in atomic if el.residual_id in STREAM_INTRODUCING]
-    stream_Y, _assignment = build_streams(library, comps)
+    stream_Y, _assignment = build_streams(species_set, comps)
     return stream_Y
 
 
@@ -96,13 +96,13 @@ def _fractions(names, moles, W, basis, threshold):
     return {name: float(f) for name, f in zip(names, frac) if abs(float(f)) > threshold}
 
 
-def edge_species(prob, x, e, library, *, basis="mole", moles=None, stream_Y=None, threshold=1e-12):
+def edge_species(prob, x, e, species_set, *, basis="mole", moles=None, stream_Y=None, threshold=1e-12):
     """Solved chemical species ``{name: fraction}`` on edge ``e``.
 
     Selects the reconstruction that matches the edge's thermo model: the converged
     equilibrium products for a burnt edge, or the unburnt forward blend of the feed
     streams (``xi @ stream_Y``) for a frozen / fresh one.  A perfect-gas edge (or a
-    ``None`` library) carries no chemical species and returns an empty dict.
+    ``None`` species set) carries no chemical species and returns an empty dict.
 
     Parameters
     ----------
@@ -112,7 +112,7 @@ def edge_species(prob, x, e, library, *, basis="mole", moles=None, stream_Y=None
         Converged state, shape ``(n_solve, n_edges)``.
     e : int
         Edge id.
-    library : nefes.thermo.SpeciesLibrary or None
+    species_set : nefes.thermo.SpeciesSet or None
         Species data; ``None`` (perfect gas) yields an empty result.
     basis : {"mole", "mass"}, optional
         Whether the fractions are mole or mass fractions (default ``"mole"``).
@@ -125,10 +125,10 @@ def edge_species(prob, x, e, library, *, basis="mole", moles=None, stream_Y=None
     Returns
     -------
     dict
-        ``{species_name: fraction}`` in library order, restricted to the present species.
+        ``{species_name: fraction}`` in species set order, restricted to the present species.
     """
     model = int(prob.edge_model[e])
-    if library is None or model == PERFECT_GAS:
+    if species_set is None or model == PERFECT_GAS:
         return {}
     # A marker-gated edge is bimodal at convergence: report the equilibrium products on a burnt
     # edge (marker >= 1/2) and the frozen feed-stream blend on a fresh one, matching the state's
@@ -146,22 +146,22 @@ def edge_species(prob, x, e, library, *, basis="mole", moles=None, stream_Y=None
         burnt = marker_row >= 0 and float(x[marker_row, e]) >= 0.5
     if burnt:
         nj = (product_moles(prob, x) if moles is None else moles)[e]
-        idx = np.nonzero(np.asarray(library.product_mask))[0]
-        names = [library.species[i].name for i in idx]
-        W = np.asarray(library.molar_masses)[idx]
+        idx = np.nonzero(np.asarray(species_set.product_mask))[0]
+        names = [species_set.species[i].name for i in idx]
+        W = np.asarray(species_set.molar_masses)[idx]
         return _fractions(names, nj, W, basis, threshold)
     # frozen / fresh marker-gated edge: the unburnt forward blend of the feed streams
-    sY = stream_mass_fractions_for(prob, x, library) if stream_Y is None else stream_Y
+    sY = stream_mass_fractions_for(prob, x, species_set) if stream_Y is None else stream_Y
     n_elem = prob.n_elem
     xi = np.asarray(x[3 : 3 + n_elem, e], dtype=float)
-    Y = xi @ sY  # full-library mass fractions
-    W = np.asarray(library.molar_masses)
+    Y = xi @ sY  # full-species_set mass fractions
+    W = np.asarray(species_set.molar_masses)
     nj = Y / W  # mass fraction -> moles per kg
-    names = [s.name for s in library.species]
+    names = [s.name for s in species_set.species]
     return _fractions(names, nj, W, basis, threshold)
 
 
-def stream_mass_fractions_for(prob, x, library):  # pragma: no cover - convenience shim
+def stream_mass_fractions_for(prob, x, species_set):  # pragma: no cover - convenience shim
     """Internal fallback used by :func:`edge_species` when ``stream_Y`` is not supplied.
 
     Requires the network elements, which a bare ``CompiledProblem`` does not carry, so the
@@ -173,7 +173,7 @@ def stream_mass_fractions_for(prob, x, library):  # pragma: no cover - convenien
         The compiled network (does not carry the element specs this needs).
     x : ndarray
         Converged state.
-    library : nefes.thermo.SpeciesLibrary
+    species_set : nefes.thermo.SpeciesSet
         The species data.
 
     Raises

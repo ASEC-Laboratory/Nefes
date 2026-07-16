@@ -1,6 +1,6 @@
 """Smooth (branch-free) replacements for ``abs``/``min``/``max``/step.
 
-Differentiation contract: no in-library residual or property path may use
+Differentiation contract: no in-species_set residual or property path may use
 ``abs``/``sign``/``max`` or branch on a *complex* argument, because the consumer
 differentiates the whole call path by the complex-step method. These helpers are smooth
 and complex-analytic, so a perturbation ``x + i*eps`` propagates a meaningful derivative

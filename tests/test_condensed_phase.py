@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from nefes.chem.composition import enthalpy_mass, species_mass_fractions
-from nefes.thermo import SpeciesLibrary, Thermo
+from nefes.thermo import SpeciesSet, Thermo
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nefes", "thermo", "data")
 THERMO_INP = os.path.join(DATA, "thermo.inp")
@@ -27,7 +27,7 @@ GAS = ["CO", "CO2", "O2", "H2", "H2O", "OH", "O", "H", "CH4", "N2", "NO"]
 def _lib(extra=()):
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
-    return SpeciesLibrary.from_cea(species=GAS + list(extra))
+    return SpeciesSet.from_cea(species=GAS + list(extra))
 
 
 def _Zh(lib, gas, feed_mole, T):
@@ -44,7 +44,7 @@ def _graphite_index(lib):
 
 
 def test_graphite_admitted_as_product_liquid_fuel_not():
-    lib = SpeciesLibrary.from_cea(species=["C(gr)", "CO2", "O2", "Jet-A(L)"])
+    lib = SpeciesSet.from_cea(species=["C(gr)", "CO2", "O2", "Jet-A(L)"])
     idx = {s.name: j for j, s in enumerate(lib.species)}
     assert lib.product_mask[idx["C(gr)"]]  # high-T condensed -> product
     assert not lib.product_mask[idx["Jet-A(L)"]]  # low-T condensed -> feed-only
@@ -162,7 +162,7 @@ def test_equilibrium_across_air_to_jetA(burn):
     """
     air = {"O2": 0.2095, "N2": 0.7808, "Ar": 0.0093, "CO2": 0.0004}
     species = ["Jet-A(L)", "O2", "N2", "Ar", "CO2", "H2O", "CO", "H2", "OH", "O", "H", "NO", "C(gr)"]
-    lib = SpeciesLibrary.from_cea(species=species)
+    lib = SpeciesSet.from_cea(species=species)
     gas = Thermo(lib)
     iC = _graphite_index(lib)
     Yair = species_mass_fractions(lib, air, "mole")
@@ -204,7 +204,7 @@ def test_rich_flame_network_converges_with_graphite():
     air = {"O2": 0.2095, "N2": 0.7808, "Ar": 0.0093, "CO2": 0.0004}
 
     def flame(species, mdot_fuel):
-        lib = SpeciesLibrary.from_cea(species=species)
+        lib = SpeciesSet.from_cea(species=species)
         h_air = enthalpy_mass(lib, species_mass_fractions(lib, air, "mole"), 300.0)
         nodes = [
             cat.mass_flow_inlet(0.9, 720.0, composition=air, name="air"),

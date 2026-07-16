@@ -1,6 +1,6 @@
-"""SpeciesLibrary: vectorized thermo, NASA7/9 unification, library<->mechanism.
+"""SpeciesSet: vectorized thermo, NASA7/9 unification, species_set<->mechanism.
 
-These tests are Cantera-free. They cover the species-library naming (separation from
+These tests are Cantera-free. They cover the species-species_set naming (separation from
 'mechanism') and the array-vectorized thermo core that keeps the complex-step contract.
 """
 
@@ -10,13 +10,13 @@ import pytest
 from nefes.thermo import (
     NASA7,
     NASA9,
-    SpeciesLibrary,
+    SpeciesSet,
     Thermo,
 )
 
 
 def test_library_has_no_reactions_concept(cantera_lib):
-    # A species library is just thermo data: it has species + elements, and is all
+    # A species species_set is just thermo data: it has species + elements, and is all
     # equilibrium needs; there is no 'reactions' on it.
     assert cantera_lib.n_species == 10
     assert set(cantera_lib.elements) == {"O", "H", "Ar", "N"}
@@ -24,10 +24,10 @@ def test_library_has_no_reactions_concept(cantera_lib):
 
 
 def test_mechanism_is_library_plus_reactions(cantera_mech, cantera_lib):
-    # A mechanism *associates* a library with reactions.
-    assert isinstance(cantera_mech.library, SpeciesLibrary)
+    # A mechanism *associates* a species_set with reactions.
+    assert isinstance(cantera_mech.species_set, SpeciesSet)
     assert len(cantera_mech.reactions) > 0
-    # It proxies the library's thermo/sizing surface.
+    # It proxies the species_set's thermo/sizing surface.
     assert cantera_mech.n_species == cantera_lib.n_species
     T = 1234.0
     assert np.allclose(cantera_mech.cp_R(T), cantera_lib.cp_R(T))
@@ -35,7 +35,7 @@ def test_mechanism_is_library_plus_reactions(cantera_mech, cantera_lib):
 
 
 def test_vectorized_matches_per_species(cantera_lib):
-    # The library evaluates all species in one vector op; it must agree with the
+    # The species_set evaluates all species in one vector op; it must agree with the
     # per-species polynomials exactly.
     for T in (300.0, 1000.0, 1234.0, 3000.0):
         for fn in ("cp_R", "h_RT", "s_R", "g_RT"):
@@ -96,7 +96,7 @@ def test_subset_preserves_thermo(cantera_lib):
 
 
 def test_thermo_accepts_library_or_mechanism(cantera_lib, cantera_mech):
-    # Equilibrium/properties need only a library; kinetics needs reactions.
+    # Equilibrium/properties need only a species_set; kinetics needs reactions.
     g_lib = Thermo(cantera_lib)
     g_mech = Thermo(cantera_mech)
     Y = np.zeros(cantera_lib.n_species)
@@ -104,7 +104,7 @@ def test_thermo_accepts_library_or_mechanism(cantera_lib, cantera_mech):
     p_lib = g_lib.properties(Y, 1500.0, 101325.0)
     p_mech = g_mech.properties(Y, 1500.0, 101325.0)
     assert np.isclose(p_lib.h, p_mech.h)
-    # K_c needs reactions: works from a mechanism, errors from a bare library.
+    # K_c needs reactions: works from a mechanism, errors from a bare species_set.
     assert len(g_mech.equilibrium_constants_Kc(1500.0)) == len(cantera_mech.reactions)
     with pytest.raises(ValueError):
         g_lib.equilibrium_constants_Kc(1500.0)

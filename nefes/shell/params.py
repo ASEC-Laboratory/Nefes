@@ -300,16 +300,16 @@ def _set_edge_area(net, ei: int, value) -> None:
 
 
 def _validate_composition(net, el, comp) -> None:
-    """Reject species the reacting library does not carry (fail-closed at set time)."""
-    lib = getattr(net.gas, "library", None)
+    """Reject species the reacting species set does not carry (fail-closed at set time)."""
+    lib = getattr(net.gas, "species_set", None)
     if lib is None or not isinstance(comp, dict):
         return
     known = {sp.name for sp in lib.species}
     missing = [s for s in comp if s not in known]
     if missing:
         raise ValueError(
-            f"composition on {_element_label(el)} names species not in the loaded library: {missing}; "
-            f"the library carries {len(known)} species"
+            f"composition on {_element_label(el)} names species not in the loaded species_set: {missing}; "
+            f"the species set carries {len(known)} species"
         )
 
 

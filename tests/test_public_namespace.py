@@ -93,10 +93,10 @@ def test_chem_reexports_composition_helpers():
 def test_flat_namespace_reacting_build():
     """A reacting build off ``nefes.equilibrium`` + ``nefes.thermo`` closure ids."""
     from nefes.chem import equivalence_ratio_mixture
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
-    lib = ThermoInp().library(["CH4", "O2", "N2", "CO2", "H2O", "CO", "OH", "H2", "H", "O", "NO"])
-    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    lib = SpeciesDatabase().select(["CH4", "O2", "N2", "CO2", "H2O", "CO", "OH", "H2", "H", "O", "NO"])
+    mix = equivalence_ratio_mixture({"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0, species_set=lib)
     net = nefes.Network(
         nefes.equilibrium(lib),
         nodes=[

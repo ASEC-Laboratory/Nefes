@@ -3,9 +3,9 @@
 Independent of the network: inputs and outputs are purely thermodynamic (composition, ``T``/``h``,
 ``p``, derived properties).
 
-A ``Thermo`` is built from a :class:`~nefes.thermo.species.SpeciesLibrary`, which is all
+A ``Thermo`` is built from a :class:`~nefes.thermo.species.SpeciesSet`, which is all
 equilibrium and mixture properties need. Passing a
-:class:`~nefes.thermo.mechanism.Mechanism` (a library *plus* reactions) is also accepted; the
+:class:`~nefes.thermo.mechanism.Mechanism` (a species set *plus* reactions) is also accepted; the
 reactions then enable the shared-Gibbs ``K_c`` route and the finite-rate design hook.
 
 Public: :class:`Thermo`.
@@ -26,22 +26,22 @@ class Thermo:
 
     Example::
 
-        lib  = SpeciesLibrary.from_cantera("h2o2.yaml")  # or ThermoInp(...).library(...)
+        lib  = SpeciesSet.from_cantera("h2o2.yaml")  # or SpeciesDatabase(...).select(...)
         gas  = Thermo(lib, backend="kernel")             # built-in equilibrium kernel
         props = gas.properties(Y, T, p)
         eq    = gas.equilibrate_HP(Z_elem, h, p)
     """
 
     def __init__(self, source, backend="kernel"):
-        # Accept a SpeciesLibrary or a Mechanism (library + reactions).
-        self.library = getattr(source, "library", source)
+        # Accept a SpeciesSet or a Mechanism (species_set + reactions).
+        self.species_set = getattr(source, "species_set", source)
         self.reactions = getattr(source, "reactions", None)
         self.backend_name = backend
-        self.backend = make_backend(backend, self.library)
+        self.backend = make_backend(backend, self.species_set)
 
     @property
-    def mech(self):  # alias for the underlying species library
-        return self.library
+    def mech(self):  # alias for the underlying species set
+        return self.species_set
 
     # -- properties ------------------------------------------------------
     def properties(self, Y, T, p):
@@ -66,8 +66,8 @@ class Thermo:
         """
         Y = np.asarray(Y)
         Yn = Y / np.sum(Y)
-        gram_atoms = self.library.element_matrix @ (Yn / self.library.molar_masses)
-        Z = self.library.element_weights * gram_atoms
+        gram_atoms = self.species_set.element_matrix @ (Yn / self.species_set.molar_masses)
+        Z = self.species_set.element_weights * gram_atoms
         return Z / np.sum(Z)
 
     def enthalpy_mass(self, Y, T):
@@ -75,13 +75,13 @@ class Thermo:
         datum, as carried by the NASA polynomials)."""
         Y = np.asarray(Y)
         Yn = Y / np.sum(Y)
-        return R_UNIVERSAL * T * np.sum(Yn * self.library.h_RT(T) / self.library.molar_masses)
+        return R_UNIVERSAL * T * np.sum(Yn * self.species_set.h_RT(T) / self.species_set.molar_masses)
 
     # -- finite-rate design hook -----------------------------------------
     def _require_reactions(self):
         if not self.reactions:
             raise ValueError(
-                "this Thermo was built from a SpeciesLibrary with no reactions; "
+                "this Thermo was built from a SpeciesSet with no reactions; "
                 "reaction data (a Mechanism) is required for kinetic quantities. "
                 "Build with Thermo(Mechanism.from_cantera(...))."
             )
@@ -96,11 +96,11 @@ class Thermo:
         though :meth:`net_rates` itself is a design hook.
         """
         reactions = self._require_reactions()
-        gRT = self.library.g_RT(T)  # dimensionless standard Gibbs
-        idx = self.library.species_index
+        gRT = self.species_set.g_RT(T)  # dimensionless standard Gibbs
+        idx = self.species_set.species_index
         # K_p = exp(-sum nu_j g_RT_j) (in p/P_ref); concentration form
         # K_c = K_p * (P_ref/(R T))^(dnu), in SI concentration units [mol/m^3].
-        c0 = self.library.P_ref / (R_UNIVERSAL * T)
+        c0 = self.species_set.P_ref / (R_UNIVERSAL * T)
         Kc = []
         for rxn in reactions:
             dnu_g = 0.0

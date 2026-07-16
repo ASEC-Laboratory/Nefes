@@ -30,13 +30,13 @@ THERMO_INP = os.path.join(DATA, "thermo.inp")
 
 
 def _lib():
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
     heavy = "C8H18,n-octane"
     species = ["O2", "N2", "CH4", heavy, "CO2", "H2O", "CO", "OH", "H", "O", "NO", "H2"]
-    return ThermoInp(THERMO_INP).library(species), heavy
+    return SpeciesDatabase(THERMO_INP).select(species), heavy
 
 
 def _hp_reference(gas, lib, feeds, p):
@@ -174,13 +174,13 @@ def test_branched_mixing_converges_from_seed():
 
 
 def test_carbonless_burn_in_carbon_library():
-    """A hydrogen flame solved in a carbon-bearing library: the burnt edge's elemental
+    """A hydrogen flame solved in a carbon-bearing species_set: the burnt edge's elemental
     abundance has a zero carbon entry (the parallel-branch case), so the equilibrium
     kernel must drop carbon and its species to stay non-singular.  The network solves
     from the auto-seed and the burnt static T matches a standalone HP equilibrium."""
     from nefes.thermo import Thermo
 
-    lib, _heavy = _lib()  # library carries CH4 / CO2 / CO -> carbon is an element
+    lib, _heavy = _lib()  # species_set carries CH4 / CO2 / CO -> carbon is an element
     gas = Thermo(lib)
     mdot_air, mdot_h2, Tin, p = 1.0, 0.029, 300.0, 2.0e5
     Yair, _ = resolve_composition(lib, AIR, basis="mole")
@@ -211,9 +211,9 @@ def test_carbonless_burn_in_carbon_library():
 
 
 def _ch4_air_lib():
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
-    return ThermoInp().library(["CH4", "O2", "N2", "CO2", "H2O", "CO", "OH", "H2", "H", "O", "NO"])
+    return SpeciesDatabase().select(["CH4", "O2", "N2", "CO2", "H2O", "CO", "OH", "H2", "H", "O", "NO"])
 
 
 def test_high_pressure_reacting_converges_from_boundary_pressure_seed():
@@ -227,7 +227,7 @@ def test_high_pressure_reacting_converges_from_boundary_pressure_seed():
     from nefes.chem import equivalence_ratio_mixture
 
     lib = _ch4_air_lib()
-    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    mix = equivalence_ratio_mixture({"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0, species_set=lib)
     sol = nefes.Network(
         nefes.equilibrium(lib),
         nodes=[
@@ -254,7 +254,7 @@ def test_choked_chamber_emergent_pressure_seed_converges():
     from nefes.chem import equivalence_ratio_mixture
 
     lib = _ch4_air_lib()
-    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    mix = equivalence_ratio_mixture({"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0, species_set=lib)
     prev_pc = 0.0
     for mdot in (10.0, 50.0, 100.0):
         sol = nefes.Network(
@@ -285,7 +285,7 @@ def test_reacting_recovery_never_raises_on_a_hard_cold_start():
     from nefes.chem import equivalence_ratio_mixture
 
     lib = _ch4_air_lib()
-    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    mix = equivalence_ratio_mixture({"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0, species_set=lib)
     sol = nefes.Network(
         nefes.equilibrium(lib),
         nodes=[
@@ -304,7 +304,7 @@ def _ch4_air_reacting_network():
     from nefes.chem import equivalence_ratio_mixture
 
     lib = _ch4_air_lib()
-    mix = equivalence_ratio_mixture(lib, {"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0)
+    mix = equivalence_ratio_mixture({"CH4": 1.0}, {"O2": 0.21, "N2": 0.79}, 1.0, species_set=lib)
     return nefes.Network(
         nefes.equilibrium(lib),
         nodes=[

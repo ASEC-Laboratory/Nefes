@@ -778,6 +778,17 @@ class Network:
 
     def _build(self) -> CompiledProblem:
         """Assemble a fresh ``CompiledProblem`` from the current elements and edges."""
+        prob = self._build_problem()
+        # Surface the finalized config so ``net.gas.species_names`` / ``.species_set`` reflect the
+        # resolved state after a build: a deferred automatic species set (equilibrium() with no
+        # species_set) is inspectable once its species slate has been derived from the feeds.  The
+        # config keeps its ``auto_species_set`` flag, so a later build re-derives it from the feeds.
+        if getattr(self.gas, "auto_species_set", False) and prob.gas is not None:
+            self.gas = prob.gas
+        return prob
+
+    def _build_problem(self) -> CompiledProblem:
+        """Compile the current elements/edges into a ``CompiledProblem`` (no config surfacing)."""
         edge_models = self._resolve_edge_models()
         mdot_ref, h_ref = self._seed_mdot(), self._seed_h()
         # If the ports are explicitly set, use the connectivity builder.
@@ -1566,7 +1577,7 @@ class Solution:
         if getattr(self, "_chem_cache", None) is None:
             from ..chem.chemistry import product_moles, stream_mass_fractions
 
-            lib = self.network.gas.library
+            lib = self.network.gas.species_set
             moles = product_moles(self.problem, self.result.x)
             # declared streams (equilibrium(streams=...)) carry their fixed basis on the gas model;
             # otherwise rebuild the auto-discovered basis from the feed compositions.
@@ -1602,7 +1613,7 @@ class Solution:
         from ..chem.chemistry import edge_species
 
         moles, stream_Y = self._chemistry_caches()
-        lib = self.network.gas.library
+        lib = self.network.gas.species_set
         return edge_species(self.problem, self.result.x, e, lib, basis=basis, moles=moles, stream_Y=stream_Y)
 
     # -- perturbation / acoustics (linear analyses on this converged mean flow) ----------------------------------------

@@ -36,11 +36,11 @@ HARD_MODELS = [EQ_FROZEN, EQ_FROZEN, EQ_KERNEL, EQ_KERNEL, EQ_KERNEL, EQ_KERNEL]
 
 
 def _lib():
-    return thermo.SpeciesLibrary.from_cea(species=["CH4", "O2", "N2", "CO2", "H2O", "CO", "H2", "OH", "O", "H", "NO"])
+    return thermo.SpeciesSet.from_cea(species=["CH4", "O2", "N2", "CO2", "H2O", "CO", "H2", "OH", "O", "H", "NO"])
 
 
 def _elements(lib):
-    rich = equivalence_ratio_mixture(lib, {"CH4": 1.0}, AIR, 1.6)  # fuel-rich primary premix
+    rich = equivalence_ratio_mixture({"CH4": 1.0}, AIR, 1.6, species_set=lib)  # fuel-rich primary premix
     return [
         cat.mass_flow_inlet(MDOT_PRIMARY, 400.0, composition=rich, basis="mole"),
         cat.duct(0.3),
@@ -124,7 +124,7 @@ def test_burnt_survives_a_fresh_mixer():
     # inline mass source), exercising the JUNCTION noisy-OR: burnt rich products + fresh
     # air -> the merged (lean) edge stays burnt.
     lib = _lib()
-    rich = equivalence_ratio_mixture(lib, {"CH4": 1.0}, AIR, 1.6)
+    rich = equivalence_ratio_mixture({"CH4": 1.0}, AIR, 1.6, species_set=lib)
     els = [
         cat.mass_flow_inlet(MDOT_PRIMARY, 400.0, composition=rich, basis="mole"),  # 0
         cat.equilibrium_flame(),  # 1

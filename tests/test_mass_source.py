@@ -83,12 +83,12 @@ def test_perfect_gas_mass_source_injection_momentum():
 # Reacting: fuel injected into air, then burnt by a downstream flame
 # --------------------------------------------------------------------------
 def _ch4_air_lib():
-    from nefes.thermo import ThermoInp
+    from nefes.thermo import SpeciesDatabase
 
     if not os.path.isfile(THERMO_INP):
         pytest.skip("thermo.inp not present")
     species = ["O2", "N2", "CH4", "CO2", "H2O", "CO", "OH", "H", "O", "NO", "H2"]
-    return ThermoInp(THERMO_INP).library(species)
+    return SpeciesDatabase(THERMO_INP).select(species)
 
 
 def _fuel_injection_network(mdot_air=1.0, mdot_fuel=0.05, Tin=300.0, p=1.0e5):

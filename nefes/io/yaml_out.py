@@ -569,7 +569,7 @@ def _chemistry_items(network, solution):
     for name in prob.scalar_names:
         vals = [float(solution.mixture_fractions(e).get(name, 0.0)) for e in range(n_edges)]
         items.append(DataItem(f"xi:{name}", "edge", vals, ""))
-    lib = network.gas.library
+    lib = network.gas.species_set
     if lib is not None:
         # per-edge burnt marker (0 fresh / 1 burnt).  A marker-gated network reads the transported
         # marker scalar; a hard per-edge closure carries none, so the burnt state is read off each

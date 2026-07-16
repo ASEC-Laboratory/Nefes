@@ -1,17 +1,17 @@
-"""Reaction sets and the :class:`Mechanism` (species library + reactions).
+"""Reaction sets and the :class:`Mechanism` (species set + reactions).
 
-The thermochemical *material database* is a :class:`~nefes.thermo.species.SpeciesLibrary`, a
+The thermochemical *material database* is a :class:`~nefes.thermo.species.SpeciesSet`, a
 set of species with their NASA polynomials, and all that chemical equilibrium needs. A
-**mechanism** is the *combination* of such a library with a set of **reactions** whose
-participants refer to species in that library. Reactions are needed only for the
+**mechanism** is the *combination* of such a species set with a set of **reactions** whose
+participants refer to species in that species_set. Reactions are needed only for the
 finite-rate path and for the shared-Gibbs ``K_c`` route; equilibrium and mixture
 properties never need them.
 
 Reaction stoichiometry and modified-Arrhenius data are carried; mechanisms load from
 Cantera's YAML format through :meth:`Mechanism.from_cantera`, which reads a file path
 directly (a round-tripping subset of the format) or extracts from a live
-``cantera.Solution``. ``Mechanism`` proxies the library's thermo interface so it can be
-passed anywhere a :class:`SpeciesLibrary` is expected.
+``cantera.Solution``. ``Mechanism`` proxies the species set's thermo interface so it can be
+passed anywhere a :class:`SpeciesSet` is expected.
 
 Public: :class:`Reaction`, :class:`Mechanism`.
 """
@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import yaml
 
 from .species import (
-    SpeciesLibrary,
+    SpeciesSet,
     _parse_cantera_doc,
 )
 
@@ -50,74 +50,74 @@ class Reaction:
 
 @dataclass
 class Mechanism:
-    """A species library together with a set of reactions over its species.
+    """A species set together with a set of reactions over its species.
 
-    ``library`` carries the species/thermo data (and the element matrix used by
+    ``species_set`` carries the species/thermo data (and the element matrix used by
     the equilibrium kernel); ``reactions`` is the kinetic data.  Thermo and
-    sizing attributes are proxied to the library, so a ``Mechanism`` is accepted
-    anywhere a :class:`SpeciesLibrary` is.
+    sizing attributes are proxied to the species set, so a ``Mechanism`` is accepted
+    anywhere a :class:`SpeciesSet` is.
     """
 
-    library: SpeciesLibrary
+    species_set: SpeciesSet
     reactions: list = field(default_factory=list)
 
-    # -- proxy the library's thermo / sizing surface ---------------------
+    # -- proxy the species set's thermo / sizing surface ---------------------
     @property
     def elements(self):
-        return self.library.elements
+        return self.species_set.elements
 
     @property
     def species(self):
-        return self.library.species
+        return self.species_set.species
 
     @property
     def species_index(self):
-        return self.library.species_index
+        return self.species_set.species_index
 
     @property
     def element_index(self):
-        return self.library.element_index
+        return self.species_set.element_index
 
     @property
     def molar_masses(self):
-        return self.library.molar_masses
+        return self.species_set.molar_masses
 
     @property
     def element_matrix(self):
-        return self.library.element_matrix
+        return self.species_set.element_matrix
 
     @property
     def element_weights(self):
-        return self.library.element_weights
+        return self.species_set.element_weights
 
     @property
     def P_ref(self):
-        return self.library.P_ref
+        return self.species_set.P_ref
 
     @property
     def n_species(self):
-        return self.library.n_species
+        return self.species_set.n_species
 
     @property
     def n_elements(self):
-        return self.library.n_elements
+        return self.species_set.n_elements
 
     def cp_R(self, T):
-        return self.library.cp_R(T)
+        return self.species_set.cp_R(T)
 
     def h_RT(self, T):
-        return self.library.h_RT(T)
+        return self.species_set.h_RT(T)
 
     def s_R(self, T):
-        return self.library.s_R(T)
+        return self.species_set.s_R(T)
 
     def g_RT(self, T):
-        return self.library.g_RT(T)
+        return self.species_set.g_RT(T)
 
     # -- loaders ---------------------------------------------------------
     @classmethod
     def from_cantera(cls, source):
-        """Build a mechanism (species library + reactions) from Cantera data.
+        """Build a mechanism (species set + reactions) from Cantera data.
 
         ``source`` may be a Cantera-YAML file path (``str``/``os.PathLike``), an
         already-parsed ``dict``, or a live ``cantera.Solution``. Paths and dicts are read
@@ -129,23 +129,23 @@ class Mechanism:
                 source = yaml.safe_load(fh)
         if isinstance(source, dict):
             return cls.from_dict(source)
-        # A live cantera.Solution: extract library and reactions through Cantera.
-        library = SpeciesLibrary.from_cantera(source)
+        # A live cantera.Solution: extract the species set and reactions through Cantera.
+        species_set = SpeciesSet.from_cantera(source)
         reactions = [_reaction_from_cantera(rxn) for rxn in source.reactions()]
-        return cls(library=library, reactions=reactions)
+        return cls(species_set=species_set, reactions=reactions)
 
     @classmethod
     def from_dict(cls, doc):
         """Build a mechanism from an already-parsed Cantera-YAML document."""
         elements, species, raw_reactions = _parse_cantera_doc(doc)
-        library = SpeciesLibrary(elements=elements, species=species)
+        species_set = SpeciesSet(elements=elements, species=species)
         reactions = [_reaction_from_dict(r) for r in raw_reactions]
-        return cls(library=library, reactions=reactions)
+        return cls(species_set=species_set, reactions=reactions)
 
     # -- writer ----------------------------------------------------------
     def to_cantera_dict(self):
         """Serialize to a Cantera-YAML-compatible dict (round-trips with :meth:`from_dict`)."""
-        doc = self.library.to_cantera_dict()
+        doc = self.species_set.to_cantera_dict()
         if self.reactions:
             doc["reactions"] = [
                 {

@@ -485,16 +485,16 @@ def test_parameter_study_zip_length_mismatch():
 
 
 # --------------------------------------------------------------------------- #
-# Reacting: composition writes validate against the species library
+# Reacting: composition writes validate against the species species_set
 # --------------------------------------------------------------------------- #
 def test_reacting_composition_validated_against_library():
     import os
 
-    from nefes.thermo import SpeciesLibrary
+    from nefes.thermo import SpeciesSet
     from nefes.thermo.configure import equilibrium
 
     mech = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nefes", "thermo", "data", "h2o2.yaml")
-    net = nefes.Network(gas=equilibrium(SpeciesLibrary.from_cantera(mech)))
+    net = nefes.Network(gas=equilibrium(SpeciesSet.from_cantera(mech)))
     n0 = net.add(cat.total_pressure_inlet(1.2e5, 300.0, composition={"O2": 0.21, "N2": 0.79}, name="air"))
     n1 = net.add(cat.pressure_outlet(1.0e5, name="out"))
     net.connect(n0, n1, 1e-2)

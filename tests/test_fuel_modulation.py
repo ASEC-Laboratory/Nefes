@@ -58,9 +58,9 @@ N_INJECTOR = 2
 
 
 def _air_enthalpy_datum():
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(MECH)
+    lib = SpeciesSet.from_cantera(MECH)
     gas = Thermo(lib)
     idx = lib.species_index
     Y = np.zeros(lib.n_species)

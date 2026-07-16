@@ -52,12 +52,12 @@ _O2_INERT = frozenset({"N", "He", "Ne", "Ar", "Kr", "Xe"})
 _STREAM_ATOL = 1e-12
 
 
-def species_mass_fractions(library, spec, basis="mole"):
-    """Full-library species **mass** fractions ``Y`` from a named mixture ``spec``.
+def species_mass_fractions(species_set, spec, basis="mole"):
+    """Species **mass** fractions ``Y`` from a named mixture ``spec``.
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         Provides ``species_index`` and ``molar_masses``.
     spec : dict or array_like
         Either ``{species_name: fraction}`` (unnormalized is fine), or a full
@@ -68,17 +68,17 @@ def species_mass_fractions(library, spec, basis="mole"):
     Returns
     -------
     Y : ndarray, shape (n_species,)
-        Normalized species mass fractions in library order.
+        Normalized species mass fractions in species set order.
     """
-    Ns = library.n_species
-    W = np.asarray(library.molar_masses, dtype=float)
+    Ns = species_set.n_species
+    W = np.asarray(species_set.molar_masses, dtype=float)
     vec = np.zeros(Ns)
     if isinstance(spec, dict):
-        idx = library.species_index
+        idx = species_set.species_index
         for name, val in spec.items():
             if name not in idx:
                 raise KeyError(
-                    f"species {name!r} is not in the library; available e.g. "
+                    f"species {name!r} is not in the species set; available e.g. "
                     f"{list(idx)[:8]}{'...' if Ns > 8 else ''}"
                 )
             vec[idx[name]] = val
@@ -102,14 +102,14 @@ def species_mass_fractions(library, spec, basis="mole"):
     return Y / Y.sum()
 
 
-def elemental_Z(library, Y):
+def elemental_Z(species_set, Y):
     """Elemental **mass** fractions ``Z`` from species mass fractions ``Y``.
 
     ``Z_i = W_i * Σ_j a_ij Y_j / W_j``, then renormalized to sum to one.
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         Provides ``molar_masses``, ``element_matrix`` and ``element_weights``.
     Y : array_like, shape (n_species,)
         Species mass fractions (need not be normalized).
@@ -121,15 +121,15 @@ def elemental_Z(library, Y):
     """
     Y = np.asarray(Y, dtype=float)
     Yn = Y / Y.sum()
-    W = np.asarray(library.molar_masses, dtype=float)
-    A = np.asarray(library.element_matrix, dtype=float)
-    ew = np.asarray(library.element_weights, dtype=float)
+    W = np.asarray(species_set.molar_masses, dtype=float)
+    A = np.asarray(species_set.element_matrix, dtype=float)
+    ew = np.asarray(species_set.element_weights, dtype=float)
     gram_atoms = A @ (Yn / W)
     Z = ew * gram_atoms
     return Z / Z.sum()
 
 
-def enthalpy_mass(library, Y, T):
+def enthalpy_mass(species_set, Y, T):
     """Absolute specific enthalpy [J/kg] of species mass fractions ``Y`` at ``T``.
 
     Formation-inclusive, as carried by the NASA polynomials.  Used to convert an
@@ -137,7 +137,7 @@ def enthalpy_mass(library, Y, T):
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         Provides ``molar_masses`` and the dimensionless enthalpy ``h_RT(T)``.
     Y : array_like, shape (n_species,)
         Species mass fractions (need not be normalized).
@@ -149,24 +149,24 @@ def enthalpy_mass(library, Y, T):
     float
         Absolute (formation-inclusive) specific enthalpy [J/kg].
     """
-    # ``library`` is a nefes.thermo object, so nefes.thermo is importable here; the lazy
+    # ``species_set`` is a nefes.thermo object, so nefes.thermo is importable here; the lazy
     # import keeps the universal gas constant a single source of truth without making
     # nefes.thermo a load-time dependency of this parse-time module.
     from nefes.thermo.constants import R_UNIVERSAL
 
     Y = np.asarray(Y, dtype=float)
     Yn = Y / Y.sum()
-    W = np.asarray(library.molar_masses, dtype=float)
-    hRT = np.asarray(library.h_RT(float(T)), dtype=float)
+    W = np.asarray(species_set.molar_masses, dtype=float)
+    hRT = np.asarray(species_set.h_RT(float(T)), dtype=float)
     return float(R_UNIVERSAL * T * np.sum(Yn * hRT / W))
 
 
-def resolve_composition(library, spec, basis="mole"):
+def resolve_composition(species_set, spec, basis="mole"):
     """Convenience: a named mixture -> ``(Y, Z)`` (species and elemental mass fractions).
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         The species data.
     spec : dict or array_like
         A named species mixture ``{species: fraction}`` (unnormalized is fine) or a full
@@ -181,20 +181,20 @@ def resolve_composition(library, spec, basis="mole"):
     Z : ndarray, shape (n_elements,)
         Normalized elemental mass fractions.
     """
-    Y = species_mass_fractions(library, spec, basis)
-    Z = elemental_Z(library, Y)
+    Y = species_mass_fractions(species_set, spec, basis)
+    Z = elemental_Z(species_set, Y)
     return Y, Z
 
 
-def species_mole_fractions(library, spec, basis="mole"):
-    """Full-library species **mole** fractions ``X`` from a named mixture ``spec``.
+def species_mole_fractions(species_set, spec, basis="mole"):
+    """Species **mole** fractions ``X`` from a named mixture ``spec``.
 
     The mole-fraction companion of :func:`species_mass_fractions` (same ``spec`` /
     ``basis`` conventions).
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
     spec : dict or array_like
         ``{species_name: fraction}`` (unnormalized is fine) or a full
         ``(n_species,)`` array already in ``basis``.
@@ -204,15 +204,15 @@ def species_mole_fractions(library, spec, basis="mole"):
     Returns
     -------
     X : ndarray, shape (n_species,)
-        Normalized species mole fractions in library order.
+        Normalized species mole fractions in species set order.
     """
-    Y = species_mass_fractions(library, spec, basis)
-    W = np.asarray(library.molar_masses, dtype=float)
+    Y = species_mass_fractions(species_set, spec, basis)
+    W = np.asarray(species_set.molar_masses, dtype=float)
     moles = Y / W
     return moles / moles.sum()
 
 
-def _o2_demand(library, X):
+def _o2_demand(species_set, X):
     """Net O2 demand [mol O2 per mol mixture] of a mole-fraction vector ``X``.
 
     Positive for a fuel (needs oxygen), negative for an oxidizer (supplies it).  A
@@ -220,10 +220,10 @@ def _o2_demand(library, X):
     ``_O2_INERT`` raises, rather than being silently dropped from the balance and
     biasing the equivalence ratio.
     """
-    A = np.asarray(library.element_matrix, dtype=float)  # (n_elements, n_species)
+    A = np.asarray(species_set.element_matrix, dtype=float)  # (n_elements, n_species)
     atoms = A @ np.asarray(X, dtype=float)  # gram-atoms of each element per mole of mixture
     demand = 0.0
-    for el, i in library.element_index.items():
+    for el, i in species_set.element_index.items():
         if atoms[i] <= 0.0:
             continue  # element absent from this mixture
         if el in _O2_PER_ATOM:
@@ -236,19 +236,46 @@ def _o2_demand(library, X):
     return float(demand)
 
 
-def equivalence_ratio_mixture(library, fuel, oxidizer, phi, *, fuel_basis="mole", oxidizer_basis="mole", basis="mole"):
+def _bundled_feed_species_set(*compositions):
+    """A minimal ``SpeciesSet`` over the packaged data, holding just the named species.
+
+    The species named across the given ``{species: fraction}`` compositions are looked up in
+    the packaged NASA Glenn / CEA data; enough to supply the formulae and molar masses the
+    blend needs, without a product slate.  Raises if a composition is not a name-keyed mapping
+    (an array cannot be interpreted without a species set).
+    """
+    from ..thermo import SpeciesDatabase
+
+    names = []
+    for comp in compositions:
+        if not isinstance(comp, dict):
+            raise ValueError(
+                "species_set=None needs named {species: fraction} fuel and oxidizer; pass an explicit "
+                "species_set to use full composition arrays"
+            )
+        for name in comp:
+            if name not in names:
+                names.append(name)
+    return SpeciesDatabase().select(names)
+
+
+def equivalence_ratio_mixture(
+    fuel, oxidizer, phi, *, species_set=None, fuel_basis="mole", oxidizer_basis="mole", basis="mole"
+):
     """Blend a ``fuel`` and an ``oxidizer`` to a target equivalence ratio ``phi``.
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
-        Supplies the species formulae (``element_matrix``) and molar masses.
     fuel, oxidizer : dict or array_like
         Compositions as ``{species_name: fraction}`` (e.g. ``{"CH4": 1.0}``,
         ``{"O2": 0.21, "N2": 0.79}``) or full ``(n_species,)`` arrays, each read in
         its own basis.
     phi : float
         Equivalence ratio (``>= 0``).  ``0`` returns the pure oxidizer.
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism, optional
+        Supplies the species formulae (``element_matrix``) and molar masses.  Leave it
+        ``None`` (the default) to look the named species up in the packaged NASA Glenn / CEA
+        data; pass an explicit species set to use a custom mechanism or full composition arrays.
     fuel_basis, oxidizer_basis : {"mole", "mass"}
         Basis of the given ``fuel`` / ``oxidizer`` fractions.
     basis : {"mole", "mass"}
@@ -265,17 +292,20 @@ def equivalence_ratio_mixture(library, fuel, oxidizer, phi, *, fuel_basis="mole"
     Raises
     ------
     ValueError
-        If ``phi`` is negative, the ``fuel`` has no net oxygen demand, or the
-        ``oxidizer`` supplies no oxygen.
+        If ``phi`` is negative, the ``fuel`` has no net oxygen demand, the ``oxidizer``
+        supplies no oxygen, or ``species_set=None`` is used with array (not name-keyed) inputs.
     """
     if phi < 0.0:
         raise ValueError(f"equivalence ratio phi must be non-negative; got {phi}")
 
-    X_fuel = species_mole_fractions(library, fuel, fuel_basis)
-    X_ox = species_mole_fractions(library, oxidizer, oxidizer_basis)
+    if species_set is None:
+        species_set = _bundled_feed_species_set(fuel, oxidizer)
 
-    d_fuel = _o2_demand(library, X_fuel)
-    d_ox = _o2_demand(library, X_ox)
+    X_fuel = species_mole_fractions(species_set, fuel, fuel_basis)
+    X_ox = species_mole_fractions(species_set, oxidizer, oxidizer_basis)
+
+    d_fuel = _o2_demand(species_set, X_fuel)
+    d_ox = _o2_demand(species_set, X_ox)
     if d_fuel <= 0.0:
         raise ValueError("the 'fuel' has no net oxygen demand (not a fuel for these elements C/H/S/O)")
     if d_ox >= 0.0:
@@ -289,19 +319,19 @@ def equivalence_ratio_mixture(library, fuel, oxidizer, phi, *, fuel_basis="mole"
     if basis == "mole":
         frac = moles / moles.sum()
     elif basis == "mass":
-        mass = moles * np.asarray(library.molar_masses, dtype=float)
+        mass = moles * np.asarray(species_set.molar_masses, dtype=float)
         frac = mass / mass.sum()
     else:
         raise ValueError("basis must be 'mole' or 'mass'")
 
-    names = list(library.species_index)
+    names = list(species_set.species_index)
     return {names[j]: float(frac[j]) for j in np.nonzero(frac > 0.0)[0]}
 
 
-def build_streams(library, comps):
+def build_streams(species_set, comps):
     """Distinct **feed streams** from a list of named compositions (auto-merged).
 
-    Resolves each element's composition to library mass fractions and collapses
+    Resolves each element's composition to species_set mass fractions and collapses
     identical ones onto a single stream, so the network transports one scalar per
     *distinct* injected composition rather than one per injecting element.  Returns
     those distinct streams together with, for every input, the index of the stream
@@ -309,7 +339,7 @@ def build_streams(library, comps):
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
     comps : list of (spec, basis)
         One ``(composition_spec, basis)`` per stream-introducing element (inlet,
         mass source, composition-bearing outlet), in node order.
@@ -317,7 +347,7 @@ def build_streams(library, comps):
     Returns
     -------
     stream_Y : ndarray, shape (K, n_species)
-        Mass fractions of each distinct stream (library order).
+        Mass fractions of each distinct stream (species set order).
     assignment : list of int
         ``assignment[i]`` is the stream index of input ``comps[i]`` (``-1`` if its
         ``spec`` was ``None`` -- e.g. an outlet with inert backflow).
@@ -331,7 +361,7 @@ def build_streams(library, comps):
         if spec is None:
             assignment.append(-1)
             continue
-        Y = species_mass_fractions(library, spec, basis)
+        Y = species_mass_fractions(species_set, spec, basis)
         k = -1
         for j, Yj in enumerate(stream_Y):
             if np.allclose(Y, Yj, rtol=0.0, atol=_STREAM_ATOL):
@@ -341,12 +371,12 @@ def build_streams(library, comps):
             k = len(stream_Y)
             stream_Y.append(Y)
         assignment.append(k)
-    Ns = library.n_species
+    Ns = species_set.n_species
     arr = np.array(stream_Y, dtype=float) if stream_Y else np.zeros((0, Ns))
     return arr, assignment
 
 
-def stream_mean_molar_masses(library, stream_Y):
+def stream_mean_molar_masses(species_set, stream_Y):
     """Mean molar mass ``[kg/mol]`` of each feed stream from its species mass fractions.
 
     The mass-weighted harmonic mean ``W_k = 1 / sum_j (Y_kj / W_j)`` -- the molar mass for
@@ -355,7 +385,7 @@ def stream_mean_molar_masses(library, stream_Y):
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         Provides ``molar_masses``.
     stream_Y : ndarray, shape (K, n_species)
         Each stream's species mass fractions (rows need not be renormalized here; each is
@@ -367,12 +397,12 @@ def stream_mean_molar_masses(library, stream_Y):
         The per-stream mean molar mass.
     """
     stream_Y = np.atleast_2d(np.asarray(stream_Y, dtype=float))
-    W = np.asarray(library.molar_masses, dtype=float)
+    W = np.asarray(species_set.molar_masses, dtype=float)
     moles_per_kg = (stream_Y / W).sum(axis=1)  # 1/W_k = sum_j Y_kj / W_j
     return 1.0 / moles_per_kg
 
 
-def resolve_stream_blend(library, stream_labels, stream_Y, blend, basis="mole"):
+def resolve_stream_blend(species_set, stream_labels, stream_Y, blend, basis="mole"):
     """Feed donor mixture fractions ``xi`` from a blend over the declared stream basis.
 
     A feed injects a mixture of the network's declared streams; this resolves how much of
@@ -383,7 +413,7 @@ def resolve_stream_blend(library, stream_labels, stream_Y, blend, basis="mole"):
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         Provides ``molar_masses`` (only used for a ``"mole"`` blend).
     stream_labels : sequence of str
         The declared stream names, in transported-scalar order.
@@ -422,7 +452,7 @@ def resolve_stream_blend(library, stream_labels, stream_Y, blend, basis="mole"):
     if amount.sum() <= 0.0:
         raise ValueError("a stream blend must name at least one stream with a positive amount")
     if basis == "mole":
-        mass = amount * stream_mean_molar_masses(library, stream_Y)  # moles -> mass
+        mass = amount * stream_mean_molar_masses(species_set, stream_Y)  # moles -> mass
     elif basis == "mass":
         mass = amount
     else:
@@ -430,12 +460,12 @@ def resolve_stream_blend(library, stream_labels, stream_Y, blend, basis="mole"):
     return mass / mass.sum()
 
 
-def stream_pack_arrays(library, stream_Y):
+def stream_pack_arrays(species_set, stream_Y):
     """Forward-map arrays for the packed kernel from per-stream mass fractions.
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
     stream_Y : ndarray, shape (K, n_species)
         Mass fractions of each feed stream (from :func:`build_streams`).
 
@@ -453,25 +483,25 @@ def stream_pack_arrays(library, stream_Y):
     """
     stream_Y = np.atleast_2d(np.asarray(stream_Y, dtype=float))
     K = stream_Y.shape[0]
-    W = np.asarray(library.molar_masses, dtype=float)
+    W = np.asarray(species_set.molar_masses, dtype=float)
     if K == 0:
-        return (np.zeros(0, dtype=np.int64), np.zeros((0, 0)), np.zeros((0, library.n_elements)))
+        return (np.zeros(0, dtype=np.int64), np.zeros((0, 0)), np.zeros((0, species_set.n_elements)))
     present = np.any(stream_Y > 0.0, axis=0)
     feed_idx = np.nonzero(present)[0].astype(np.int64)
     Nfeed = stream_Y[:, feed_idx] / W[feed_idx]
-    Zfeed = np.array([elemental_Z(library, stream_Y[k]) for k in range(K)], dtype=float)
+    Zfeed = np.array([elemental_Z(species_set, stream_Y[k]) for k in range(K)], dtype=float)
     return feed_idx, Nfeed, Zfeed
 
 
-def network_elements(library, specs):
+def network_elements(species_set, specs):
     """Elements actually present across a list of named mixtures.
 
-    Reports which of the library's elements are exercised by at least one mixture,
+    Reports which of the species set's elements are exercised by at least one mixture,
     so a caller can warn about (or trim to) the active union.
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism
         The authority on the element set (``element_matrix``, ``elements``).
     specs : iterable of dict or array_like
         Named mixtures (inlet / source compositions); a ``dict`` is read on a mole
@@ -480,17 +510,17 @@ def network_elements(library, specs):
     Returns
     -------
     list of str
-        Element symbols (in library order) whose abundance is non-zero in at least
+        Element symbols (in species set order) whose abundance is non-zero in at least
         one mixture.
     """
-    A = np.asarray(library.element_matrix, dtype=float)
-    present = np.zeros(library.n_elements, dtype=bool)
+    A = np.asarray(species_set.element_matrix, dtype=float)
+    present = np.zeros(species_set.n_elements, dtype=bool)
     for spec in specs:
         Y = (
-            species_mass_fractions(library, spec, basis="mass")
+            species_mass_fractions(species_set, spec, basis="mass")
             if not isinstance(spec, dict)
-            else species_mass_fractions(library, spec, basis="mole")
+            else species_mass_fractions(species_set, spec, basis="mole")
         )
         active_sp = Y > 0.0
         present |= np.any(A[:, active_sp] != 0.0, axis=1)
-    return [e for i, e in enumerate(library.elements) if present[i]]
+    return [e for i, e in enumerate(species_set.elements) if present[i]]

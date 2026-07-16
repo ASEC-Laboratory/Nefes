@@ -14,7 +14,6 @@ from ..elements.ids import FLAME_EQUILIBRIUM, MASS_FLOW_INLET, MASS_SOURCE, P_OU
 from ..graph.connectivity import Connectivity, build_connectivity
 from ..thermo.api import EQ_FROZEN, EQ_KERNEL
 from ..thermo.configure import equilibrium, perfect_gas
-from ..thermo.edge_state import AUTO_REDUCE_THRESHOLD
 from .provenance import UIProvenance
 
 _PORT_RE = re.compile(r"port-(\d+)$")
@@ -32,6 +31,8 @@ _GLOBAL_DEFAULTS = {
     "mechanismFile": "",
     "species": "auto",
     "speciesReducer": "equilibrium_sampling",
+    "speciesReduceThreshold": None,
+    "speciesReduceAbove": None,
     "equilibriumTInit": 3000.0,
     "frozenTInit": 300.0,
     "streamMode": "auto",
@@ -260,19 +261,6 @@ def _is_auto(species) -> bool:
     return species is None or (len(species) == 1 and species[0].strip().lower() == "auto")
 
 
-def _declared_species(specs) -> List[str]:
-    """Feed/source species named anywhere in the network (the reactants), first-seen order."""
-    out: List[str] = []
-    for sp in specs:
-        comp = getattr(sp, "composition_spec", None)
-        if not comp:
-            continue
-        for name in comp:
-            if name not in out:
-                out.append(name)
-    return out
-
-
 def _parse_streams(text, path: str) -> dict:
     """Parse the declared-stream basis string into ``{label: species mixture}``.
 
@@ -303,108 +291,31 @@ def _parse_streams(text, path: str) -> dict:
     return streams
 
 
-def _dedup(seq) -> List[str]:
-    """De-duplicate a sequence, preserving first-seen order."""
-    seen, out = set(), []
-    for x in seq:
-        if x not in seen:
-            seen.add(x)
-            out.append(x)
-    return out
+def _auto_species_set(db, specs, g):
+    """CEA-style automatic product slate over a ``SpeciesDatabase`` database, from the case params.
 
-
-def _feed_sample_states(feed_lib, specs, g):
-    """Representative equilibrium probe states along the feed-mixing line.
-
-    Each feed stream contributes its elemental composition; convex (mass) combinations of
-    the distinct streams span the lean->rich range the network can realize, probed at a
-    couple of temperatures bracketing the burnt-gas guess.  Used to drive slate reduction.
+    A thin adapter that reads the reference pressure, burnt-gas temperature guess and reducer
+    choice off the parsed model params ``g`` and delegates to the shared
+    :func:`nefes.thermo.autoset.auto_product_set`, so the YAML loader and the Python
+    network build resolve the automatic slate through one policy.
     """
-    import numpy as np
+    from ..thermo.autoset import auto_product_set
 
-    from nefes.thermo import SampleState
-
-    from ..chem.composition import elemental_Z, species_mass_fractions
-
-    p = float(g["referencePressure"])
-    T_hi = float(g["equilibriumTInit"])
-    T_samples = sorted({T_hi, max(1500.0, 0.7 * T_hi)})
-
-    feeds = []
-    for sp in specs:
-        comp = getattr(sp, "composition_spec", None)
-        if not comp:
-            continue
-        Y = species_mass_fractions(feed_lib, comp, getattr(sp, "basis", "mole"))
-        feeds.append(elemental_Z(feed_lib, Y))
-
-    uniq = []
-    for Z in feeds:
-        if not any(np.allclose(Z, U, atol=1e-9) for U in uniq):
-            uniq.append(Z)
-
-    elems = list(feed_lib.elements)
-
-    def zdict(Z):
-        return {elems[i]: float(Z[i]) for i in range(len(elems))}
-
-    states = []
-    for Z in uniq:
-        states += [SampleState(zdict(Z), T, p) for T in T_samples]
-    for ia in range(len(uniq)):
-        for ib in range(ia + 1, len(uniq)):
-            for w in (0.1, 0.3, 0.5, 0.7, 0.9):
-                Zm = w * uniq[ia] + (1.0 - w) * uniq[ib]
-                states += [SampleState(zdict(Zm), T, p) for T in T_samples]
-    return states
+    thr = g.get("speciesReduceThreshold")
+    above = g.get("speciesReduceAbove")
+    return auto_product_set(
+        db,
+        specs,
+        p_ref=float(g["referencePressure"]),
+        T_init=float(g["equilibriumTInit"]),
+        reducer_name=str(g.get("speciesReducer") or "equilibrium_sampling"),
+        threshold=float(thr) if thr else None,
+        reduce_above=int(above) if above else None,
+    )
 
 
-def _auto_library(db, specs, g):
-    """CEA-style automatic product slate over a ``ThermoInp`` database ``db``.
-
-    Declared feed species fix the reachable element pool; the candidate gas-phase slate is
-    every species buildable from those elements, reduced (when large) to the species that
-    are non-trace at equilibrium across the feed-mixing range.  The final library also
-    carries the declared feed species (including condensed fuels) so the frozen closure and
-    the enthalpy datum can be evaluated; the equilibrium kernel masks condensed species out
-    of the products.
-    """
-    from nefes.thermo import get_reducer
-
-    declared = _declared_species(specs)
-    if not declared:
-        raise ValueError(
-            "the reacting (equilibrium) model with automatic species needs at least one feed "
-            "or source composition (set 'species' to an explicit list to override)"
-        )
-    missing = [n for n in declared if n not in db]
-    if missing:
-        raise KeyError(f"feed species not in thermo.inp: {missing}")
-
-    pool = set()
-    for name in declared:
-        pool.update(el for el in db[name].composition if el != "E")
-    candidates = db.candidate_species(pool, gas_only=True, exclude_ions=True)
-    declared_gas = [n for n in declared if db[n].phase == 0]
-
-    if len(candidates) <= AUTO_REDUCE_THRESHOLD:
-        report = {"reducer": "none", "n_candidates": len(candidates), "n_kept": len(candidates)}
-        final = _dedup(candidates + declared)
-    else:
-        feed_lib = db.library(_dedup(declared))
-        samples = _feed_sample_states(feed_lib, specs, g)
-        reducer = get_reducer(str(g.get("speciesReducer") or "equilibrium_sampling"))
-        result = reducer.reduce(db.library(candidates), samples, always_keep=declared_gas)
-        report = result.report
-        final = _dedup(result.species + declared)
-
-    lib = db.library(final)
-    lib.reduction_report = report  # auditable: which products were selected and why
-    return lib
-
-
-def _build_library(g, specs, case_dir: str):
-    """Build the reacting species library from the model params and the network feeds.
+def _build_species_set(g, specs, case_dir: str):
+    """Build the reacting species set from the model params and the network feeds.
 
     With no ``mechanismFile`` the packaged NASA Glenn / CEA ``thermo.inp`` is the species
     database.  ``species`` may be an explicit list, or ``"auto"`` (the default) to derive a
@@ -412,7 +323,7 @@ def _build_library(g, specs, case_dir: str):
     native mechanism YAML (Cantera-subset) loads its species directly; an explicit
     ``thermo.inp`` path behaves like the packaged default.
     """
-    from nefes.thermo import SpeciesLibrary, ThermoInp
+    from nefes.thermo import SpeciesDatabase, SpeciesSet
 
     species = _parse_species(g.get("species"))
     auto = _is_auto(species)
@@ -421,12 +332,12 @@ def _build_library(g, specs, case_dir: str):
     if mech_path:
         path = _resolve_path(mech_path, case_dir)
         if path.lower().endswith((".yaml", ".yml")):
-            lib = SpeciesLibrary.from_cantera(path)
+            lib = SpeciesSet.from_cantera(path)
             return lib if auto else lib.subset(species)
-        return _auto_library(ThermoInp(path), specs, g) if auto else ThermoInp(path).library(species)
+        return _auto_species_set(SpeciesDatabase(path), specs, g) if auto else SpeciesDatabase(path).select(species)
 
-    db = ThermoInp()
-    return _auto_library(db, specs, g) if auto else db.library(species)
+    db = SpeciesDatabase()
+    return _auto_species_set(db, specs, g) if auto else db.select(species)
 
 
 def _reacting_h_ref(gas, specs) -> float:
@@ -445,7 +356,7 @@ def _reacting_h_ref(gas, specs) -> float:
     for sp in specs:
         atomic.extend(sp.sub_elements if is_composite(sp) else (sp,))
 
-    lib = gas.library
+    lib = gas.species_set
     h_max = 0.0
     for sp in atomic:
         comp = sp.composition_spec
@@ -706,7 +617,7 @@ def case_from_dict(doc: dict, case_dir: str = None, source: str = "<dict>"):
     nodes_sorted = sorted(ui_nodes, key=lambda n: int((n.get("attributes") or {}).get("index", 0)))
     specs = [_build_ui_spec(n) for n in nodes_sorted]
 
-    # The reacting library and the absolute-enthalpy datum are built from the species-bearing
+    # The reacting species set and the absolute-enthalpy datum are built from the species-bearing
     # compositions, resolved after the node specs are parsed.  In "auto" mode these are the feed
     # compositions; in "declared" mode the feeds carry stream labels, not species, so the species
     # come from the declared stream basis instead (the feeds blend over it).
@@ -715,14 +626,14 @@ def case_from_dict(doc: dict, case_dir: str = None, source: str = "<dict>"):
             declared = _parse_streams(g.get("streams"), path)
             stream_basis = str(g.get("streamBasis") or "mole")
             T_ref = float(g["referenceTemperature"])
-            # pseudo-feeds carrying each declared stream's species, so the library / enthalpy
+            # pseudo-feeds carrying each declared stream's species, so the species set / enthalpy
             # helpers (which read composition_spec as species) resolve from the declared basis
             stream_specs = [
                 cat.mass_flow_inlet(1.0, T_ref, composition=comp, basis=stream_basis) for comp in declared.values()
             ]
-            library = _build_library(g, stream_specs, case_dir)
+            species_set = _build_species_set(g, stream_specs, case_dir)
             gas = equilibrium(
-                library,
+                species_set,
                 streams=declared,
                 basis=stream_basis,
                 mode="declared",
@@ -731,8 +642,8 @@ def case_from_dict(doc: dict, case_dir: str = None, source: str = "<dict>"):
             )
             h_ref = _reacting_h_ref(gas, stream_specs)
         else:
-            library = _build_library(g, specs, case_dir)
-            gas = equilibrium(library, T_init=float(g["equilibriumTInit"]), T_init_frozen=float(g["frozenTInit"]))
+            species_set = _build_species_set(g, specs, case_dir)
+            gas = equilibrium(species_set, T_init=float(g["equilibriumTInit"]), T_init_frozen=float(g["frozenTInit"]))
             h_ref = _reacting_h_ref(gas, specs)
     else:
         h_ref = None

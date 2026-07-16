@@ -11,7 +11,7 @@ from typing import List
 
 import numpy as np
 
-from nefes.thermo.constants import R_UNIVERSAL
+from nefes.thermo.constants import P_REF, R_UNIVERSAL
 
 from .api import EQ_KERNEL, PERFECT_GAS
 
@@ -32,9 +32,9 @@ class ThermoConfig:
     element_names : list of str
         Labels of the transported band-1 scalars (feed streams / passive scalars).
     species_names : list of str
-        Species carried by the library (empty for a perfect gas).
-    library : object
-        The ``SpeciesLibrary``, kept parse-time only (never packed or
+        Species carried by the species set (empty for a perfect gas).
+    species_set : object
+        The ``SpeciesSet``, kept parse-time only (never packed or
         compiled) so element/source builders can resolve species-named compositions
         to feed streams and the ``Tt -> h_t`` datum.
     t_init, t_init_frozen : float
@@ -46,13 +46,22 @@ class ThermoConfig:
     tf: np.ndarray  # float64[::1] packed real data
     ti: np.ndarray  # int64[::1] packed sizes/indices
     element_names: List[str] = field(default_factory=list)  # transported-scalar labels
-    species_names: List[str] = field(default_factory=list)  # library species names
-    library: object = None  # SpeciesLibrary (parse-time only)
+    species_names: List[str] = field(default_factory=list)  # species names carried by the set
+    species_set: object = None  # SpeciesSet (parse-time only)
     t_init: float = 3000.0  # equilibrium temperature guess [K]
     t_init_frozen: float = 300.0  # frozen temperature guess [K]
     # declared feed-stream mass fractions (K, n_species) when the streams were named up front
     # (equilibrium(streams=...)); None defers stream discovery to build time (auto-merge of feeds)
     stream_Y: object = None
+    # slate reducer for a deferred automatic species set (species_set=None), applied at network build
+    reducer: str = "equilibrium_sampling"
+    # trace mole-fraction cutoff for the reducer (None -> its default) and the candidate count
+    # above which reduction runs (None -> AUTO_REDUCE_THRESHOLD); the deferred-slate size dials
+    reduce_threshold: float = None
+    reduce_above: int = None
+    # True for equilibrium(species_set=None): the product slate is (re)derived from the network
+    # feeds at every build, so adding a feed after a solve expands the slate as expected
+    auto_species_set: bool = False
 
     @property
     def n_elem(self) -> int:
@@ -68,7 +77,7 @@ class ThermoConfig:
 
     @property
     def n_species(self) -> int:
-        """Number of species carried by the library (zero for a perfect gas)."""
+        """Number of species carried by the species set (zero for a perfect gas)."""
         return len(self.species_names)
 
 
@@ -129,9 +138,17 @@ def perfect_gas_passive_scalars(n_scalars: int, R: float = 287.0, gamma: float =
 
 
 def equilibrium(
-    library, streams=None, basis: str = "mole", mode: str = None, T_init: float = 3000.0, T_init_frozen: float = 300.0
+    species_set=None,
+    streams=None,
+    basis: str = "mole",
+    mode: str = None,
+    T_init: float = 3000.0,
+    T_init_frozen: float = 300.0,
+    reducer: str = "equilibrium_sampling",
+    reduce_threshold: float = None,
+    reduce_above: int = None,
 ):
-    """Reacting-gas config from a ``nefes.thermo.SpeciesLibrary``.
+    """Reacting-gas config from a ``nefes.thermo.SpeciesSet``.
 
     The transported composition is the network's **feed-stream mixture fractions**
     ``xi`` -- one conserved band-1 scalar per distinct injected composition (an
@@ -144,10 +161,15 @@ def equilibrium(
 
     Parameters
     ----------
-    library : nefes.thermo.SpeciesLibrary or nefes.thermo.Mechanism
-        The species data (NASA-7/9 polynomials, element matrix).  The library is
+    species_set : nefes.thermo.SpeciesSet or nefes.thermo.Mechanism, optional
+        The species data (NASA-7/9 polynomials, element matrix).  The species_set is
         the standalone authority; this packs its canonical 9-term arrays for the
-        compiled kernel.
+        compiled kernel.  Leave it ``None`` (the default) to defer to the **automatic**
+        product slate: the packaged NASA Glenn / CEA data is the database, and the
+        species_set is resolved from the network's feed compositions at build time (the
+        candidate products buildable from the fed-in elements, reduced to the non-trace
+        species).  A deferred species set carries no streams (``mode="auto"`` only); pass an
+        explicit ``species_set`` to name a declared-stream basis or to pin the species set.
     streams : dict of {str: spec}, optional
         The **declared** feed streams ``{label: composition}`` (each ``composition`` a named
         species mixture in ``basis`` units).  These are the network's fixed, named transported
@@ -167,12 +189,53 @@ def equilibrium(
         mixture).  Default: ``"declared"`` when ``streams`` is given, else ``"auto"``.
     T_init, T_init_frozen : float
         Initial temperature guesses for the equilibrium and frozen solves [K].
+    reducer : str, optional
+        Registry key of the slate reducer used when the deferred automatic species set
+        (``species_set=None``) is resolved at build (default ``"equilibrium_sampling"``;
+        ``"none"`` keeps every candidate).  Ignored when an explicit ``species_set`` is given.
+    reduce_threshold : float, optional
+        Trace mole-fraction cutoff for the automatic slate: a candidate is kept when its peak
+        equilibrium mole fraction over the feed-mixing range clears it.  Larger keeps fewer
+        species, smaller keeps more; ``None`` (default) uses the reducer's own cutoff.  Applies
+        only to the deferred automatic set, and only once the slate is large enough to reduce
+        (see ``reduce_above``).
+    reduce_above : int, optional
+        Candidate count above which reduction runs; below it every candidate is kept.  Lower it
+        to trim a lean slate, raise it to keep a broad slate whole.  ``None`` (default) uses the
+        built-in threshold.  Applies only to the deferred automatic set.
 
     See Also
     --------
     ThermoConfig.stream_mode : the resolved mode on the returned config.
+    nefes.thermo.autoset.auto_product_set : the automatic-slate policy.
     """
     from .edge_state import pack_equilibrium
+
+    if species_set is None:
+        # Deferred automatic species set: the species set is unknown until the network's feeds are
+        # seen, so pack a valid header only (P_ref, T_init, T_init_frozen -- what the reference
+        # scaling reads) and resolve the real bundle at build (finalize_thermo).
+        if streams is not None or mode == "declared":
+            raise ValueError(
+                "species_set=None uses the automatic product slate (auto mode); pass an explicit "
+                "species_set to declare a stream basis (streams=...) or a fixed species set"
+            )
+        header = np.array([P_REF, T_init, T_init_frozen], dtype=np.float64)
+        return ThermoConfig(
+            model_id=EQ_KERNEL,
+            tf=header,
+            ti=np.empty(0, dtype=np.int64),
+            element_names=[],
+            species_names=[],
+            species_set=None,
+            t_init=T_init,
+            t_init_frozen=T_init_frozen,
+            stream_Y=None,
+            reducer=reducer,
+            reduce_threshold=reduce_threshold,
+            reduce_above=reduce_above,
+            auto_species_set=True,
+        )
 
     if mode is None:
         mode = "declared" if streams is not None else "auto"
@@ -184,24 +247,24 @@ def equilibrium(
         raise ValueError("streams=... declares a fixed basis (that is mode='declared'); drop streams= for mode='auto'")
 
     if mode == "auto":
-        stream_Y = np.zeros((0, library.n_species))
+        stream_Y = np.zeros((0, species_set.n_species))
         labels: List[str] = []
         declared_Y = None  # defer discovery to build time
     else:
         from ..chem.composition import species_mass_fractions
 
         labels = list(streams.keys())
-        stream_Y = np.array([species_mass_fractions(library, streams[k], basis) for k in labels], dtype=np.float64)
+        stream_Y = np.array([species_mass_fractions(species_set, streams[k], basis) for k in labels], dtype=np.float64)
         declared_Y = stream_Y  # the fixed basis every feed states its composition over
 
-    tf, ti = pack_equilibrium(library, stream_Y, T_init, T_init_frozen)
+    tf, ti = pack_equilibrium(species_set, stream_Y, T_init, T_init_frozen)
     return ThermoConfig(
         model_id=EQ_KERNEL,
         tf=tf,
         ti=ti,
         element_names=labels,
-        species_names=[s.name for s in library.species],
-        library=library,
+        species_names=[s.name for s in species_set.species],
+        species_set=species_set,
         t_init=T_init,
         t_init_frozen=T_init_frozen,
         stream_Y=declared_Y,

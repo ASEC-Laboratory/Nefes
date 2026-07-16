@@ -172,9 +172,9 @@ def test_n_tau_lag_sets_stability_band():
 
 
 def _h2_air():
-    from nefes.thermo import SpeciesLibrary, Thermo
+    from nefes.thermo import SpeciesSet, Thermo
 
-    lib = SpeciesLibrary.from_cantera(MECH_PATH)
+    lib = SpeciesSet.from_cantera(MECH_PATH)
     gas = Thermo(lib)
     idx = lib.species_index
     moles = np.zeros(lib.n_species)
