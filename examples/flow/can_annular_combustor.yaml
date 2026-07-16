@@ -1,2731 +1,5105 @@
-version: 2.0.0
-timestamp: '2026-07-14T17:33:49.290428+00:00'
+version: 2.1.0
+timestamp: '2026-07-15T00:07:08.846Z'
 meta:
-  title: Nefes case
+  title: cannular-combustor
 model:
   id: nefes
   globalAttributes:
     thermoModel: equilibrium
-    species:
-    - Jet-A(L)
-    - O2
-    - N2
-    - Ar
-    - CO2
-    - H2O
-    - CO
-    - H2
-    - OH
-    - O
-    - H
-    - 'NO'
+    gasConstant: 287
+    heatCapacityRatio: 1.4
+    species: auto
+    streamMode: auto
+    streams: ''
+    streamBasis: mole
     referencePressure: 1500000.0
     referenceTemperature: 720.0
-    referenceMassFlow: 9.0
+    referenceMassFlow: 0
   nodes:
-  - id: MassFlowInlet_1
-    type: MassFlowInlet
+  - id: LosslessSplitter1-1ly
+    type: LosslessSplitter
     attributes:
-      massFlowRate: 9.0
-      totalTemperature: 720.0
-      label: compressor_discharge
-      composition: O2:0.2095, N2:0.7808, Ar:0.0093, CO2:0.0004
-      basis: mole
+      label: sw-split-1
       index: 0
-  - id: Pipe_1
+      rightPorts: 2
+      volume: 0
+  - id: Orifice2-jxi
+    type: Orifice
+    attributes:
+      label: dome-perf-1
+      width: 69
+      height: 52
+      index: 1
+      throatArea: 0.0012
+  - id: IsentropicAreaChange2-ahu
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-1
+      width: 53
+      height: 52
+      index: 2
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe1-9a1
     type: Pipe
     attributes:
-      length: 0.5
-      diameter: 0.27639531957706837
-      frictionFactor: 0.02
-      label: delivery
-      index: 1
-  - id: LosslessSplitter_1
+      label: sw-pipe-1
+      width: 69
+      height: 52
+      index: 5
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource1-2zp
+    type: MassSource
+    attributes:
+      label: fuel-1
+      width: 69
+      height: 52
+      index: 8
+      massFlowRate: 0.039
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange2-r8r
+    type: SuddenAreaChange
+    attributes:
+      label: dump-1
+      width: 59
+      height: 52
+      index: 11
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct1-5wz
+    type: Duct
+    attributes:
+      label: duct-1-cc-1
+      width: 69
+      height: 52
+      index: 12
+      length: 0.1
+  - id: EquilibriumFlame1-bw7
+    type: EquilibriumFlame
+    attributes:
+      label: flame-1
+      width: 69
+      height: 52
+      index: 23
+  - id: JunctionStaticP1-69w
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-1
+      index: 7
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct2-dec
+    type: Duct
+    attributes:
+      label: dome-perf-duct-1
+      width: 69
+      height: 52
+      index: 4
+      length: 0.03
+  - id: LosslessSplitter2-tsy
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-1
+      index: 6
+      rightPorts: 2
+      volume: 0
+  - id: Pipe2-dr4
+    type: Pipe
+    attributes:
+      label: dome-pipe-1
+      width: 69
+      height: 52
+      index: 3
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct3-gxt
+    type: Duct
+    attributes:
+      label: outer-duct-1
+      width: 69
+      height: 52
+      index: 9
+      length: 0.15
+  - id: Orifice3-kvn
+    type: Orifice
+    attributes:
+      label: liner-perf-1
+      width: 69
+      height: 52
+      index: 24
+      throatArea: 0.002
+  - id: JunctionStaticP2-mp3
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-1
+      index: 42
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter3-2ms
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-2
+      index: 13
+      rightPorts: 2
+      volume: 0
+  - id: Duct5-rmc
+    type: Duct
+    attributes:
+      label: duct-1-cc-2
+      width: 69
+      height: 52
+      index: 58
+      length: 0.18
+  - id: JunctionStaticP3-ryk
+    type: JunctionStaticP
+    attributes:
+      label: dil-1
+      index: 61
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct6-qkl
+    type: Duct
+    attributes:
+      label: outer-duct-2
+      width: 69
+      height: 52
+      index: 25
+      length: 0.15
+  - id: Orifice4-vzw
+    type: Orifice
+    attributes:
+      label: dil-holes
+      width: 69
+      height: 52
+      index: 43
+      throatArea: 0.003
+  - id: IsentropicAreaChange3-u23
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-1
+      width: 53
+      height: 52
+      index: 92
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice5-svi
+    type: Pipe
+    attributes:
+      label: ic-1
+      width: 69
+      height: 52
+      index: 90
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct7-xtd
+    type: Duct
+    attributes:
+      label: duct-ic-1
+      width: 69
+      height: 52
+      index: 59
+      length: 0.05
+  - id: LosslessSplitter4-35g
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-2
+      index: 44
+      rightPorts: 2
+      volume: 0
+  - id: Orifice6-d7h
+    type: Orifice
+    attributes:
+      label: dome-perf-2
+      width: 69
+      height: 52
+      index: 62
+      throatArea: 0.0012
+  - id: IsentropicAreaChange4-3ac
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-2
+      width: 53
+      height: 52
+      index: 63
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe4-moo
+    type: Pipe
+    attributes:
+      label: sw-pipe-2
+      width: 69
+      height: 52
+      index: 94
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource2-ki1
+    type: MassSource
+    attributes:
+      label: fuel-2
+      width: 69
+      height: 52
+      index: 123
+      massFlowRate: 0.036363961030678925
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange3-mwx
+    type: SuddenAreaChange
+    attributes:
+      label: dump-2
+      width: 59
+      height: 52
+      index: 177
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct8-sij
+    type: Duct
+    attributes:
+      label: duct-1-cc-3
+      width: 69
+      height: 52
+      index: 178
+      length: 0.1
+  - id: EquilibriumFlame2-1h8
+    type: EquilibriumFlame
+    attributes:
+      label: flame-2
+      width: 69
+      height: 52
+      index: 124
+  - id: JunctionStaticP4-8wu
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-2
+      index: 122
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct9-i6y
+    type: Duct
+    attributes:
+      label: dome-perf-duct-2
+      width: 69
+      height: 52
+      index: 93
+      length: 0.03
+  - id: LosslessSplitter5-t4s
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-3
+      index: 15
+      rightPorts: 2
+      volume: 0
+  - id: Pipe5-a77
+    type: Pipe
+    attributes:
+      label: dome-pipe-2
+      width: 69
+      height: 52
+      index: 27
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct10-rjd
+    type: Duct
+    attributes:
+      label: outer-duct-3
+      width: 69
+      height: 52
+      index: 28
+      length: 0.15
+  - id: Orifice7-9p4
+    type: Orifice
+    attributes:
+      label: liner-perf-2
+      width: 69
+      height: 52
+      index: 64
+      throatArea: 0.002
+  - id: JunctionStaticP5-zjw
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-2
+      index: 95
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter6-psb
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-4
+      index: 45
+      rightPorts: 2
+      volume: 0
+  - id: Duct11-tx4
+    type: Duct
+    attributes:
+      label: duct-1-cc-4
+      width: 69
+      height: 52
+      index: 125
+      length: 0.18
+  - id: JunctionStaticP6-4jp
+    type: JunctionStaticP
+    attributes:
+      label: dil-2
+      index: 127
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct12-5vq
+    type: Duct
+    attributes:
+      label: outer-duct-4
+      width: 69
+      height: 52
+      index: 65
+      length: 0.15
+  - id: Orifice8-0k2
+    type: Orifice
+    attributes:
+      label: dil-holes2
+      width: 69
+      height: 52
+      index: 96
+      throatArea: 0.003
+  - id: IsentropicAreaChange5-3qt
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-2
+      width: 53
+      height: 52
+      index: 175
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice9-whs
+    type: Pipe
+    attributes:
+      label: ic-2
+      width: 69
+      height: 52
+      index: 133
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct13-joz
+    type: Duct
+    attributes:
+      label: duct-ic-2
+      width: 69
+      height: 52
+      index: 126
+      length: 0.05
+  - id: LosslessSplitter7-pt7
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-3
+      index: 46
+      rightPorts: 2
+      volume: 0
+  - id: Orifice10-xxy
+    type: Orifice
+    attributes:
+      label: dome-perf-3
+      width: 69
+      height: 52
+      index: 66
+      throatArea: 0.0012
+  - id: IsentropicAreaChange6-8rc
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-3
+      width: 53
+      height: 52
+      index: 67
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe6-67e
+    type: Pipe
+    attributes:
+      label: sw-pipe-3
+      width: 69
+      height: 52
+      index: 98
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource3-7vd
+    type: MassSource
+    attributes:
+      label: fuel-3
+      width: 69
+      height: 52
+      index: 129
+      massFlowRate: 0.03
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange4-1w0
+    type: SuddenAreaChange
+    attributes:
+      label: dump-3
+      width: 59
+      height: 52
+      index: 179
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct14-bwc
+    type: Duct
+    attributes:
+      label: duct-1-cc-5
+      width: 69
+      height: 52
+      index: 180
+      length: 0.1
+  - id: EquilibriumFlame3-ef8
+    type: EquilibriumFlame
+    attributes:
+      label: flame-3
+      width: 69
+      height: 52
+      index: 130
+  - id: JunctionStaticP7-f5z
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-3
+      index: 128
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct15-nua
+    type: Duct
+    attributes:
+      label: dome-perf-duct-3
+      width: 69
+      height: 52
+      index: 97
+      length: 0.03
+  - id: LosslessSplitter8-vnb
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-5
+      index: 16
+      rightPorts: 2
+      volume: 0
+  - id: Pipe7-fxa
+    type: Pipe
+    attributes:
+      label: dome-pipe-3
+      width: 69
+      height: 52
+      index: 29
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct16-xtf
+    type: Duct
+    attributes:
+      label: outer-duct-5
+      width: 69
+      height: 52
+      index: 30
+      length: 0.15
+  - id: Orifice11-k1g
+    type: Orifice
+    attributes:
+      label: liner-perf-3
+      width: 69
+      height: 52
+      index: 68
+      throatArea: 0.002
+  - id: JunctionStaticP8-p3z
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-3
+      index: 99
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter9-osh
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-6
+      index: 47
+      rightPorts: 2
+      volume: 0
+  - id: Duct17-57i
+    type: Duct
+    attributes:
+      label: duct-1-cc-6
+      width: 69
+      height: 52
+      index: 131
+      length: 0.18
+  - id: JunctionStaticP9-cr6
+    type: JunctionStaticP
+    attributes:
+      label: dil-3
+      index: 134
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct18-aii
+    type: Duct
+    attributes:
+      label: outer-duct-6
+      width: 69
+      height: 52
+      index: 69
+      length: 0.15
+  - id: Orifice12-wth
+    type: Orifice
+    attributes:
+      label: dil-holes3
+      width: 69
+      height: 52
+      index: 100
+      throatArea: 0.003
+  - id: IsentropicAreaChange7-ymg
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-3
+      width: 53
+      height: 52
+      index: 174
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice13-dzv
+    type: Pipe
+    attributes:
+      label: ic-3
+      width: 69
+      height: 52
+      index: 140
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct19-npo
+    type: Duct
+    attributes:
+      label: duct-ic-3
+      width: 69
+      height: 52
+      index: 132
+      length: 0.05
+  - id: LosslessSplitter10-jqr
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-4
+      index: 48
+      rightPorts: 2
+      volume: 0
+  - id: Orifice14-tpm
+    type: Orifice
+    attributes:
+      label: dome-perf-4
+      width: 69
+      height: 52
+      index: 70
+      throatArea: 0.0012
+  - id: IsentropicAreaChange8-utu
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-4
+      width: 53
+      height: 52
+      index: 71
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe8-786
+    type: Pipe
+    attributes:
+      label: sw-pipe-4
+      width: 69
+      height: 52
+      index: 102
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource4-hlo
+    type: MassSource
+    attributes:
+      label: fuel-4
+      width: 69
+      height: 52
+      index: 136
+      massFlowRate: 0.02363603896932107
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange5-p4c
+    type: SuddenAreaChange
+    attributes:
+      label: dump-4
+      width: 59
+      height: 52
+      index: 181
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct20-x1d
+    type: Duct
+    attributes:
+      label: duct-1-cc-7
+      width: 69
+      height: 52
+      index: 182
+      length: 0.1
+  - id: EquilibriumFlame4-kr5
+    type: EquilibriumFlame
+    attributes:
+      label: flame-4
+      width: 69
+      height: 52
+      index: 137
+  - id: JunctionStaticP10-x3k
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-4
+      index: 135
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct21-jfp
+    type: Duct
+    attributes:
+      label: dome-perf-duct-4
+      width: 69
+      height: 52
+      index: 101
+      length: 0.03
+  - id: LosslessSplitter11-pnx
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-7
+      index: 18
+      rightPorts: 2
+      volume: 0
+  - id: Pipe9-3gz
+    type: Pipe
+    attributes:
+      label: dome-pipe-4
+      width: 69
+      height: 52
+      index: 32
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct22-4y0
+    type: Duct
+    attributes:
+      label: outer-duct-7
+      width: 69
+      height: 52
+      index: 33
+      length: 0.15
+  - id: Orifice15-l6b
+    type: Orifice
+    attributes:
+      label: liner-perf-4
+      width: 69
+      height: 52
+      index: 72
+      throatArea: 0.002
+  - id: JunctionStaticP11-d9p
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-4
+      index: 103
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter12-cyq
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-8
+      index: 49
+      rightPorts: 2
+      volume: 0
+  - id: Duct23-v05
+    type: Duct
+    attributes:
+      label: duct-1-cc-8
+      width: 69
+      height: 52
+      index: 138
+      length: 0.18
+  - id: JunctionStaticP12-nsk
+    type: JunctionStaticP
+    attributes:
+      label: dil-4
+      index: 141
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct24-rvd
+    type: Duct
+    attributes:
+      label: outer-duct-8
+      width: 69
+      height: 52
+      index: 73
+      length: 0.15
+  - id: Orifice16-v46
+    type: Orifice
+    attributes:
+      label: dil-holes4
+      width: 69
+      height: 52
+      index: 104
+      throatArea: 0.003
+  - id: IsentropicAreaChange9-o26
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-4
+      width: 53
+      height: 52
+      index: 173
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice17-ch2
+    type: Pipe
+    attributes:
+      label: ic-4
+      width: 69
+      height: 52
+      index: 147
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct25-y7e
+    type: Duct
+    attributes:
+      label: duct-ic-4
+      width: 69
+      height: 52
+      index: 139
+      length: 0.05
+  - id: LosslessSplitter13-4id
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-5
+      index: 50
+      rightPorts: 2
+      volume: 0
+  - id: Orifice18-3ae
+    type: Orifice
+    attributes:
+      label: dome-perf-5
+      width: 69
+      height: 52
+      index: 74
+      throatArea: 0.0012
+  - id: IsentropicAreaChange10-x2c
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-5
+      width: 53
+      height: 52
+      index: 75
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe10-wur
+    type: Pipe
+    attributes:
+      label: sw-pipe-5
+      width: 69
+      height: 52
+      index: 106
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource5-m0c
+    type: MassSource
+    attributes:
+      label: fuel-5
+      width: 69
+      height: 52
+      index: 143
+      massFlowRate: 0.020999999999999998
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange6-d0n
+    type: SuddenAreaChange
+    attributes:
+      label: dump-5
+      width: 59
+      height: 52
+      index: 183
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct26-lt5
+    type: Duct
+    attributes:
+      label: duct-1-cc-9
+      width: 69
+      height: 52
+      index: 184
+      length: 0.1
+  - id: EquilibriumFlame5-ytu
+    type: EquilibriumFlame
+    attributes:
+      label: flame-5
+      width: 69
+      height: 52
+      index: 144
+  - id: JunctionStaticP13-pmk
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-5
+      index: 142
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct27-6mb
+    type: Duct
+    attributes:
+      label: dome-perf-duct-5
+      width: 69
+      height: 52
+      index: 105
+      length: 0.03
+  - id: LosslessSplitter14-2ob
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-9
+      index: 19
+      rightPorts: 2
+      volume: 0
+  - id: Pipe11-sze
+    type: Pipe
+    attributes:
+      label: dome-pipe-5
+      width: 69
+      height: 52
+      index: 34
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct28-fy2
+    type: Duct
+    attributes:
+      label: outer-duct-9
+      width: 69
+      height: 52
+      index: 35
+      length: 0.15
+  - id: Orifice19-tl1
+    type: Orifice
+    attributes:
+      label: liner-perf-5
+      width: 69
+      height: 52
+      index: 76
+      throatArea: 0.002
+  - id: JunctionStaticP14-bg3
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-5
+      index: 107
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter15-sb8
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-10
+      index: 51
+      rightPorts: 2
+      volume: 0
+  - id: Duct29-13c
+    type: Duct
+    attributes:
+      label: duct-1-cc-10
+      width: 69
+      height: 52
+      index: 145
+      length: 0.18
+  - id: JunctionStaticP15-ztt
+    type: JunctionStaticP
+    attributes:
+      label: dil-5
+      index: 148
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct30-uhm
+    type: Duct
+    attributes:
+      label: outer-duct-10
+      width: 69
+      height: 52
+      index: 77
+      length: 0.15
+  - id: Orifice20-09n
+    type: Orifice
+    attributes:
+      label: dil-holes5
+      width: 69
+      height: 52
+      index: 108
+      throatArea: 0.003
+  - id: IsentropicAreaChange11-h3k
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-5
+      width: 53
+      height: 52
+      index: 172
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice21-z14
+    type: Pipe
+    attributes:
+      label: ic-5
+      width: 69
+      height: 52
+      index: 154
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct31-1zs
+    type: Duct
+    attributes:
+      label: duct-ic-5
+      width: 69
+      height: 52
+      index: 146
+      length: 0.05
+  - id: LosslessSplitter16-ngm
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-6
+      index: 52
+      rightPorts: 2
+      volume: 0
+  - id: Orifice22-a8o
+    type: Orifice
+    attributes:
+      label: dome-perf-6
+      width: 69
+      height: 52
+      index: 78
+      throatArea: 0.0012
+  - id: IsentropicAreaChange12-i3q
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-6
+      width: 53
+      height: 52
+      index: 79
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe12-tc8
+    type: Pipe
+    attributes:
+      label: sw-pipe-6
+      width: 69
+      height: 52
+      index: 110
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource6-99l
+    type: MassSource
+    attributes:
+      label: fuel-6
+      width: 69
+      height: 52
+      index: 150
+      massFlowRate: 0.02363603896932107
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange7-h5p
+    type: SuddenAreaChange
+    attributes:
+      label: dump-6
+      width: 59
+      height: 52
+      index: 185
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct32-69k
+    type: Duct
+    attributes:
+      label: duct-1-cc-11
+      width: 69
+      height: 52
+      index: 186
+      length: 0.1
+  - id: EquilibriumFlame6-ne7
+    type: EquilibriumFlame
+    attributes:
+      label: flame-6
+      width: 69
+      height: 52
+      index: 151
+  - id: JunctionStaticP16-6fd
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-6
+      index: 149
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct33-pme
+    type: Duct
+    attributes:
+      label: dome-perf-duct-6
+      width: 69
+      height: 52
+      index: 109
+      length: 0.03
+  - id: LosslessSplitter17-ljj
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-11
+      index: 20
+      rightPorts: 2
+      volume: 0
+  - id: Pipe13-52n
+    type: Pipe
+    attributes:
+      label: dome-pipe-6
+      width: 69
+      height: 52
+      index: 36
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct34-11h
+    type: Duct
+    attributes:
+      label: outer-duct-11
+      width: 69
+      height: 52
+      index: 37
+      length: 0.15
+  - id: Orifice23-yn0
+    type: Orifice
+    attributes:
+      label: liner-perf-6
+      width: 69
+      height: 52
+      index: 80
+      throatArea: 0.002
+  - id: JunctionStaticP17-cxi
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-6
+      index: 111
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter18-ek4
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-12
+      index: 53
+      rightPorts: 2
+      volume: 0
+  - id: Duct35-sz9
+    type: Duct
+    attributes:
+      label: duct-1-cc-12
+      width: 69
+      height: 52
+      index: 152
+      length: 0.18
+  - id: JunctionStaticP18-ord
+    type: JunctionStaticP
+    attributes:
+      label: dil-6
+      index: 155
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct36-igs
+    type: Duct
+    attributes:
+      label: outer-duct-12
+      width: 69
+      height: 52
+      index: 81
+      length: 0.15
+  - id: Orifice24-31b
+    type: Orifice
+    attributes:
+      label: dil-holes6
+      width: 69
+      height: 52
+      index: 112
+      throatArea: 0.003
+  - id: IsentropicAreaChange13-hqb
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-6
+      width: 53
+      height: 52
+      index: 171
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice25-l8d
+    type: Pipe
+    attributes:
+      label: ic-6
+      width: 69
+      height: 52
+      index: 161
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct37-ltu
+    type: Duct
+    attributes:
+      label: duct-ic-6
+      width: 69
+      height: 52
+      index: 153
+      length: 0.05
+  - id: LosslessSplitter19-p2i
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-7
+      index: 54
+      rightPorts: 2
+      volume: 0
+  - id: Orifice26-32d
+    type: Orifice
+    attributes:
+      label: dome-perf-7
+      width: 69
+      height: 52
+      index: 82
+      throatArea: 0.0012
+  - id: IsentropicAreaChange14-d01
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-7
+      width: 53
+      height: 52
+      index: 83
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe14-yxa
+    type: Pipe
+    attributes:
+      label: sw-pipe-7
+      width: 69
+      height: 52
+      index: 114
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource7-o13
+    type: MassSource
+    attributes:
+      label: fuel-7
+      width: 69
+      height: 52
+      index: 157
+      massFlowRate: 0.03
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange8-z8i
+    type: SuddenAreaChange
+    attributes:
+      label: dump-7
+      width: 59
+      height: 52
+      index: 187
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct38-ct9
+    type: Duct
+    attributes:
+      label: duct-1-cc-13
+      width: 69
+      height: 52
+      index: 188
+      length: 0.1
+  - id: EquilibriumFlame7-zpe
+    type: EquilibriumFlame
+    attributes:
+      label: flame-7
+      width: 69
+      height: 52
+      index: 158
+  - id: JunctionStaticP19-5n7
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-7
+      index: 156
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct39-1o4
+    type: Duct
+    attributes:
+      label: dome-perf-duct-7
+      width: 69
+      height: 52
+      index: 113
+      length: 0.03
+  - id: LosslessSplitter20-w5b
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-13
+      index: 21
+      rightPorts: 2
+      volume: 0
+  - id: Pipe15-9tq
+    type: Pipe
+    attributes:
+      label: dome-pipe-7
+      width: 69
+      height: 52
+      index: 38
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct40-bwe
+    type: Duct
+    attributes:
+      label: outer-duct-13
+      width: 69
+      height: 52
+      index: 39
+      length: 0.15
+  - id: Orifice27-eh1
+    type: Orifice
+    attributes:
+      label: liner-perf-7
+      width: 69
+      height: 52
+      index: 84
+      throatArea: 0.002
+  - id: JunctionStaticP20-1bv
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-7
+      index: 115
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter21-qw8
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-14
+      index: 55
+      rightPorts: 2
+      volume: 0
+  - id: Duct41-2ch
+    type: Duct
+    attributes:
+      label: duct-1-cc-14
+      width: 69
+      height: 52
+      index: 159
+      length: 0.18
+  - id: JunctionStaticP21-uv4
+    type: JunctionStaticP
+    attributes:
+      label: dil-7
+      index: 162
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct42-un3
+    type: Duct
+    attributes:
+      label: outer-duct-14
+      width: 69
+      height: 52
+      index: 85
+      length: 0.15
+  - id: Orifice28-8bx
+    type: Orifice
+    attributes:
+      label: dil-holes7
+      width: 69
+      height: 52
+      index: 116
+      throatArea: 0.003
+  - id: IsentropicAreaChange15-7wb
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-7
+      width: 53
+      height: 52
+      index: 170
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice29-nzy
+    type: Pipe
+    attributes:
+      label: ic-7
+      width: 69
+      height: 52
+      index: 167
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct43-pht
+    type: Duct
+    attributes:
+      label: duct-ic-7
+      width: 69
+      height: 52
+      index: 160
+      length: 0.05
+  - id: LosslessSplitter22-2x5
+    type: LosslessSplitter
+    attributes:
+      label: sw-split-8
+      index: 56
+      rightPorts: 2
+      volume: 0
+  - id: Orifice30-znm
+    type: Orifice
+    attributes:
+      label: dome-perf-8
+      width: 69
+      height: 52
+      index: 86
+      throatArea: 0.0012
+  - id: IsentropicAreaChange16-z0z
+    type: IsentropicAreaChange
+    attributes:
+      label: sw-in-8
+      width: 53
+      height: 52
+      index: 87
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Pipe16-zt8
+    type: Pipe
+    attributes:
+      label: sw-pipe-8
+      width: 69
+      height: 52
+      index: 118
+      length: 0.15
+      diameter: 0.07
+      frictionFactor: 0.03
+  - id: MassSource8-bii
+    type: MassSource
+    attributes:
+      label: fuel-8
+      width: 69
+      height: 52
+      index: 164
+      massFlowRate: 0.036363961030678925
+      injectionTemperature: 300.0
+      injectionVelocity: 0
+      composition: Jet-A(L):1.0
+      basis: mole
+      marker: false
+  - id: SuddenAreaChange9-7hx
+    type: SuddenAreaChange
+    attributes:
+      label: dump-8
+      width: 59
+      height: 52
+      index: 189
+      contractionCoefficient: 1
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Duct44-ho5
+    type: Duct
+    attributes:
+      label: duct-1-cc-15
+      width: 69
+      height: 52
+      index: 190
+      length: 0.1
+  - id: EquilibriumFlame8-7c6
+    type: EquilibriumFlame
+    attributes:
+      label: flame-8
+      width: 69
+      height: 52
+      index: 165
+  - id: JunctionStaticP22-vlb
+    type: JunctionStaticP
+    attributes:
+      label: dome-cooling-8
+      index: 163
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct45-fbr
+    type: Duct
+    attributes:
+      label: dome-perf-duct-8
+      width: 69
+      height: 52
+      index: 117
+      length: 0.03
+  - id: LosslessSplitter23-hbl
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-15
+      index: 22
+      rightPorts: 2
+      volume: 0
+  - id: Pipe17-66t
+    type: Pipe
+    attributes:
+      label: dome-pipe-8
+      width: 69
+      height: 52
+      index: 40
+      length: 0.25
+      diameter: 0.1
+      frictionFactor: 0.03
+  - id: Duct46-kne
+    type: Duct
+    attributes:
+      label: outer-duct-15
+      width: 69
+      height: 52
+      index: 41
+      length: 0.15
+  - id: Orifice31-c93
+    type: Orifice
+    attributes:
+      label: liner-perf-8
+      width: 69
+      height: 52
+      index: 88
+      throatArea: 0.002
+  - id: JunctionStaticP23-5e5
+    type: JunctionStaticP
+    attributes:
+      label: pz-cool-8
+      index: 119
+      leftPorts: 3
+      rightPorts: 2
+      volume: 0
+  - id: LosslessSplitter24-vye
+    type: LosslessSplitter
+    attributes:
+      label: dome-split-16
+      index: 57
+      rightPorts: 2
+      volume: 0
+  - id: Duct47-z0a
+    type: Duct
+    attributes:
+      label: duct-1-cc-16
+      width: 69
+      height: 52
+      index: 166
+      length: 0.18
+  - id: JunctionStaticP24-krn
+    type: JunctionStaticP
+    attributes:
+      label: dil-8
+      index: 168
+      leftPorts: 2
+      rightPorts: 1
+      volume: 0
+  - id: Duct48-awz
+    type: Duct
+    attributes:
+      label: outer-duct-16
+      width: 69
+      height: 52
+      index: 89
+      length: 0.15
+  - id: Orifice32-h2t
+    type: Orifice
+    attributes:
+      label: dil-holes8
+      width: 69
+      height: 52
+      index: 120
+      throatArea: 0.003
+  - id: IsentropicAreaChange17-izi
+    type: IsentropicAreaChange
+    attributes:
+      label: taper-8
+      width: 53
+      height: 52
+      index: 169
+      lengthUpstream: 0
+      lengthDownstream: 0
+      endCorrection: 0
+  - id: Orifice33-xba
+    type: Pipe
+    attributes:
+      label: ic-8
+      width: 69
+      height: 52
+      index: 60
+      length: 0.15
+      diameter: 0.0437
+      frictionFactor: 0.05
+  - id: Duct49-5c3
+    type: Duct
+    attributes:
+      label: duct-ic-8
+      width: 69
+      height: 52
+      index: 91
+      length: 0.05
+  - id: Mixer1-c1h
+    type: Mixer
+    attributes:
+      label: ngv-collector
+      index: 121
+      leftPorts: 8
+      rightPorts: 1
+      recovery: 1.0
+  - id: ChokedNozzleOutlet1-upw
+    type: ChokedNozzleOutlet
+    attributes:
+      label: ngv
+      width: 47
+      height: 52
+      index: 176
+      throatArea: 0.0057
+      boundaryType: inherit
+      impedanceMagnitude: 1
+      impedancePhase: 0
+  - id: MassFlowInlet2-b0r
+    type: MassFlowInlet
+    attributes:
+      label: inlet-30
+      width: 40
+      height: 40
+      index: 31
+      massFlowRate: 9.0
+      totalTemperature: 720.0
+      composition: O2:0.2095, N2:0.7808, Ar:0.0093, CO2:0.0004
+      basis: mole
+      marker: false
+      boundaryType: inherit
+      impedanceMagnitude: 1
+      impedancePhase: 0
+  - id: LosslessSplitter25-9jl
     type: LosslessSplitter
     attributes:
       label: plenum
+      index: 10
       rightPorts: 9
-      index: 2
-  - id: Pipe_2
+      volume: 0
+  - id: Pipe18-el1
     type: Pipe
     attributes:
-      length: 0.4
-      diameter: 0.10092530088080641
+      label: bypass-pipe
+      width: 69
+      height: 52
+      index: 14
+      length: 0.5
+      diameter: 0.045
       frictionFactor: 0.03
-      label: bypass_pipe
-      index: 3
-  - id: PressureOutlet_1
+  - id: Pipe19-pen
+    type: Pipe
+    attributes:
+      label: delivery-pipe
+      width: 69
+      height: 52
+      index: 17
+      length: 0.5
+      diameter: 0.28
+      frictionFactor: 0.02
+  - id: PressureOutlet1-w8z
     type: PressureOutlet
     attributes:
-      pressure: 930000.0
+      label: turbine-cooling
+      width: 40
+      height: 40
+      index: 26
+      pressure: 1300000.0
       backflowTotalTemperature: 720.0
-      label: turbine_cooling
       composition: O2:0.2095, N2:0.7808, Ar:0.0093, CO2:0.0004
       basis: mole
-      index: 4
-  - id: JunctionStaticP_1
-    type: JunctionStaticP
-    attributes:
-      label: ngv_collector
-      leftPorts: 8
-      rightPorts: 1
-      index: 5
-  - id: ChokedNozzleOutlet_1
-    type: ChokedNozzleOutlet
-    attributes:
-      throatArea: 0.01
-      label: ngv_throat
-      index: 6
-  - id: Pipe_3
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_0
-      index: 7
-  - id: LosslessSplitter_2
-    type: LosslessSplitter
-    attributes:
-      label: distributor_0
-      rightPorts: 3
-      index: 8
-  - id: LossElement_1
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_0
-      index: 9
-  - id: MassSource_1
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_0
-      composition: Jet-A(L):1
-      basis: mole
-      index: 10
-  - id: EquilibriumFlame_1
-    type: EquilibriumFlame
-    attributes:
-      label: flame_0
-      index: 11
-  - id: JunctionStaticP_2
-    type: JunctionStaticP
-    attributes:
-      label: primary_0
-      leftPorts: 2
-      rightPorts: 2
-      index: 12
-  - id: LossElement_2
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_0
-      index: 13
-  - id: JunctionStaticP_3
-    type: JunctionStaticP
-    attributes:
-      label: dilution_0
-      leftPorts: 2
-      rightPorts: 1
-      index: 14
-  - id: LossElement_3
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_0
-      index: 15
-  - id: JunctionStaticP_4
-    type: JunctionStaticP
-    attributes:
-      label: cooling_0
-      leftPorts: 2
-      rightPorts: 1
-      index: 16
-  - id: IsentropicAreaChange_1
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_0
-      index: 17
-  - id: Pipe_4
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_0
-      index: 18
-  - id: Pipe_5
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_1
-      index: 19
-  - id: LosslessSplitter_3
-    type: LosslessSplitter
-    attributes:
-      label: distributor_1
-      rightPorts: 3
-      index: 20
-  - id: LossElement_4
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_1
-      index: 21
-  - id: MassSource_2
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_1
-      composition: Jet-A(L):1
-      basis: mole
-      index: 22
-  - id: EquilibriumFlame_2
-    type: EquilibriumFlame
-    attributes:
-      label: flame_1
-      index: 23
-  - id: JunctionStaticP_5
-    type: JunctionStaticP
-    attributes:
-      label: primary_1
-      leftPorts: 2
-      rightPorts: 2
-      index: 24
-  - id: LossElement_5
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_1
-      index: 25
-  - id: JunctionStaticP_6
-    type: JunctionStaticP
-    attributes:
-      label: dilution_1
-      leftPorts: 2
-      rightPorts: 1
-      index: 26
-  - id: LossElement_6
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_1
-      index: 27
-  - id: JunctionStaticP_7
-    type: JunctionStaticP
-    attributes:
-      label: cooling_1
-      leftPorts: 2
-      rightPorts: 1
-      index: 28
-  - id: IsentropicAreaChange_2
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_1
-      index: 29
-  - id: Pipe_6
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_1
-      index: 30
-  - id: Pipe_7
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_2
-      index: 31
-  - id: LosslessSplitter_4
-    type: LosslessSplitter
-    attributes:
-      label: distributor_2
-      rightPorts: 3
-      index: 32
-  - id: LossElement_7
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_2
-      index: 33
-  - id: MassSource_3
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_2
-      composition: Jet-A(L):1
-      basis: mole
-      index: 34
-  - id: EquilibriumFlame_3
-    type: EquilibriumFlame
-    attributes:
-      label: flame_2
-      index: 35
-  - id: JunctionStaticP_8
-    type: JunctionStaticP
-    attributes:
-      label: primary_2
-      leftPorts: 2
-      rightPorts: 2
-      index: 36
-  - id: LossElement_8
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_2
-      index: 37
-  - id: JunctionStaticP_9
-    type: JunctionStaticP
-    attributes:
-      label: dilution_2
-      leftPorts: 2
-      rightPorts: 1
-      index: 38
-  - id: LossElement_9
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_2
-      index: 39
-  - id: JunctionStaticP_10
-    type: JunctionStaticP
-    attributes:
-      label: cooling_2
-      leftPorts: 2
-      rightPorts: 1
-      index: 40
-  - id: IsentropicAreaChange_3
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_2
-      index: 41
-  - id: Pipe_8
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_2
-      index: 42
-  - id: Pipe_9
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_3
-      index: 43
-  - id: LosslessSplitter_5
-    type: LosslessSplitter
-    attributes:
-      label: distributor_3
-      rightPorts: 3
-      index: 44
-  - id: LossElement_10
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_3
-      index: 45
-  - id: MassSource_4
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_3
-      composition: Jet-A(L):1
-      basis: mole
-      index: 46
-  - id: EquilibriumFlame_4
-    type: EquilibriumFlame
-    attributes:
-      label: flame_3
-      index: 47
-  - id: JunctionStaticP_11
-    type: JunctionStaticP
-    attributes:
-      label: primary_3
-      leftPorts: 2
-      rightPorts: 2
-      index: 48
-  - id: LossElement_11
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_3
-      index: 49
-  - id: JunctionStaticP_12
-    type: JunctionStaticP
-    attributes:
-      label: dilution_3
-      leftPorts: 2
-      rightPorts: 1
-      index: 50
-  - id: LossElement_12
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_3
-      index: 51
-  - id: JunctionStaticP_13
-    type: JunctionStaticP
-    attributes:
-      label: cooling_3
-      leftPorts: 2
-      rightPorts: 1
-      index: 52
-  - id: IsentropicAreaChange_4
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_3
-      index: 53
-  - id: Pipe_10
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_3
-      index: 54
-  - id: Pipe_11
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_4
-      index: 55
-  - id: LosslessSplitter_6
-    type: LosslessSplitter
-    attributes:
-      label: distributor_4
-      rightPorts: 3
-      index: 56
-  - id: LossElement_13
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_4
-      index: 57
-  - id: MassSource_5
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_4
-      composition: Jet-A(L):1
-      basis: mole
-      index: 58
-  - id: EquilibriumFlame_5
-    type: EquilibriumFlame
-    attributes:
-      label: flame_4
-      index: 59
-  - id: JunctionStaticP_14
-    type: JunctionStaticP
-    attributes:
-      label: primary_4
-      leftPorts: 2
-      rightPorts: 2
-      index: 60
-  - id: LossElement_14
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_4
-      index: 61
-  - id: JunctionStaticP_15
-    type: JunctionStaticP
-    attributes:
-      label: dilution_4
-      leftPorts: 2
-      rightPorts: 1
-      index: 62
-  - id: LossElement_15
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_4
-      index: 63
-  - id: JunctionStaticP_16
-    type: JunctionStaticP
-    attributes:
-      label: cooling_4
-      leftPorts: 2
-      rightPorts: 1
-      index: 64
-  - id: IsentropicAreaChange_5
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_4
-      index: 65
-  - id: Pipe_12
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_4
-      index: 66
-  - id: Pipe_13
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_5
-      index: 67
-  - id: LosslessSplitter_7
-    type: LosslessSplitter
-    attributes:
-      label: distributor_5
-      rightPorts: 3
-      index: 68
-  - id: LossElement_16
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_5
-      index: 69
-  - id: MassSource_6
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_5
-      composition: Jet-A(L):1
-      basis: mole
-      index: 70
-  - id: EquilibriumFlame_6
-    type: EquilibriumFlame
-    attributes:
-      label: flame_5
-      index: 71
-  - id: JunctionStaticP_17
-    type: JunctionStaticP
-    attributes:
-      label: primary_5
-      leftPorts: 2
-      rightPorts: 2
-      index: 72
-  - id: LossElement_17
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_5
-      index: 73
-  - id: JunctionStaticP_18
-    type: JunctionStaticP
-    attributes:
-      label: dilution_5
-      leftPorts: 2
-      rightPorts: 1
-      index: 74
-  - id: LossElement_18
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_5
-      index: 75
-  - id: JunctionStaticP_19
-    type: JunctionStaticP
-    attributes:
-      label: cooling_5
-      leftPorts: 2
-      rightPorts: 1
-      index: 76
-  - id: IsentropicAreaChange_6
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_5
-      index: 77
-  - id: Pipe_14
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_5
-      index: 78
-  - id: Pipe_15
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_6
-      index: 79
-  - id: LosslessSplitter_8
-    type: LosslessSplitter
-    attributes:
-      label: distributor_6
-      rightPorts: 3
-      index: 80
-  - id: LossElement_19
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_6
-      index: 81
-  - id: MassSource_7
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_6
-      composition: Jet-A(L):1
-      basis: mole
-      index: 82
-  - id: EquilibriumFlame_7
-    type: EquilibriumFlame
-    attributes:
-      label: flame_6
-      index: 83
-  - id: JunctionStaticP_20
-    type: JunctionStaticP
-    attributes:
-      label: primary_6
-      leftPorts: 2
-      rightPorts: 2
-      index: 84
-  - id: LossElement_20
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_6
-      index: 85
-  - id: JunctionStaticP_21
-    type: JunctionStaticP
-    attributes:
-      label: dilution_6
-      leftPorts: 2
-      rightPorts: 1
-      index: 86
-  - id: LossElement_21
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_6
-      index: 87
-  - id: JunctionStaticP_22
-    type: JunctionStaticP
-    attributes:
-      label: cooling_6
-      leftPorts: 2
-      rightPorts: 1
-      index: 88
-  - id: IsentropicAreaChange_7
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_6
-      index: 89
-  - id: Pipe_16
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_6
-      index: 90
-  - id: Pipe_17
-    type: Pipe
-    attributes:
-      length: 0.25
-      diameter: 0.12360774464742066
-      frictionFactor: 0.03
-      label: feed_7
-      index: 91
-  - id: LosslessSplitter_9
-    type: LosslessSplitter
-    attributes:
-      label: distributor_7
-      rightPorts: 3
-      index: 92
-  - id: LossElement_22
-    type: LossElement
-    attributes:
-      lossCoefficient: 10.0
-      label: swirl_7
-      index: 93
-  - id: MassSource_8
-    type: MassSource
-    attributes:
-      massFlowRate: 0.030372002308251517
-      injectionVelocity: 0.0
-      injectionTemperature: 720.0
-      label: fuel_7
-      composition: Jet-A(L):1
-      basis: mole
-      index: 94
-  - id: EquilibriumFlame_8
-    type: EquilibriumFlame
-    attributes:
-      label: flame_7
-      index: 95
-  - id: JunctionStaticP_23
-    type: JunctionStaticP
-    attributes:
-      label: primary_7
-      leftPorts: 2
-      rightPorts: 2
-      index: 96
-  - id: LossElement_23
-    type: LossElement
-    attributes:
-      lossCoefficient: 5.0
-      label: dil_hole_7
-      index: 97
-  - id: JunctionStaticP_24
-    type: JunctionStaticP
-    attributes:
-      label: dilution_7
-      leftPorts: 2
-      rightPorts: 1
-      index: 98
-  - id: LossElement_24
-    type: LossElement
-    attributes:
-      lossCoefficient: 12.0
-      label: cool_hole_7
-      index: 99
-  - id: JunctionStaticP_25
-    type: JunctionStaticP
-    attributes:
-      label: cooling_7
-      leftPorts: 2
-      rightPorts: 1
-      index: 100
-  - id: IsentropicAreaChange_8
-    type: IsentropicAreaChange
-    attributes:
-      label: taper_7
-      index: 101
-  - id: Pipe_18
-    type: Pipe
-    attributes:
-      length: 0.15
-      diameter: 0.043701937223683165
-      frictionFactor: 0.05
-      label: interconn_7
-      index: 102
+      marker: false
+      boundaryType: open
+      impedanceMagnitude: 1
+      impedancePhase: 0
   edges:
-  - id: edge_1
-    source: MassFlowInlet_1
-    target: Pipe_1
-    sourceHandle: MassFlowInlet_1-port-0
-    targetHandle: Pipe_1-port-0
+  - id: reactflow__edge-LosslessSplitter1-1lyLosslessSplitter1-1ly-port-1-Orifice2-jxiOrifice2-jxi-port-0
+    source: LosslessSplitter1-1ly
+    target: Orifice2-jxi
+    sourceHandle: LosslessSplitter1-1ly-port-1
+    targetHandle: Orifice2-jxi-port-0
     type: flow
     attributes:
-      label: e0
       index: 0
-      area: 0.06
-      thermoModel: frozen
-  - id: edge_2
-    source: Pipe_1
-    target: LosslessSplitter_1
-    sourceHandle: Pipe_1-port-1
-    targetHandle: LosslessSplitter_1-port-0
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter1-1lyLosslessSplitter1-1ly-port-2-IsentropicAreaChange2-ahuIsentropicAreaChange2-ahu-port-0
+    source: LosslessSplitter1-1ly
+    target: IsentropicAreaChange2-ahu
+    sourceHandle: LosslessSplitter1-1ly-port-2
+    targetHandle: IsentropicAreaChange2-ahu-port-0
     type: flow
     attributes:
-      label: e1
       index: 1
-      area: 0.06
-      thermoModel: frozen
-  - id: edge_3
-    source: LosslessSplitter_1
-    target: Pipe_2
-    sourceHandle: LosslessSplitter_1-port-1
-    targetHandle: Pipe_2-port-0
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange2-ahuIsentropicAreaChange2-ahu-port-1-Pipe1-9a1Pipe1-9a1-port-0
+    source: IsentropicAreaChange2-ahu
+    target: Pipe1-9a1
+    sourceHandle: IsentropicAreaChange2-ahu-port-1
+    targetHandle: Pipe1-9a1-port-0
     type: flow
     attributes:
-      label: e2
-      index: 2
-      area: 0.008
-      thermoModel: frozen
-  - id: edge_4
-    source: Pipe_2
-    target: PressureOutlet_1
-    sourceHandle: Pipe_2-port-1
-    targetHandle: PressureOutlet_1-port-0
-    type: flow
-    attributes:
-      label: e3
-      index: 3
-      area: 0.008
-      thermoModel: frozen
-  - id: edge_5
-    source: LosslessSplitter_1
-    target: Pipe_3
-    sourceHandle: LosslessSplitter_1-port-2
-    targetHandle: Pipe_3-port-0
-    type: flow
-    attributes:
-      label: e4
       index: 4
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_6
-    source: Pipe_3
-    target: LosslessSplitter_2
-    sourceHandle: Pipe_3-port-1
-    targetHandle: LosslessSplitter_2-port-0
-    type: flow
-    attributes:
-      label: e5
-      index: 5
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_7
-    source: LosslessSplitter_2
-    target: LossElement_1
-    sourceHandle: LosslessSplitter_2-port-1
-    targetHandle: LossElement_1-port-0
-    type: flow
-    attributes:
-      label: e6
-      index: 6
+      thermoModel: auto
       area: 0.004
-      thermoModel: frozen
-  - id: edge_8
-    source: LossElement_1
-    target: MassSource_1
-    sourceHandle: LossElement_1-port-1
-    targetHandle: MassSource_1-port-0
+  - id: reactflow__edge-Pipe1-9a1Pipe1-9a1-port-1-MassSource1-2zpMassSource1-2zp-port-0
+    source: Pipe1-9a1
+    target: MassSource1-2zp
+    sourceHandle: Pipe1-9a1-port-1
+    targetHandle: MassSource1-2zp-port-0
     type: flow
     attributes:
-      label: e7
       index: 7
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_9
-    source: MassSource_1
-    target: EquilibriumFlame_1
-    sourceHandle: MassSource_1-port-1
-    targetHandle: EquilibriumFlame_1-port-0
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource1-2zpMassSource1-2zp-port-1-SuddenAreaChange2-r8rSuddenAreaChange2-r8r-port-0
+    source: MassSource1-2zp
+    target: SuddenAreaChange2-r8r
+    sourceHandle: MassSource1-2zp-port-1
+    targetHandle: SuddenAreaChange2-r8r-port-0
     type: flow
     attributes:
-      label: e8
-      index: 8
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_10
-    source: EquilibriumFlame_1
-    target: JunctionStaticP_2
-    sourceHandle: EquilibriumFlame_1-port-1
-    targetHandle: JunctionStaticP_2-port-0
-    type: flow
-    attributes:
-      label: e9
-      index: 9
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_11
-    source: JunctionStaticP_2
-    target: JunctionStaticP_3
-    sourceHandle: JunctionStaticP_2-port-2
-    targetHandle: JunctionStaticP_3-port-0
-    type: flow
-    attributes:
-      label: e10
-      index: 10
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_12
-    source: JunctionStaticP_3
-    target: JunctionStaticP_4
-    sourceHandle: JunctionStaticP_3-port-2
-    targetHandle: JunctionStaticP_4-port-0
-    type: flow
-    attributes:
-      label: e11
-      index: 11
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_13
-    source: JunctionStaticP_4
-    target: IsentropicAreaChange_1
-    sourceHandle: JunctionStaticP_4-port-2
-    targetHandle: IsentropicAreaChange_1-port-0
-    type: flow
-    attributes:
-      label: e12
       index: 12
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_14
-    source: IsentropicAreaChange_1
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_1-port-1
-    targetHandle: JunctionStaticP_1-port-0
-    type: flow
-    attributes:
-      label: e13
-      index: 13
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_15
-    source: LosslessSplitter_2
-    target: LossElement_2
-    sourceHandle: LosslessSplitter_2-port-2
-    targetHandle: LossElement_2-port-0
-    type: flow
-    attributes:
-      label: e14
-      index: 14
+      thermoModel: auto
       area: 0.004
-      thermoModel: frozen
-  - id: edge_16
-    source: LossElement_2
-    target: JunctionStaticP_3
-    sourceHandle: LossElement_2-port-1
-    targetHandle: JunctionStaticP_3-port-1
+  - id: reactflow__edge-Duct1-5wzDuct1-5wz-port-1-EquilibriumFlame1-bw7EquilibriumFlame1-bw7-port-0
+    source: Duct1-5wz
+    target: EquilibriumFlame1-bw7
+    sourceHandle: Duct1-5wz-port-1
+    targetHandle: EquilibriumFlame1-bw7-port-0
     type: flow
     attributes:
-      label: e15
-      index: 15
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_17
-    source: LosslessSplitter_2
-    target: LossElement_3
-    sourceHandle: LosslessSplitter_2-port-3
-    targetHandle: LossElement_3-port-0
-    type: flow
-    attributes:
-      label: e16
-      index: 16
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_18
-    source: LossElement_3
-    target: JunctionStaticP_4
-    sourceHandle: LossElement_3-port-1
-    targetHandle: JunctionStaticP_4-port-1
-    type: flow
-    attributes:
-      label: e17
-      index: 17
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_19
-    source: LosslessSplitter_1
-    target: Pipe_5
-    sourceHandle: LosslessSplitter_1-port-3
-    targetHandle: Pipe_5-port-0
-    type: flow
-    attributes:
-      label: e18
-      index: 18
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_20
-    source: Pipe_5
-    target: LosslessSplitter_3
-    sourceHandle: Pipe_5-port-1
-    targetHandle: LosslessSplitter_3-port-0
-    type: flow
-    attributes:
-      label: e19
-      index: 19
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_21
-    source: LosslessSplitter_3
-    target: LossElement_4
-    sourceHandle: LosslessSplitter_3-port-1
-    targetHandle: LossElement_4-port-0
-    type: flow
-    attributes:
-      label: e20
-      index: 20
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_22
-    source: LossElement_4
-    target: MassSource_2
-    sourceHandle: LossElement_4-port-1
-    targetHandle: MassSource_2-port-0
-    type: flow
-    attributes:
-      label: e21
-      index: 21
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_23
-    source: MassSource_2
-    target: EquilibriumFlame_2
-    sourceHandle: MassSource_2-port-1
-    targetHandle: EquilibriumFlame_2-port-0
-    type: flow
-    attributes:
-      label: e22
-      index: 22
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_24
-    source: EquilibriumFlame_2
-    target: JunctionStaticP_5
-    sourceHandle: EquilibriumFlame_2-port-1
-    targetHandle: JunctionStaticP_5-port-0
-    type: flow
-    attributes:
-      label: e23
       index: 23
+      thermoModel: auto
       area: 0.01
-      thermoModel: equilibrium
-  - id: edge_25
-    source: JunctionStaticP_5
-    target: JunctionStaticP_6
-    sourceHandle: JunctionStaticP_5-port-2
-    targetHandle: JunctionStaticP_6-port-0
+  - id: reactflow__edge-SuddenAreaChange2-r8rSuddenAreaChange2-r8r-port-1-JunctionStaticP1-69wJunctionStaticP1-69w-port-1
+    source: SuddenAreaChange2-r8r
+    target: JunctionStaticP1-69w
+    sourceHandle: SuddenAreaChange2-r8r-port-1
+    targetHandle: JunctionStaticP1-69w-port-1
     type: flow
     attributes:
-      label: e24
-      index: 24
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_26
-    source: JunctionStaticP_6
-    target: JunctionStaticP_7
-    sourceHandle: JunctionStaticP_6-port-2
-    targetHandle: JunctionStaticP_7-port-0
+      index: 10
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP1-69wJunctionStaticP1-69w-port-2-Duct1-5wzDuct1-5wz-port-0
+    source: JunctionStaticP1-69w
+    target: Duct1-5wz
+    sourceHandle: JunctionStaticP1-69w-port-2
+    targetHandle: Duct1-5wz-port-0
     type: flow
     attributes:
-      label: e25
-      index: 25
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_27
-    source: JunctionStaticP_7
-    target: IsentropicAreaChange_2
-    sourceHandle: JunctionStaticP_7-port-2
-    targetHandle: IsentropicAreaChange_2-port-0
+      index: 11
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice2-jxiOrifice2-jxi-port-1-Duct2-decDuct2-dec-port-0
+    source: Orifice2-jxi
+    target: Duct2-dec
+    sourceHandle: Orifice2-jxi-port-1
+    targetHandle: Duct2-dec-port-0
     type: flow
     attributes:
-      label: e26
-      index: 26
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_28
-    source: IsentropicAreaChange_2
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_2-port-1
-    targetHandle: JunctionStaticP_1-port-1
+      index: 3
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct2-decDuct2-dec-port-1-JunctionStaticP1-69wJunctionStaticP1-69w-port-0
+    source: Duct2-dec
+    target: JunctionStaticP1-69w
+    sourceHandle: Duct2-dec-port-1
+    targetHandle: JunctionStaticP1-69w-port-0
     type: flow
     attributes:
-      label: e27
-      index: 27
+      index: 6
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe2-dr4Pipe2-dr4-port-1-LosslessSplitter1-1lyLosslessSplitter1-1ly-port-0
+    source: Pipe2-dr4
+    target: LosslessSplitter1-1ly
+    sourceHandle: Pipe2-dr4-port-1
+    targetHandle: LosslessSplitter1-1ly-port-0
+    type: flow
+    attributes:
+      index: 2
+      thermoModel: auto
       area: 0.008
-      thermoModel: equilibrium
-  - id: edge_29
-    source: LosslessSplitter_3
-    target: LossElement_5
-    sourceHandle: LosslessSplitter_3-port-2
-    targetHandle: LossElement_5-port-0
+  - id: reactflow__edge-Orifice3-kvnOrifice3-kvn-port-1-JunctionStaticP2-mp3JunctionStaticP2-mp3-port-0
+    source: Orifice3-kvn
+    target: JunctionStaticP2-mp3
+    sourceHandle: Orifice3-kvn-port-1
+    targetHandle: JunctionStaticP2-mp3-port-0
     type: flow
     attributes:
-      label: e28
-      index: 28
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_30
-    source: LossElement_5
-    target: JunctionStaticP_6
-    sourceHandle: LossElement_5-port-1
-    targetHandle: JunctionStaticP_6-port-1
-    type: flow
-    attributes:
-      label: e29
-      index: 29
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_31
-    source: LosslessSplitter_3
-    target: LossElement_6
-    sourceHandle: LosslessSplitter_3-port-3
-    targetHandle: LossElement_6-port-0
-    type: flow
-    attributes:
-      label: e30
-      index: 30
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_32
-    source: LossElement_6
-    target: JunctionStaticP_7
-    sourceHandle: LossElement_6-port-1
-    targetHandle: JunctionStaticP_7-port-1
-    type: flow
-    attributes:
-      label: e31
-      index: 31
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_33
-    source: LosslessSplitter_1
-    target: Pipe_7
-    sourceHandle: LosslessSplitter_1-port-4
-    targetHandle: Pipe_7-port-0
-    type: flow
-    attributes:
-      label: e32
-      index: 32
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_34
-    source: Pipe_7
-    target: LosslessSplitter_4
-    sourceHandle: Pipe_7-port-1
-    targetHandle: LosslessSplitter_4-port-0
-    type: flow
-    attributes:
-      label: e33
-      index: 33
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_35
-    source: LosslessSplitter_4
-    target: LossElement_7
-    sourceHandle: LosslessSplitter_4-port-1
-    targetHandle: LossElement_7-port-0
-    type: flow
-    attributes:
-      label: e34
-      index: 34
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_36
-    source: LossElement_7
-    target: MassSource_3
-    sourceHandle: LossElement_7-port-1
-    targetHandle: MassSource_3-port-0
-    type: flow
-    attributes:
-      label: e35
-      index: 35
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_37
-    source: MassSource_3
-    target: EquilibriumFlame_3
-    sourceHandle: MassSource_3-port-1
-    targetHandle: EquilibriumFlame_3-port-0
-    type: flow
-    attributes:
-      label: e36
-      index: 36
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_38
-    source: EquilibriumFlame_3
-    target: JunctionStaticP_8
-    sourceHandle: EquilibriumFlame_3-port-1
-    targetHandle: JunctionStaticP_8-port-0
-    type: flow
-    attributes:
-      label: e37
-      index: 37
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_39
-    source: JunctionStaticP_8
-    target: JunctionStaticP_9
-    sourceHandle: JunctionStaticP_8-port-2
-    targetHandle: JunctionStaticP_9-port-0
-    type: flow
-    attributes:
-      label: e38
-      index: 38
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_40
-    source: JunctionStaticP_9
-    target: JunctionStaticP_10
-    sourceHandle: JunctionStaticP_9-port-2
-    targetHandle: JunctionStaticP_10-port-0
-    type: flow
-    attributes:
-      label: e39
-      index: 39
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_41
-    source: JunctionStaticP_10
-    target: IsentropicAreaChange_3
-    sourceHandle: JunctionStaticP_10-port-2
-    targetHandle: IsentropicAreaChange_3-port-0
-    type: flow
-    attributes:
-      label: e40
-      index: 40
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_42
-    source: IsentropicAreaChange_3
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_3-port-1
-    targetHandle: JunctionStaticP_1-port-2
-    type: flow
-    attributes:
-      label: e41
-      index: 41
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_43
-    source: LosslessSplitter_4
-    target: LossElement_8
-    sourceHandle: LosslessSplitter_4-port-2
-    targetHandle: LossElement_8-port-0
-    type: flow
-    attributes:
-      label: e42
-      index: 42
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_44
-    source: LossElement_8
-    target: JunctionStaticP_9
-    sourceHandle: LossElement_8-port-1
-    targetHandle: JunctionStaticP_9-port-1
-    type: flow
-    attributes:
-      label: e43
       index: 43
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_45
-    source: LosslessSplitter_4
-    target: LossElement_9
-    sourceHandle: LosslessSplitter_4-port-3
-    targetHandle: LossElement_9-port-0
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame1-bw7EquilibriumFlame1-bw7-port-1-JunctionStaticP2-mp3JunctionStaticP2-mp3-port-1
+    source: EquilibriumFlame1-bw7
+    target: JunctionStaticP2-mp3
+    sourceHandle: EquilibriumFlame1-bw7-port-1
+    targetHandle: JunctionStaticP2-mp3-port-1
     type: flow
     attributes:
-      label: e44
-      index: 44
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_46
-    source: LossElement_9
-    target: JunctionStaticP_10
-    sourceHandle: LossElement_9-port-1
-    targetHandle: JunctionStaticP_10-port-1
-    type: flow
-    attributes:
-      label: e45
-      index: 45
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_47
-    source: LosslessSplitter_1
-    target: Pipe_9
-    sourceHandle: LosslessSplitter_1-port-5
-    targetHandle: Pipe_9-port-0
-    type: flow
-    attributes:
-      label: e46
-      index: 46
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_48
-    source: Pipe_9
-    target: LosslessSplitter_5
-    sourceHandle: Pipe_9-port-1
-    targetHandle: LosslessSplitter_5-port-0
-    type: flow
-    attributes:
-      label: e47
-      index: 47
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_49
-    source: LosslessSplitter_5
-    target: LossElement_10
-    sourceHandle: LosslessSplitter_5-port-1
-    targetHandle: LossElement_10-port-0
-    type: flow
-    attributes:
-      label: e48
-      index: 48
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_50
-    source: LossElement_10
-    target: MassSource_4
-    sourceHandle: LossElement_10-port-1
-    targetHandle: MassSource_4-port-0
-    type: flow
-    attributes:
-      label: e49
-      index: 49
+      index: 42
+      thermoModel: auto
       area: 0.01
-      thermoModel: frozen
-  - id: edge_51
-    source: MassSource_4
-    target: EquilibriumFlame_4
-    sourceHandle: MassSource_4-port-1
-    targetHandle: EquilibriumFlame_4-port-0
+  - id: reactflow__edge-LosslessSplitter2-tsyLosslessSplitter2-tsy-port-1-Pipe2-dr4Pipe2-dr4-port-0
+    source: LosslessSplitter2-tsy
+    target: Pipe2-dr4
+    sourceHandle: LosslessSplitter2-tsy-port-1
+    targetHandle: Pipe2-dr4-port-0
     type: flow
     attributes:
-      label: e50
-      index: 50
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_52
-    source: EquilibriumFlame_4
-    target: JunctionStaticP_11
-    sourceHandle: EquilibriumFlame_4-port-1
-    targetHandle: JunctionStaticP_11-port-0
-    type: flow
-    attributes:
-      label: e51
-      index: 51
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_53
-    source: JunctionStaticP_11
-    target: JunctionStaticP_12
-    sourceHandle: JunctionStaticP_11-port-2
-    targetHandle: JunctionStaticP_12-port-0
-    type: flow
-    attributes:
-      label: e52
-      index: 52
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_54
-    source: JunctionStaticP_12
-    target: JunctionStaticP_13
-    sourceHandle: JunctionStaticP_12-port-2
-    targetHandle: JunctionStaticP_13-port-0
-    type: flow
-    attributes:
-      label: e53
-      index: 53
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_55
-    source: JunctionStaticP_13
-    target: IsentropicAreaChange_4
-    sourceHandle: JunctionStaticP_13-port-2
-    targetHandle: IsentropicAreaChange_4-port-0
-    type: flow
-    attributes:
-      label: e54
-      index: 54
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_56
-    source: IsentropicAreaChange_4
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_4-port-1
-    targetHandle: JunctionStaticP_1-port-3
-    type: flow
-    attributes:
-      label: e55
-      index: 55
+      index: 5
+      thermoModel: auto
       area: 0.008
-      thermoModel: equilibrium
-  - id: edge_57
-    source: LosslessSplitter_5
-    target: LossElement_11
-    sourceHandle: LosslessSplitter_5-port-2
-    targetHandle: LossElement_11-port-0
+  - id: reactflow__edge-LosslessSplitter2-tsyLosslessSplitter2-tsy-port-2-Duct3-gxtDuct3-gxt-port-0
+    source: LosslessSplitter2-tsy
+    target: Duct3-gxt
+    sourceHandle: LosslessSplitter2-tsy-port-2
+    targetHandle: Duct3-gxt-port-0
     type: flow
     attributes:
-      label: e56
-      index: 56
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_58
-    source: LossElement_11
-    target: JunctionStaticP_12
-    sourceHandle: LossElement_11-port-1
-    targetHandle: JunctionStaticP_12-port-1
-    type: flow
-    attributes:
-      label: e57
-      index: 57
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_59
-    source: LosslessSplitter_5
-    target: LossElement_12
-    sourceHandle: LosslessSplitter_5-port-3
-    targetHandle: LossElement_12-port-0
-    type: flow
-    attributes:
-      label: e58
-      index: 58
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_60
-    source: LossElement_12
-    target: JunctionStaticP_13
-    sourceHandle: LossElement_12-port-1
-    targetHandle: JunctionStaticP_13-port-1
-    type: flow
-    attributes:
-      label: e59
-      index: 59
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_61
-    source: LosslessSplitter_1
-    target: Pipe_11
-    sourceHandle: LosslessSplitter_1-port-6
-    targetHandle: Pipe_11-port-0
-    type: flow
-    attributes:
-      label: e60
-      index: 60
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_62
-    source: Pipe_11
-    target: LosslessSplitter_6
-    sourceHandle: Pipe_11-port-1
-    targetHandle: LosslessSplitter_6-port-0
-    type: flow
-    attributes:
-      label: e61
-      index: 61
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_63
-    source: LosslessSplitter_6
-    target: LossElement_13
-    sourceHandle: LosslessSplitter_6-port-1
-    targetHandle: LossElement_13-port-0
-    type: flow
-    attributes:
-      label: e62
-      index: 62
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_64
-    source: LossElement_13
-    target: MassSource_5
-    sourceHandle: LossElement_13-port-1
-    targetHandle: MassSource_5-port-0
-    type: flow
-    attributes:
-      label: e63
-      index: 63
+      index: 8
+      thermoModel: auto
       area: 0.01
-      thermoModel: frozen
-  - id: edge_65
-    source: MassSource_5
-    target: EquilibriumFlame_5
-    sourceHandle: MassSource_5-port-1
-    targetHandle: EquilibriumFlame_5-port-0
+  - id: reactflow__edge-Duct3-gxtDuct3-gxt-port-1-LosslessSplitter3-2msLosslessSplitter3-2ms-port-0
+    source: Duct3-gxt
+    target: LosslessSplitter3-2ms
+    sourceHandle: Duct3-gxt-port-1
+    targetHandle: LosslessSplitter3-2ms-port-0
     type: flow
     attributes:
-      label: e64
-      index: 64
+      index: 13
+      thermoModel: auto
       area: 0.01
-      thermoModel: frozen
-  - id: edge_66
-    source: EquilibriumFlame_5
-    target: JunctionStaticP_14
-    sourceHandle: EquilibriumFlame_5-port-1
-    targetHandle: JunctionStaticP_14-port-0
+  - id: reactflow__edge-LosslessSplitter3-2msLosslessSplitter3-2ms-port-1-Orifice3-kvnOrifice3-kvn-port-0
+    source: LosslessSplitter3-2ms
+    target: Orifice3-kvn
+    sourceHandle: LosslessSplitter3-2ms-port-1
+    targetHandle: Orifice3-kvn-port-0
     type: flow
     attributes:
-      label: e65
-      index: 65
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_67
-    source: JunctionStaticP_14
-    target: JunctionStaticP_15
-    sourceHandle: JunctionStaticP_14-port-2
-    targetHandle: JunctionStaticP_15-port-0
+      index: 24
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct5-rmcDuct5-rmc-port-1-JunctionStaticP3-rykJunctionStaticP3-ryk-port-0
+    source: Duct5-rmc
+    target: JunctionStaticP3-ryk
+    sourceHandle: Duct5-rmc-port-1
+    targetHandle: JunctionStaticP3-ryk-port-0
     type: flow
     attributes:
-      label: e66
-      index: 66
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_68
-    source: JunctionStaticP_15
-    target: JunctionStaticP_16
-    sourceHandle: JunctionStaticP_15-port-2
-    targetHandle: JunctionStaticP_16-port-0
-    type: flow
-    attributes:
-      label: e67
-      index: 67
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_69
-    source: JunctionStaticP_16
-    target: IsentropicAreaChange_5
-    sourceHandle: JunctionStaticP_16-port-2
-    targetHandle: IsentropicAreaChange_5-port-0
-    type: flow
-    attributes:
-      label: e68
-      index: 68
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_70
-    source: IsentropicAreaChange_5
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_5-port-1
-    targetHandle: JunctionStaticP_1-port-4
-    type: flow
-    attributes:
-      label: e69
-      index: 69
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_71
-    source: LosslessSplitter_6
-    target: LossElement_14
-    sourceHandle: LosslessSplitter_6-port-2
-    targetHandle: LossElement_14-port-0
-    type: flow
-    attributes:
-      label: e70
-      index: 70
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_72
-    source: LossElement_14
-    target: JunctionStaticP_15
-    sourceHandle: LossElement_14-port-1
-    targetHandle: JunctionStaticP_15-port-1
-    type: flow
-    attributes:
-      label: e71
-      index: 71
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_73
-    source: LosslessSplitter_6
-    target: LossElement_15
-    sourceHandle: LosslessSplitter_6-port-3
-    targetHandle: LossElement_15-port-0
-    type: flow
-    attributes:
-      label: e72
-      index: 72
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_74
-    source: LossElement_15
-    target: JunctionStaticP_16
-    sourceHandle: LossElement_15-port-1
-    targetHandle: JunctionStaticP_16-port-1
-    type: flow
-    attributes:
-      label: e73
-      index: 73
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_75
-    source: LosslessSplitter_1
-    target: Pipe_13
-    sourceHandle: LosslessSplitter_1-port-7
-    targetHandle: Pipe_13-port-0
-    type: flow
-    attributes:
-      label: e74
-      index: 74
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_76
-    source: Pipe_13
-    target: LosslessSplitter_7
-    sourceHandle: Pipe_13-port-1
-    targetHandle: LosslessSplitter_7-port-0
-    type: flow
-    attributes:
-      label: e75
-      index: 75
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_77
-    source: LosslessSplitter_7
-    target: LossElement_16
-    sourceHandle: LosslessSplitter_7-port-1
-    targetHandle: LossElement_16-port-0
-    type: flow
-    attributes:
-      label: e76
-      index: 76
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_78
-    source: LossElement_16
-    target: MassSource_6
-    sourceHandle: LossElement_16-port-1
-    targetHandle: MassSource_6-port-0
-    type: flow
-    attributes:
-      label: e77
-      index: 77
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_79
-    source: MassSource_6
-    target: EquilibriumFlame_6
-    sourceHandle: MassSource_6-port-1
-    targetHandle: EquilibriumFlame_6-port-0
-    type: flow
-    attributes:
-      label: e78
-      index: 78
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_80
-    source: EquilibriumFlame_6
-    target: JunctionStaticP_17
-    sourceHandle: EquilibriumFlame_6-port-1
-    targetHandle: JunctionStaticP_17-port-0
-    type: flow
-    attributes:
-      label: e79
-      index: 79
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_81
-    source: JunctionStaticP_17
-    target: JunctionStaticP_18
-    sourceHandle: JunctionStaticP_17-port-2
-    targetHandle: JunctionStaticP_18-port-0
-    type: flow
-    attributes:
-      label: e80
-      index: 80
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_82
-    source: JunctionStaticP_18
-    target: JunctionStaticP_19
-    sourceHandle: JunctionStaticP_18-port-2
-    targetHandle: JunctionStaticP_19-port-0
-    type: flow
-    attributes:
-      label: e81
-      index: 81
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_83
-    source: JunctionStaticP_19
-    target: IsentropicAreaChange_6
-    sourceHandle: JunctionStaticP_19-port-2
-    targetHandle: IsentropicAreaChange_6-port-0
-    type: flow
-    attributes:
-      label: e82
-      index: 82
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_84
-    source: IsentropicAreaChange_6
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_6-port-1
-    targetHandle: JunctionStaticP_1-port-5
-    type: flow
-    attributes:
-      label: e83
-      index: 83
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_85
-    source: LosslessSplitter_7
-    target: LossElement_17
-    sourceHandle: LosslessSplitter_7-port-2
-    targetHandle: LossElement_17-port-0
-    type: flow
-    attributes:
-      label: e84
-      index: 84
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_86
-    source: LossElement_17
-    target: JunctionStaticP_18
-    sourceHandle: LossElement_17-port-1
-    targetHandle: JunctionStaticP_18-port-1
-    type: flow
-    attributes:
-      label: e85
-      index: 85
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_87
-    source: LosslessSplitter_7
-    target: LossElement_18
-    sourceHandle: LosslessSplitter_7-port-3
-    targetHandle: LossElement_18-port-0
-    type: flow
-    attributes:
-      label: e86
-      index: 86
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_88
-    source: LossElement_18
-    target: JunctionStaticP_19
-    sourceHandle: LossElement_18-port-1
-    targetHandle: JunctionStaticP_19-port-1
-    type: flow
-    attributes:
-      label: e87
-      index: 87
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_89
-    source: LosslessSplitter_1
-    target: Pipe_15
-    sourceHandle: LosslessSplitter_1-port-8
-    targetHandle: Pipe_15-port-0
-    type: flow
-    attributes:
-      label: e88
-      index: 88
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_90
-    source: Pipe_15
-    target: LosslessSplitter_8
-    sourceHandle: Pipe_15-port-1
-    targetHandle: LosslessSplitter_8-port-0
-    type: flow
-    attributes:
-      label: e89
-      index: 89
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_91
-    source: LosslessSplitter_8
-    target: LossElement_19
-    sourceHandle: LosslessSplitter_8-port-1
-    targetHandle: LossElement_19-port-0
-    type: flow
-    attributes:
-      label: e90
-      index: 90
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_92
-    source: LossElement_19
-    target: MassSource_7
-    sourceHandle: LossElement_19-port-1
-    targetHandle: MassSource_7-port-0
-    type: flow
-    attributes:
-      label: e91
       index: 91
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_93
-    source: MassSource_7
-    target: EquilibriumFlame_7
-    sourceHandle: MassSource_7-port-1
-    targetHandle: EquilibriumFlame_7-port-0
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter3-2msLosslessSplitter3-2ms-port-2-Duct6-qklDuct6-qkl-port-0
+    source: LosslessSplitter3-2ms
+    target: Duct6-qkl
+    sourceHandle: LosslessSplitter3-2ms-port-2
+    targetHandle: Duct6-qkl-port-0
     type: flow
     attributes:
-      label: e92
-      index: 92
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_94
-    source: EquilibriumFlame_7
-    target: JunctionStaticP_20
-    sourceHandle: EquilibriumFlame_7-port-1
-    targetHandle: JunctionStaticP_20-port-0
+      index: 25
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct6-qklDuct6-qkl-port-1-Orifice4-vzwOrifice4-vzw-port-0
+    source: Duct6-qkl
+    target: Orifice4-vzw
+    sourceHandle: Duct6-qkl-port-1
+    targetHandle: Orifice4-vzw-port-0
     type: flow
     attributes:
-      label: e93
-      index: 93
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_95
-    source: JunctionStaticP_20
-    target: JunctionStaticP_21
-    sourceHandle: JunctionStaticP_20-port-2
-    targetHandle: JunctionStaticP_21-port-0
+      index: 44
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice4-vzwOrifice4-vzw-port-1-JunctionStaticP3-rykJunctionStaticP3-ryk-port-1
+    source: Orifice4-vzw
+    target: JunctionStaticP3-ryk
+    sourceHandle: Orifice4-vzw-port-1
+    targetHandle: JunctionStaticP3-ryk-port-1
     type: flow
     attributes:
-      label: e94
+      index: 62
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP3-rykJunctionStaticP3-ryk-port-2-IsentropicAreaChange3-u23IsentropicAreaChange3-u23-port-0
+    source: JunctionStaticP3-ryk
+    target: IsentropicAreaChange3-u23
+    sourceHandle: JunctionStaticP3-ryk-port-2
+    targetHandle: IsentropicAreaChange3-u23-port-0
+    type: flow
+    attributes:
       index: 94
+      thermoModel: auto
       area: 0.012
-      thermoModel: equilibrium
-  - id: edge_96
-    source: JunctionStaticP_21
-    target: JunctionStaticP_22
-    sourceHandle: JunctionStaticP_21-port-2
-    targetHandle: JunctionStaticP_22-port-0
+  - id: reactflow__edge-JunctionStaticP2-mp3JunctionStaticP2-mp3-port-3-Duct5-rmcDuct5-rmc-port-0
+    source: JunctionStaticP2-mp3
+    target: Duct5-rmc
+    sourceHandle: JunctionStaticP2-mp3-port-3
+    targetHandle: Duct5-rmc-port-0
     type: flow
     attributes:
-      label: e95
-      index: 95
+      index: 59
+      thermoModel: auto
       area: 0.012
-      thermoModel: equilibrium
-  - id: edge_97
-    source: JunctionStaticP_22
-    target: IsentropicAreaChange_7
-    sourceHandle: JunctionStaticP_22-port-2
-    targetHandle: IsentropicAreaChange_7-port-0
+  - id: reactflow__edge-Duct7-xtdDuct7-xtd-port-1-JunctionStaticP2-mp3JunctionStaticP2-mp3-port-2
+    source: Duct7-xtd
+    target: JunctionStaticP2-mp3
+    sourceHandle: Duct7-xtd-port-1
+    targetHandle: JunctionStaticP2-mp3-port-2
     type: flow
     attributes:
-      label: e96
+      index: 60
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice5-sviOrifice5-svi-port-1-Duct7-xtdDuct7-xtd-port-0
+    source: Orifice5-svi
+    target: Duct7-xtd
+    sourceHandle: Orifice5-svi-port-1
+    targetHandle: Duct7-xtd-port-0
+    type: flow
+    attributes:
+      index: 92
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter4-35gLosslessSplitter4-35g-port-1-Orifice6-d7hOrifice6-d7h-port-0
+    source: LosslessSplitter4-35g
+    target: Orifice6-d7h
+    sourceHandle: LosslessSplitter4-35g-port-1
+    targetHandle: Orifice6-d7h-port-0
+    type: flow
+    attributes:
+      index: 63
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter4-35gLosslessSplitter4-35g-port-2-IsentropicAreaChange4-3acIsentropicAreaChange4-3ac-port-0
+    source: LosslessSplitter4-35g
+    target: IsentropicAreaChange4-3ac
+    sourceHandle: LosslessSplitter4-35g-port-2
+    targetHandle: IsentropicAreaChange4-3ac-port-0
+    type: flow
+    attributes:
+      index: 64
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange4-3acIsentropicAreaChange4-3ac-port-1-Pipe4-mooPipe4-moo-port-0
+    source: IsentropicAreaChange4-3ac
+    target: Pipe4-moo
+    sourceHandle: IsentropicAreaChange4-3ac-port-1
+    targetHandle: Pipe4-moo-port-0
+    type: flow
+    attributes:
       index: 96
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_98
-    source: IsentropicAreaChange_7
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_7-port-1
-    targetHandle: JunctionStaticP_1-port-6
-    type: flow
-    attributes:
-      label: e97
-      index: 97
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_99
-    source: LosslessSplitter_8
-    target: LossElement_20
-    sourceHandle: LosslessSplitter_8-port-2
-    targetHandle: LossElement_20-port-0
-    type: flow
-    attributes:
-      label: e98
-      index: 98
+      thermoModel: auto
       area: 0.004
-      thermoModel: frozen
-  - id: edge_100
-    source: LossElement_20
-    target: JunctionStaticP_21
-    sourceHandle: LossElement_20-port-1
-    targetHandle: JunctionStaticP_21-port-1
+  - id: reactflow__edge-Pipe4-mooPipe4-moo-port-1-MassSource2-ki1MassSource2-ki1-port-0
+    source: Pipe4-moo
+    target: MassSource2-ki1
+    sourceHandle: Pipe4-moo-port-1
+    targetHandle: MassSource2-ki1-port-0
     type: flow
     attributes:
-      label: e99
-      index: 99
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_101
-    source: LosslessSplitter_8
-    target: LossElement_21
-    sourceHandle: LosslessSplitter_8-port-3
-    targetHandle: LossElement_21-port-0
-    type: flow
-    attributes:
-      label: e100
-      index: 100
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_102
-    source: LossElement_21
-    target: JunctionStaticP_22
-    sourceHandle: LossElement_21-port-1
-    targetHandle: JunctionStaticP_22-port-1
-    type: flow
-    attributes:
-      label: e101
-      index: 101
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_103
-    source: LosslessSplitter_1
-    target: Pipe_17
-    sourceHandle: LosslessSplitter_1-port-9
-    targetHandle: Pipe_17-port-0
-    type: flow
-    attributes:
-      label: e102
-      index: 102
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_104
-    source: Pipe_17
-    target: LosslessSplitter_9
-    sourceHandle: Pipe_17-port-1
-    targetHandle: LosslessSplitter_9-port-0
-    type: flow
-    attributes:
-      label: e103
-      index: 103
-      area: 0.012
-      thermoModel: frozen
-  - id: edge_105
-    source: LosslessSplitter_9
-    target: LossElement_22
-    sourceHandle: LosslessSplitter_9-port-1
-    targetHandle: LossElement_22-port-0
-    type: flow
-    attributes:
-      label: e104
-      index: 104
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_106
-    source: LossElement_22
-    target: MassSource_8
-    sourceHandle: LossElement_22-port-1
-    targetHandle: MassSource_8-port-0
-    type: flow
-    attributes:
-      label: e105
-      index: 105
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_107
-    source: MassSource_8
-    target: EquilibriumFlame_8
-    sourceHandle: MassSource_8-port-1
-    targetHandle: EquilibriumFlame_8-port-0
-    type: flow
-    attributes:
-      label: e106
-      index: 106
-      area: 0.01
-      thermoModel: frozen
-  - id: edge_108
-    source: EquilibriumFlame_8
-    target: JunctionStaticP_23
-    sourceHandle: EquilibriumFlame_8-port-1
-    targetHandle: JunctionStaticP_23-port-0
-    type: flow
-    attributes:
-      label: e107
-      index: 107
-      area: 0.01
-      thermoModel: equilibrium
-  - id: edge_109
-    source: JunctionStaticP_23
-    target: JunctionStaticP_24
-    sourceHandle: JunctionStaticP_23-port-2
-    targetHandle: JunctionStaticP_24-port-0
-    type: flow
-    attributes:
-      label: e108
-      index: 108
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_110
-    source: JunctionStaticP_24
-    target: JunctionStaticP_25
-    sourceHandle: JunctionStaticP_24-port-2
-    targetHandle: JunctionStaticP_25-port-0
-    type: flow
-    attributes:
-      label: e109
-      index: 109
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_111
-    source: JunctionStaticP_25
-    target: IsentropicAreaChange_8
-    sourceHandle: JunctionStaticP_25-port-2
-    targetHandle: IsentropicAreaChange_8-port-0
-    type: flow
-    attributes:
-      label: e110
-      index: 110
-      area: 0.012
-      thermoModel: equilibrium
-  - id: edge_112
-    source: IsentropicAreaChange_8
-    target: JunctionStaticP_1
-    sourceHandle: IsentropicAreaChange_8-port-1
-    targetHandle: JunctionStaticP_1-port-7
-    type: flow
-    attributes:
-      label: e111
-      index: 111
-      area: 0.008
-      thermoModel: equilibrium
-  - id: edge_113
-    source: LosslessSplitter_9
-    target: LossElement_23
-    sourceHandle: LosslessSplitter_9-port-2
-    targetHandle: LossElement_23-port-0
-    type: flow
-    attributes:
-      label: e112
-      index: 112
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_114
-    source: LossElement_23
-    target: JunctionStaticP_24
-    sourceHandle: LossElement_23-port-1
-    targetHandle: JunctionStaticP_24-port-1
-    type: flow
-    attributes:
-      label: e113
-      index: 113
-      area: 0.004
-      thermoModel: frozen
-  - id: edge_115
-    source: LosslessSplitter_9
-    target: LossElement_24
-    sourceHandle: LosslessSplitter_9-port-3
-    targetHandle: LossElement_24-port-0
-    type: flow
-    attributes:
-      label: e114
-      index: 114
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_116
-    source: LossElement_24
-    target: JunctionStaticP_25
-    sourceHandle: LossElement_24-port-1
-    targetHandle: JunctionStaticP_25-port-1
-    type: flow
-    attributes:
-      label: e115
-      index: 115
-      area: 0.003
-      thermoModel: frozen
-  - id: edge_117
-    source: JunctionStaticP_2
-    target: Pipe_4
-    sourceHandle: JunctionStaticP_2-port-3
-    targetHandle: Pipe_4-port-0
-    type: flow
-    attributes:
-      label: e116
-      index: 116
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_118
-    source: Pipe_4
-    target: JunctionStaticP_5
-    sourceHandle: Pipe_4-port-1
-    targetHandle: JunctionStaticP_5-port-1
-    type: flow
-    attributes:
-      label: e117
-      index: 117
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_119
-    source: JunctionStaticP_5
-    target: Pipe_6
-    sourceHandle: JunctionStaticP_5-port-3
-    targetHandle: Pipe_6-port-0
-    type: flow
-    attributes:
-      label: e118
-      index: 118
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_120
-    source: Pipe_6
-    target: JunctionStaticP_8
-    sourceHandle: Pipe_6-port-1
-    targetHandle: JunctionStaticP_8-port-1
-    type: flow
-    attributes:
-      label: e119
-      index: 119
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_121
-    source: JunctionStaticP_8
-    target: Pipe_8
-    sourceHandle: JunctionStaticP_8-port-3
-    targetHandle: Pipe_8-port-0
-    type: flow
-    attributes:
-      label: e120
-      index: 120
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_122
-    source: Pipe_8
-    target: JunctionStaticP_11
-    sourceHandle: Pipe_8-port-1
-    targetHandle: JunctionStaticP_11-port-1
-    type: flow
-    attributes:
-      label: e121
-      index: 121
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_123
-    source: JunctionStaticP_11
-    target: Pipe_10
-    sourceHandle: JunctionStaticP_11-port-3
-    targetHandle: Pipe_10-port-0
-    type: flow
-    attributes:
-      label: e122
-      index: 122
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_124
-    source: Pipe_10
-    target: JunctionStaticP_14
-    sourceHandle: Pipe_10-port-1
-    targetHandle: JunctionStaticP_14-port-1
-    type: flow
-    attributes:
-      label: e123
-      index: 123
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_125
-    source: JunctionStaticP_14
-    target: Pipe_12
-    sourceHandle: JunctionStaticP_14-port-3
-    targetHandle: Pipe_12-port-0
-    type: flow
-    attributes:
-      label: e124
-      index: 124
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_126
-    source: Pipe_12
-    target: JunctionStaticP_17
-    sourceHandle: Pipe_12-port-1
-    targetHandle: JunctionStaticP_17-port-1
-    type: flow
-    attributes:
-      label: e125
-      index: 125
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_127
-    source: JunctionStaticP_17
-    target: Pipe_14
-    sourceHandle: JunctionStaticP_17-port-3
-    targetHandle: Pipe_14-port-0
-    type: flow
-    attributes:
-      label: e126
-      index: 126
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_128
-    source: Pipe_14
-    target: JunctionStaticP_20
-    sourceHandle: Pipe_14-port-1
-    targetHandle: JunctionStaticP_20-port-1
-    type: flow
-    attributes:
-      label: e127
       index: 127
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_129
-    source: JunctionStaticP_20
-    target: Pipe_16
-    sourceHandle: JunctionStaticP_20-port-3
-    targetHandle: Pipe_16-port-0
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource2-ki1MassSource2-ki1-port-1-SuddenAreaChange3-mwxSuddenAreaChange3-mwx-port-0
+    source: MassSource2-ki1
+    target: SuddenAreaChange3-mwx
+    sourceHandle: MassSource2-ki1-port-1
+    targetHandle: SuddenAreaChange3-mwx-port-0
     type: flow
     attributes:
-      label: e128
+      index: 183
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct8-sijDuct8-sij-port-1-EquilibriumFlame2-1h8EquilibriumFlame2-1h8-port-0
+    source: Duct8-sij
+    target: EquilibriumFlame2-1h8
+    sourceHandle: Duct8-sij-port-1
+    targetHandle: EquilibriumFlame2-1h8-port-0
+    type: flow
+    attributes:
+      index: 184
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange3-mwxSuddenAreaChange3-mwx-port-1-JunctionStaticP4-8wuJunctionStaticP4-8wu-port-1
+    source: SuddenAreaChange3-mwx
+    target: JunctionStaticP4-8wu
+    sourceHandle: SuddenAreaChange3-mwx-port-1
+    targetHandle: JunctionStaticP4-8wu-port-1
+    type: flow
+    attributes:
+      index: 181
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP4-8wuJunctionStaticP4-8wu-port-2-Duct8-sijDuct8-sij-port-0
+    source: JunctionStaticP4-8wu
+    target: Duct8-sij
+    sourceHandle: JunctionStaticP4-8wu-port-2
+    targetHandle: Duct8-sij-port-0
+    type: flow
+    attributes:
+      index: 182
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice6-d7hOrifice6-d7h-port-1-Duct9-i6yDuct9-i6y-port-0
+    source: Orifice6-d7h
+    target: Duct9-i6y
+    sourceHandle: Orifice6-d7h-port-1
+    targetHandle: Duct9-i6y-port-0
+    type: flow
+    attributes:
+      index: 95
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct9-i6yDuct9-i6y-port-1-JunctionStaticP4-8wuJunctionStaticP4-8wu-port-0
+    source: Duct9-i6y
+    target: JunctionStaticP4-8wu
+    sourceHandle: Duct9-i6y-port-1
+    targetHandle: JunctionStaticP4-8wu-port-0
+    type: flow
+    attributes:
+      index: 126
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe5-a77Pipe5-a77-port-1-LosslessSplitter4-35gLosslessSplitter4-35g-port-0
+    source: Pipe5-a77
+    target: LosslessSplitter4-35g
+    sourceHandle: Pipe5-a77-port-1
+    targetHandle: LosslessSplitter4-35g-port-0
+    type: flow
+    attributes:
+      index: 45
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice7-9p4Orifice7-9p4-port-1-JunctionStaticP5-zjwJunctionStaticP5-zjw-port-0
+    source: Orifice7-9p4
+    target: JunctionStaticP5-zjw
+    sourceHandle: Orifice7-9p4-port-1
+    targetHandle: JunctionStaticP5-zjw-port-0
+    type: flow
+    attributes:
+      index: 97
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame2-1h8EquilibriumFlame2-1h8-port-1-JunctionStaticP5-zjwJunctionStaticP5-zjw-port-1
+    source: EquilibriumFlame2-1h8
+    target: JunctionStaticP5-zjw
+    sourceHandle: EquilibriumFlame2-1h8-port-1
+    targetHandle: JunctionStaticP5-zjw-port-1
+    type: flow
+    attributes:
       index: 128
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_130
-    source: Pipe_16
-    target: JunctionStaticP_23
-    sourceHandle: Pipe_16-port-1
-    targetHandle: JunctionStaticP_23-port-1
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter5-t4sLosslessSplitter5-t4s-port-1-Pipe5-a77Pipe5-a77-port-0
+    source: LosslessSplitter5-t4s
+    target: Pipe5-a77
+    sourceHandle: LosslessSplitter5-t4s-port-1
+    targetHandle: Pipe5-a77-port-0
     type: flow
     attributes:
-      label: e129
-      index: 129
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_131
-    source: JunctionStaticP_23
-    target: Pipe_18
-    sourceHandle: JunctionStaticP_23-port-3
-    targetHandle: Pipe_18-port-0
+      index: 27
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter5-t4sLosslessSplitter5-t4s-port-2-Duct10-rjdDuct10-rjd-port-0
+    source: LosslessSplitter5-t4s
+    target: Duct10-rjd
+    sourceHandle: LosslessSplitter5-t4s-port-2
+    targetHandle: Duct10-rjd-port-0
     type: flow
     attributes:
-      label: e130
-      index: 130
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_132
-    source: Pipe_18
-    target: JunctionStaticP_2
-    sourceHandle: Pipe_18-port-1
-    targetHandle: JunctionStaticP_2-port-1
+      index: 28
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct10-rjdDuct10-rjd-port-1-LosslessSplitter6-psbLosslessSplitter6-psb-port-0
+    source: Duct10-rjd
+    target: LosslessSplitter6-psb
+    sourceHandle: Duct10-rjd-port-1
+    targetHandle: LosslessSplitter6-psb-port-0
     type: flow
     attributes:
-      label: e131
+      index: 46
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter6-psbLosslessSplitter6-psb-port-1-Orifice7-9p4Orifice7-9p4-port-0
+    source: LosslessSplitter6-psb
+    target: Orifice7-9p4
+    sourceHandle: LosslessSplitter6-psb-port-1
+    targetHandle: Orifice7-9p4-port-0
+    type: flow
+    attributes:
+      index: 65
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct11-tx4Duct11-tx4-port-1-JunctionStaticP6-4jpJunctionStaticP6-4jp-port-0
+    source: Duct11-tx4
+    target: JunctionStaticP6-4jp
+    sourceHandle: Duct11-tx4-port-1
+    targetHandle: JunctionStaticP6-4jp-port-0
+    type: flow
+    attributes:
+      index: 185
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter6-psbLosslessSplitter6-psb-port-2-Duct12-5vqDuct12-5vq-port-0
+    source: LosslessSplitter6-psb
+    target: Duct12-5vq
+    sourceHandle: LosslessSplitter6-psb-port-2
+    targetHandle: Duct12-5vq-port-0
+    type: flow
+    attributes:
+      index: 66
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct12-5vqDuct12-5vq-port-1-Orifice8-0k2Orifice8-0k2-port-0
+    source: Duct12-5vq
+    target: Orifice8-0k2
+    sourceHandle: Duct12-5vq-port-1
+    targetHandle: Orifice8-0k2-port-0
+    type: flow
+    attributes:
+      index: 98
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice8-0k2Orifice8-0k2-port-1-JunctionStaticP6-4jpJunctionStaticP6-4jp-port-1
+    source: Orifice8-0k2
+    target: JunctionStaticP6-4jp
+    sourceHandle: Orifice8-0k2-port-1
+    targetHandle: JunctionStaticP6-4jp-port-1
+    type: flow
+    attributes:
       index: 131
-      area: 0.0015
-      thermoModel: equilibrium
-  - id: edge_133
-    source: JunctionStaticP_1
-    target: ChokedNozzleOutlet_1
-    sourceHandle: JunctionStaticP_1-port-8
-    targetHandle: ChokedNozzleOutlet_1-port-0
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP6-4jpJunctionStaticP6-4jp-port-2-IsentropicAreaChange5-3qtIsentropicAreaChange5-3qt-port-0
+    source: JunctionStaticP6-4jp
+    target: IsentropicAreaChange5-3qt
+    sourceHandle: JunctionStaticP6-4jp-port-2
+    targetHandle: IsentropicAreaChange5-3qt-port-0
     type: flow
     attributes:
-      label: e132
+      index: 187
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP5-zjwJunctionStaticP5-zjw-port-3-Duct11-tx4Duct11-tx4-port-0
+    source: JunctionStaticP5-zjw
+    target: Duct11-tx4
+    sourceHandle: JunctionStaticP5-zjw-port-3
+    targetHandle: Duct11-tx4-port-0
+    type: flow
+    attributes:
+      index: 129
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct13-jozDuct13-joz-port-1-JunctionStaticP5-zjwJunctionStaticP5-zjw-port-2
+    source: Duct13-joz
+    target: JunctionStaticP5-zjw
+    sourceHandle: Duct13-joz-port-1
+    targetHandle: JunctionStaticP5-zjw-port-2
+    type: flow
+    attributes:
+      index: 130
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice9-whsOrifice9-whs-port-1-Duct13-jozDuct13-joz-port-0
+    source: Orifice9-whs
+    target: Duct13-joz
+    sourceHandle: Orifice9-whs-port-1
+    targetHandle: Duct13-joz-port-0
+    type: flow
+    attributes:
+      index: 186
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP5-zjwJunctionStaticP5-zjw-port-4-Orifice5-sviOrifice5-svi-port-0
+    source: JunctionStaticP5-zjw
+    target: Orifice5-svi
+    sourceHandle: JunctionStaticP5-zjw-port-4
+    targetHandle: Orifice5-svi-port-0
+    type: flow
+    attributes:
+      index: 123
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter7-pt7LosslessSplitter7-pt7-port-1-Orifice10-xxyOrifice10-xxy-port-0
+    source: LosslessSplitter7-pt7
+    target: Orifice10-xxy
+    sourceHandle: LosslessSplitter7-pt7-port-1
+    targetHandle: Orifice10-xxy-port-0
+    type: flow
+    attributes:
+      index: 67
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter7-pt7LosslessSplitter7-pt7-port-2-IsentropicAreaChange6-8rcIsentropicAreaChange6-8rc-port-0
+    source: LosslessSplitter7-pt7
+    target: IsentropicAreaChange6-8rc
+    sourceHandle: LosslessSplitter7-pt7-port-2
+    targetHandle: IsentropicAreaChange6-8rc-port-0
+    type: flow
+    attributes:
+      index: 68
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange6-8rcIsentropicAreaChange6-8rc-port-1-Pipe6-67ePipe6-67e-port-0
+    source: IsentropicAreaChange6-8rc
+    target: Pipe6-67e
+    sourceHandle: IsentropicAreaChange6-8rc-port-1
+    targetHandle: Pipe6-67e-port-0
+    type: flow
+    attributes:
+      index: 100
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe6-67ePipe6-67e-port-1-MassSource3-7vdMassSource3-7vd-port-0
+    source: Pipe6-67e
+    target: MassSource3-7vd
+    sourceHandle: Pipe6-67e-port-1
+    targetHandle: MassSource3-7vd-port-0
+    type: flow
+    attributes:
+      index: 133
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource3-7vdMassSource3-7vd-port-1-SuddenAreaChange4-1w0SuddenAreaChange4-1w0-port-0
+    source: MassSource3-7vd
+    target: SuddenAreaChange4-1w0
+    sourceHandle: MassSource3-7vd-port-1
+    targetHandle: SuddenAreaChange4-1w0-port-0
+    type: flow
+    attributes:
+      index: 190
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct14-bwcDuct14-bwc-port-1-EquilibriumFlame3-ef8EquilibriumFlame3-ef8-port-0
+    source: Duct14-bwc
+    target: EquilibriumFlame3-ef8
+    sourceHandle: Duct14-bwc-port-1
+    targetHandle: EquilibriumFlame3-ef8-port-0
+    type: flow
+    attributes:
+      index: 191
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange4-1w0SuddenAreaChange4-1w0-port-1-JunctionStaticP7-f5zJunctionStaticP7-f5z-port-1
+    source: SuddenAreaChange4-1w0
+    target: JunctionStaticP7-f5z
+    sourceHandle: SuddenAreaChange4-1w0-port-1
+    targetHandle: JunctionStaticP7-f5z-port-1
+    type: flow
+    attributes:
+      index: 188
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP7-f5zJunctionStaticP7-f5z-port-2-Duct14-bwcDuct14-bwc-port-0
+    source: JunctionStaticP7-f5z
+    target: Duct14-bwc
+    sourceHandle: JunctionStaticP7-f5z-port-2
+    targetHandle: Duct14-bwc-port-0
+    type: flow
+    attributes:
+      index: 189
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice10-xxyOrifice10-xxy-port-1-Duct15-nuaDuct15-nua-port-0
+    source: Orifice10-xxy
+    target: Duct15-nua
+    sourceHandle: Orifice10-xxy-port-1
+    targetHandle: Duct15-nua-port-0
+    type: flow
+    attributes:
+      index: 99
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct15-nuaDuct15-nua-port-1-JunctionStaticP7-f5zJunctionStaticP7-f5z-port-0
+    source: Duct15-nua
+    target: JunctionStaticP7-f5z
+    sourceHandle: Duct15-nua-port-1
+    targetHandle: JunctionStaticP7-f5z-port-0
+    type: flow
+    attributes:
       index: 132
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe7-fxaPipe7-fxa-port-1-LosslessSplitter7-pt7LosslessSplitter7-pt7-port-0
+    source: Pipe7-fxa
+    target: LosslessSplitter7-pt7
+    sourceHandle: Pipe7-fxa-port-1
+    targetHandle: LosslessSplitter7-pt7-port-0
+    type: flow
+    attributes:
+      index: 47
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice11-k1gOrifice11-k1g-port-1-JunctionStaticP8-p3zJunctionStaticP8-p3z-port-0
+    source: Orifice11-k1g
+    target: JunctionStaticP8-p3z
+    sourceHandle: Orifice11-k1g-port-1
+    targetHandle: JunctionStaticP8-p3z-port-0
+    type: flow
+    attributes:
+      index: 101
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame3-ef8EquilibriumFlame3-ef8-port-1-JunctionStaticP8-p3zJunctionStaticP8-p3z-port-1
+    source: EquilibriumFlame3-ef8
+    target: JunctionStaticP8-p3z
+    sourceHandle: EquilibriumFlame3-ef8-port-1
+    targetHandle: JunctionStaticP8-p3z-port-1
+    type: flow
+    attributes:
+      index: 134
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter8-vnbLosslessSplitter8-vnb-port-1-Pipe7-fxaPipe7-fxa-port-0
+    source: LosslessSplitter8-vnb
+    target: Pipe7-fxa
+    sourceHandle: LosslessSplitter8-vnb-port-1
+    targetHandle: Pipe7-fxa-port-0
+    type: flow
+    attributes:
+      index: 29
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter8-vnbLosslessSplitter8-vnb-port-2-Duct16-xtfDuct16-xtf-port-0
+    source: LosslessSplitter8-vnb
+    target: Duct16-xtf
+    sourceHandle: LosslessSplitter8-vnb-port-2
+    targetHandle: Duct16-xtf-port-0
+    type: flow
+    attributes:
+      index: 30
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct16-xtfDuct16-xtf-port-1-LosslessSplitter9-oshLosslessSplitter9-osh-port-0
+    source: Duct16-xtf
+    target: LosslessSplitter9-osh
+    sourceHandle: Duct16-xtf-port-1
+    targetHandle: LosslessSplitter9-osh-port-0
+    type: flow
+    attributes:
+      index: 48
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter9-oshLosslessSplitter9-osh-port-1-Orifice11-k1gOrifice11-k1g-port-0
+    source: LosslessSplitter9-osh
+    target: Orifice11-k1g
+    sourceHandle: LosslessSplitter9-osh-port-1
+    targetHandle: Orifice11-k1g-port-0
+    type: flow
+    attributes:
+      index: 69
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct17-57iDuct17-57i-port-1-JunctionStaticP9-cr6JunctionStaticP9-cr6-port-0
+    source: Duct17-57i
+    target: JunctionStaticP9-cr6
+    sourceHandle: Duct17-57i-port-1
+    targetHandle: JunctionStaticP9-cr6-port-0
+    type: flow
+    attributes:
+      index: 192
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter9-oshLosslessSplitter9-osh-port-2-Duct18-aiiDuct18-aii-port-0
+    source: LosslessSplitter9-osh
+    target: Duct18-aii
+    sourceHandle: LosslessSplitter9-osh-port-2
+    targetHandle: Duct18-aii-port-0
+    type: flow
+    attributes:
+      index: 70
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct18-aiiDuct18-aii-port-1-Orifice12-wthOrifice12-wth-port-0
+    source: Duct18-aii
+    target: Orifice12-wth
+    sourceHandle: Duct18-aii-port-1
+    targetHandle: Orifice12-wth-port-0
+    type: flow
+    attributes:
+      index: 102
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice12-wthOrifice12-wth-port-1-JunctionStaticP9-cr6JunctionStaticP9-cr6-port-1
+    source: Orifice12-wth
+    target: JunctionStaticP9-cr6
+    sourceHandle: Orifice12-wth-port-1
+    targetHandle: JunctionStaticP9-cr6-port-1
+    type: flow
+    attributes:
+      index: 138
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP9-cr6JunctionStaticP9-cr6-port-2-IsentropicAreaChange7-ymgIsentropicAreaChange7-ymg-port-0
+    source: JunctionStaticP9-cr6
+    target: IsentropicAreaChange7-ymg
+    sourceHandle: JunctionStaticP9-cr6-port-2
+    targetHandle: IsentropicAreaChange7-ymg-port-0
+    type: flow
+    attributes:
+      index: 194
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP8-p3zJunctionStaticP8-p3z-port-3-Duct17-57iDuct17-57i-port-0
+    source: JunctionStaticP8-p3z
+    target: Duct17-57i
+    sourceHandle: JunctionStaticP8-p3z-port-3
+    targetHandle: Duct17-57i-port-0
+    type: flow
+    attributes:
+      index: 135
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct19-npoDuct19-npo-port-1-JunctionStaticP8-p3zJunctionStaticP8-p3z-port-2
+    source: Duct19-npo
+    target: JunctionStaticP8-p3z
+    sourceHandle: Duct19-npo-port-1
+    targetHandle: JunctionStaticP8-p3z-port-2
+    type: flow
+    attributes:
+      index: 136
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice13-dzvOrifice13-dzv-port-1-Duct19-npoDuct19-npo-port-0
+    source: Orifice13-dzv
+    target: Duct19-npo
+    sourceHandle: Orifice13-dzv-port-1
+    targetHandle: Duct19-npo-port-0
+    type: flow
+    attributes:
+      index: 193
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter10-jqrLosslessSplitter10-jqr-port-1-Orifice14-tpmOrifice14-tpm-port-0
+    source: LosslessSplitter10-jqr
+    target: Orifice14-tpm
+    sourceHandle: LosslessSplitter10-jqr-port-1
+    targetHandle: Orifice14-tpm-port-0
+    type: flow
+    attributes:
+      index: 71
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter10-jqrLosslessSplitter10-jqr-port-2-IsentropicAreaChange8-utuIsentropicAreaChange8-utu-port-0
+    source: LosslessSplitter10-jqr
+    target: IsentropicAreaChange8-utu
+    sourceHandle: LosslessSplitter10-jqr-port-2
+    targetHandle: IsentropicAreaChange8-utu-port-0
+    type: flow
+    attributes:
+      index: 72
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange8-utuIsentropicAreaChange8-utu-port-1-Pipe8-786Pipe8-786-port-0
+    source: IsentropicAreaChange8-utu
+    target: Pipe8-786
+    sourceHandle: IsentropicAreaChange8-utu-port-1
+    targetHandle: Pipe8-786-port-0
+    type: flow
+    attributes:
+      index: 104
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe8-786Pipe8-786-port-1-MassSource4-hloMassSource4-hlo-port-0
+    source: Pipe8-786
+    target: MassSource4-hlo
+    sourceHandle: Pipe8-786-port-1
+    targetHandle: MassSource4-hlo-port-0
+    type: flow
+    attributes:
+      index: 140
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource4-hloMassSource4-hlo-port-1-SuddenAreaChange5-p4cSuddenAreaChange5-p4c-port-0
+    source: MassSource4-hlo
+    target: SuddenAreaChange5-p4c
+    sourceHandle: MassSource4-hlo-port-1
+    targetHandle: SuddenAreaChange5-p4c-port-0
+    type: flow
+    attributes:
+      index: 197
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct20-x1dDuct20-x1d-port-1-EquilibriumFlame4-kr5EquilibriumFlame4-kr5-port-0
+    source: Duct20-x1d
+    target: EquilibriumFlame4-kr5
+    sourceHandle: Duct20-x1d-port-1
+    targetHandle: EquilibriumFlame4-kr5-port-0
+    type: flow
+    attributes:
+      index: 198
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange5-p4cSuddenAreaChange5-p4c-port-1-JunctionStaticP10-x3kJunctionStaticP10-x3k-port-1
+    source: SuddenAreaChange5-p4c
+    target: JunctionStaticP10-x3k
+    sourceHandle: SuddenAreaChange5-p4c-port-1
+    targetHandle: JunctionStaticP10-x3k-port-1
+    type: flow
+    attributes:
+      index: 195
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP10-x3kJunctionStaticP10-x3k-port-2-Duct20-x1dDuct20-x1d-port-0
+    source: JunctionStaticP10-x3k
+    target: Duct20-x1d
+    sourceHandle: JunctionStaticP10-x3k-port-2
+    targetHandle: Duct20-x1d-port-0
+    type: flow
+    attributes:
+      index: 196
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice14-tpmOrifice14-tpm-port-1-Duct21-jfpDuct21-jfp-port-0
+    source: Orifice14-tpm
+    target: Duct21-jfp
+    sourceHandle: Orifice14-tpm-port-1
+    targetHandle: Duct21-jfp-port-0
+    type: flow
+    attributes:
+      index: 103
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct21-jfpDuct21-jfp-port-1-JunctionStaticP10-x3kJunctionStaticP10-x3k-port-0
+    source: Duct21-jfp
+    target: JunctionStaticP10-x3k
+    sourceHandle: Duct21-jfp-port-1
+    targetHandle: JunctionStaticP10-x3k-port-0
+    type: flow
+    attributes:
+      index: 139
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe9-3gzPipe9-3gz-port-1-LosslessSplitter10-jqrLosslessSplitter10-jqr-port-0
+    source: Pipe9-3gz
+    target: LosslessSplitter10-jqr
+    sourceHandle: Pipe9-3gz-port-1
+    targetHandle: LosslessSplitter10-jqr-port-0
+    type: flow
+    attributes:
+      index: 49
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice15-l6bOrifice15-l6b-port-1-JunctionStaticP11-d9pJunctionStaticP11-d9p-port-0
+    source: Orifice15-l6b
+    target: JunctionStaticP11-d9p
+    sourceHandle: Orifice15-l6b-port-1
+    targetHandle: JunctionStaticP11-d9p-port-0
+    type: flow
+    attributes:
+      index: 105
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame4-kr5EquilibriumFlame4-kr5-port-1-JunctionStaticP11-d9pJunctionStaticP11-d9p-port-1
+    source: EquilibriumFlame4-kr5
+    target: JunctionStaticP11-d9p
+    sourceHandle: EquilibriumFlame4-kr5-port-1
+    targetHandle: JunctionStaticP11-d9p-port-1
+    type: flow
+    attributes:
+      index: 141
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter11-pnxLosslessSplitter11-pnx-port-1-Pipe9-3gzPipe9-3gz-port-0
+    source: LosslessSplitter11-pnx
+    target: Pipe9-3gz
+    sourceHandle: LosslessSplitter11-pnx-port-1
+    targetHandle: Pipe9-3gz-port-0
+    type: flow
+    attributes:
+      index: 32
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter11-pnxLosslessSplitter11-pnx-port-2-Duct22-4y0Duct22-4y0-port-0
+    source: LosslessSplitter11-pnx
+    target: Duct22-4y0
+    sourceHandle: LosslessSplitter11-pnx-port-2
+    targetHandle: Duct22-4y0-port-0
+    type: flow
+    attributes:
+      index: 33
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct22-4y0Duct22-4y0-port-1-LosslessSplitter12-cyqLosslessSplitter12-cyq-port-0
+    source: Duct22-4y0
+    target: LosslessSplitter12-cyq
+    sourceHandle: Duct22-4y0-port-1
+    targetHandle: LosslessSplitter12-cyq-port-0
+    type: flow
+    attributes:
+      index: 50
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter12-cyqLosslessSplitter12-cyq-port-1-Orifice15-l6bOrifice15-l6b-port-0
+    source: LosslessSplitter12-cyq
+    target: Orifice15-l6b
+    sourceHandle: LosslessSplitter12-cyq-port-1
+    targetHandle: Orifice15-l6b-port-0
+    type: flow
+    attributes:
+      index: 73
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct23-v05Duct23-v05-port-1-JunctionStaticP12-nskJunctionStaticP12-nsk-port-0
+    source: Duct23-v05
+    target: JunctionStaticP12-nsk
+    sourceHandle: Duct23-v05-port-1
+    targetHandle: JunctionStaticP12-nsk-port-0
+    type: flow
+    attributes:
+      index: 199
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter12-cyqLosslessSplitter12-cyq-port-2-Duct24-rvdDuct24-rvd-port-0
+    source: LosslessSplitter12-cyq
+    target: Duct24-rvd
+    sourceHandle: LosslessSplitter12-cyq-port-2
+    targetHandle: Duct24-rvd-port-0
+    type: flow
+    attributes:
+      index: 74
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct24-rvdDuct24-rvd-port-1-Orifice16-v46Orifice16-v46-port-0
+    source: Duct24-rvd
+    target: Orifice16-v46
+    sourceHandle: Duct24-rvd-port-1
+    targetHandle: Orifice16-v46-port-0
+    type: flow
+    attributes:
+      index: 106
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice16-v46Orifice16-v46-port-1-JunctionStaticP12-nskJunctionStaticP12-nsk-port-1
+    source: Orifice16-v46
+    target: JunctionStaticP12-nsk
+    sourceHandle: Orifice16-v46-port-1
+    targetHandle: JunctionStaticP12-nsk-port-1
+    type: flow
+    attributes:
+      index: 145
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP12-nskJunctionStaticP12-nsk-port-2-IsentropicAreaChange9-o26IsentropicAreaChange9-o26-port-0
+    source: JunctionStaticP12-nsk
+    target: IsentropicAreaChange9-o26
+    sourceHandle: JunctionStaticP12-nsk-port-2
+    targetHandle: IsentropicAreaChange9-o26-port-0
+    type: flow
+    attributes:
+      index: 201
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP11-d9pJunctionStaticP11-d9p-port-3-Duct23-v05Duct23-v05-port-0
+    source: JunctionStaticP11-d9p
+    target: Duct23-v05
+    sourceHandle: JunctionStaticP11-d9p-port-3
+    targetHandle: Duct23-v05-port-0
+    type: flow
+    attributes:
+      index: 142
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct25-y7eDuct25-y7e-port-1-JunctionStaticP11-d9pJunctionStaticP11-d9p-port-2
+    source: Duct25-y7e
+    target: JunctionStaticP11-d9p
+    sourceHandle: Duct25-y7e-port-1
+    targetHandle: JunctionStaticP11-d9p-port-2
+    type: flow
+    attributes:
+      index: 143
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice17-ch2Orifice17-ch2-port-1-Duct25-y7eDuct25-y7e-port-0
+    source: Orifice17-ch2
+    target: Duct25-y7e
+    sourceHandle: Orifice17-ch2-port-1
+    targetHandle: Duct25-y7e-port-0
+    type: flow
+    attributes:
+      index: 200
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP11-d9pJunctionStaticP11-d9p-port-4-Orifice13-dzvOrifice13-dzv-port-0
+    source: JunctionStaticP11-d9p
+    target: Orifice13-dzv
+    sourceHandle: JunctionStaticP11-d9p-port-4
+    targetHandle: Orifice13-dzv-port-0
+    type: flow
+    attributes:
+      index: 144
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP8-p3zJunctionStaticP8-p3z-port-4-Orifice9-whsOrifice9-whs-port-0
+    source: JunctionStaticP8-p3z
+    target: Orifice9-whs
+    sourceHandle: JunctionStaticP8-p3z-port-4
+    targetHandle: Orifice9-whs-port-0
+    type: flow
+    attributes:
+      index: 137
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter13-4idLosslessSplitter13-4id-port-1-Orifice18-3aeOrifice18-3ae-port-0
+    source: LosslessSplitter13-4id
+    target: Orifice18-3ae
+    sourceHandle: LosslessSplitter13-4id-port-1
+    targetHandle: Orifice18-3ae-port-0
+    type: flow
+    attributes:
+      index: 75
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter13-4idLosslessSplitter13-4id-port-2-IsentropicAreaChange10-x2cIsentropicAreaChange10-x2c-port-0
+    source: LosslessSplitter13-4id
+    target: IsentropicAreaChange10-x2c
+    sourceHandle: LosslessSplitter13-4id-port-2
+    targetHandle: IsentropicAreaChange10-x2c-port-0
+    type: flow
+    attributes:
+      index: 76
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange10-x2cIsentropicAreaChange10-x2c-port-1-Pipe10-wurPipe10-wur-port-0
+    source: IsentropicAreaChange10-x2c
+    target: Pipe10-wur
+    sourceHandle: IsentropicAreaChange10-x2c-port-1
+    targetHandle: Pipe10-wur-port-0
+    type: flow
+    attributes:
+      index: 108
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe10-wurPipe10-wur-port-1-MassSource5-m0cMassSource5-m0c-port-0
+    source: Pipe10-wur
+    target: MassSource5-m0c
+    sourceHandle: Pipe10-wur-port-1
+    targetHandle: MassSource5-m0c-port-0
+    type: flow
+    attributes:
+      index: 147
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource5-m0cMassSource5-m0c-port-1-SuddenAreaChange6-d0nSuddenAreaChange6-d0n-port-0
+    source: MassSource5-m0c
+    target: SuddenAreaChange6-d0n
+    sourceHandle: MassSource5-m0c-port-1
+    targetHandle: SuddenAreaChange6-d0n-port-0
+    type: flow
+    attributes:
+      index: 204
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct26-lt5Duct26-lt5-port-1-EquilibriumFlame5-ytuEquilibriumFlame5-ytu-port-0
+    source: Duct26-lt5
+    target: EquilibriumFlame5-ytu
+    sourceHandle: Duct26-lt5-port-1
+    targetHandle: EquilibriumFlame5-ytu-port-0
+    type: flow
+    attributes:
+      index: 205
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange6-d0nSuddenAreaChange6-d0n-port-1-JunctionStaticP13-pmkJunctionStaticP13-pmk-port-1
+    source: SuddenAreaChange6-d0n
+    target: JunctionStaticP13-pmk
+    sourceHandle: SuddenAreaChange6-d0n-port-1
+    targetHandle: JunctionStaticP13-pmk-port-1
+    type: flow
+    attributes:
+      index: 202
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP13-pmkJunctionStaticP13-pmk-port-2-Duct26-lt5Duct26-lt5-port-0
+    source: JunctionStaticP13-pmk
+    target: Duct26-lt5
+    sourceHandle: JunctionStaticP13-pmk-port-2
+    targetHandle: Duct26-lt5-port-0
+    type: flow
+    attributes:
+      index: 203
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice18-3aeOrifice18-3ae-port-1-Duct27-6mbDuct27-6mb-port-0
+    source: Orifice18-3ae
+    target: Duct27-6mb
+    sourceHandle: Orifice18-3ae-port-1
+    targetHandle: Duct27-6mb-port-0
+    type: flow
+    attributes:
+      index: 107
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct27-6mbDuct27-6mb-port-1-JunctionStaticP13-pmkJunctionStaticP13-pmk-port-0
+    source: Duct27-6mb
+    target: JunctionStaticP13-pmk
+    sourceHandle: Duct27-6mb-port-1
+    targetHandle: JunctionStaticP13-pmk-port-0
+    type: flow
+    attributes:
+      index: 146
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe11-szePipe11-sze-port-1-LosslessSplitter13-4idLosslessSplitter13-4id-port-0
+    source: Pipe11-sze
+    target: LosslessSplitter13-4id
+    sourceHandle: Pipe11-sze-port-1
+    targetHandle: LosslessSplitter13-4id-port-0
+    type: flow
+    attributes:
+      index: 51
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice19-tl1Orifice19-tl1-port-1-JunctionStaticP14-bg3JunctionStaticP14-bg3-port-0
+    source: Orifice19-tl1
+    target: JunctionStaticP14-bg3
+    sourceHandle: Orifice19-tl1-port-1
+    targetHandle: JunctionStaticP14-bg3-port-0
+    type: flow
+    attributes:
+      index: 109
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame5-ytuEquilibriumFlame5-ytu-port-1-JunctionStaticP14-bg3JunctionStaticP14-bg3-port-1
+    source: EquilibriumFlame5-ytu
+    target: JunctionStaticP14-bg3
+    sourceHandle: EquilibriumFlame5-ytu-port-1
+    targetHandle: JunctionStaticP14-bg3-port-1
+    type: flow
+    attributes:
+      index: 148
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter14-2obLosslessSplitter14-2ob-port-1-Pipe11-szePipe11-sze-port-0
+    source: LosslessSplitter14-2ob
+    target: Pipe11-sze
+    sourceHandle: LosslessSplitter14-2ob-port-1
+    targetHandle: Pipe11-sze-port-0
+    type: flow
+    attributes:
+      index: 34
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter14-2obLosslessSplitter14-2ob-port-2-Duct28-fy2Duct28-fy2-port-0
+    source: LosslessSplitter14-2ob
+    target: Duct28-fy2
+    sourceHandle: LosslessSplitter14-2ob-port-2
+    targetHandle: Duct28-fy2-port-0
+    type: flow
+    attributes:
+      index: 35
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct28-fy2Duct28-fy2-port-1-LosslessSplitter15-sb8LosslessSplitter15-sb8-port-0
+    source: Duct28-fy2
+    target: LosslessSplitter15-sb8
+    sourceHandle: Duct28-fy2-port-1
+    targetHandle: LosslessSplitter15-sb8-port-0
+    type: flow
+    attributes:
+      index: 52
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter15-sb8LosslessSplitter15-sb8-port-1-Orifice19-tl1Orifice19-tl1-port-0
+    source: LosslessSplitter15-sb8
+    target: Orifice19-tl1
+    sourceHandle: LosslessSplitter15-sb8-port-1
+    targetHandle: Orifice19-tl1-port-0
+    type: flow
+    attributes:
+      index: 77
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct29-13cDuct29-13c-port-1-JunctionStaticP15-zttJunctionStaticP15-ztt-port-0
+    source: Duct29-13c
+    target: JunctionStaticP15-ztt
+    sourceHandle: Duct29-13c-port-1
+    targetHandle: JunctionStaticP15-ztt-port-0
+    type: flow
+    attributes:
+      index: 206
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter15-sb8LosslessSplitter15-sb8-port-2-Duct30-uhmDuct30-uhm-port-0
+    source: LosslessSplitter15-sb8
+    target: Duct30-uhm
+    sourceHandle: LosslessSplitter15-sb8-port-2
+    targetHandle: Duct30-uhm-port-0
+    type: flow
+    attributes:
+      index: 78
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct30-uhmDuct30-uhm-port-1-Orifice20-09nOrifice20-09n-port-0
+    source: Duct30-uhm
+    target: Orifice20-09n
+    sourceHandle: Duct30-uhm-port-1
+    targetHandle: Orifice20-09n-port-0
+    type: flow
+    attributes:
+      index: 110
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice20-09nOrifice20-09n-port-1-JunctionStaticP15-zttJunctionStaticP15-ztt-port-1
+    source: Orifice20-09n
+    target: JunctionStaticP15-ztt
+    sourceHandle: Orifice20-09n-port-1
+    targetHandle: JunctionStaticP15-ztt-port-1
+    type: flow
+    attributes:
+      index: 152
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP15-zttJunctionStaticP15-ztt-port-2-IsentropicAreaChange11-h3kIsentropicAreaChange11-h3k-port-0
+    source: JunctionStaticP15-ztt
+    target: IsentropicAreaChange11-h3k
+    sourceHandle: JunctionStaticP15-ztt-port-2
+    targetHandle: IsentropicAreaChange11-h3k-port-0
+    type: flow
+    attributes:
+      index: 208
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP14-bg3JunctionStaticP14-bg3-port-3-Duct29-13cDuct29-13c-port-0
+    source: JunctionStaticP14-bg3
+    target: Duct29-13c
+    sourceHandle: JunctionStaticP14-bg3-port-3
+    targetHandle: Duct29-13c-port-0
+    type: flow
+    attributes:
+      index: 149
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct31-1zsDuct31-1zs-port-1-JunctionStaticP14-bg3JunctionStaticP14-bg3-port-2
+    source: Duct31-1zs
+    target: JunctionStaticP14-bg3
+    sourceHandle: Duct31-1zs-port-1
+    targetHandle: JunctionStaticP14-bg3-port-2
+    type: flow
+    attributes:
+      index: 150
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice21-z14Orifice21-z14-port-1-Duct31-1zsDuct31-1zs-port-0
+    source: Orifice21-z14
+    target: Duct31-1zs
+    sourceHandle: Orifice21-z14-port-1
+    targetHandle: Duct31-1zs-port-0
+    type: flow
+    attributes:
+      index: 207
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter16-ngmLosslessSplitter16-ngm-port-1-Orifice22-a8oOrifice22-a8o-port-0
+    source: LosslessSplitter16-ngm
+    target: Orifice22-a8o
+    sourceHandle: LosslessSplitter16-ngm-port-1
+    targetHandle: Orifice22-a8o-port-0
+    type: flow
+    attributes:
+      index: 79
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter16-ngmLosslessSplitter16-ngm-port-2-IsentropicAreaChange12-i3qIsentropicAreaChange12-i3q-port-0
+    source: LosslessSplitter16-ngm
+    target: IsentropicAreaChange12-i3q
+    sourceHandle: LosslessSplitter16-ngm-port-2
+    targetHandle: IsentropicAreaChange12-i3q-port-0
+    type: flow
+    attributes:
+      index: 80
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange12-i3qIsentropicAreaChange12-i3q-port-1-Pipe12-tc8Pipe12-tc8-port-0
+    source: IsentropicAreaChange12-i3q
+    target: Pipe12-tc8
+    sourceHandle: IsentropicAreaChange12-i3q-port-1
+    targetHandle: Pipe12-tc8-port-0
+    type: flow
+    attributes:
+      index: 112
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe12-tc8Pipe12-tc8-port-1-MassSource6-99lMassSource6-99l-port-0
+    source: Pipe12-tc8
+    target: MassSource6-99l
+    sourceHandle: Pipe12-tc8-port-1
+    targetHandle: MassSource6-99l-port-0
+    type: flow
+    attributes:
+      index: 154
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource6-99lMassSource6-99l-port-1-SuddenAreaChange7-h5pSuddenAreaChange7-h5p-port-0
+    source: MassSource6-99l
+    target: SuddenAreaChange7-h5p
+    sourceHandle: MassSource6-99l-port-1
+    targetHandle: SuddenAreaChange7-h5p-port-0
+    type: flow
+    attributes:
+      index: 211
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct32-69kDuct32-69k-port-1-EquilibriumFlame6-ne7EquilibriumFlame6-ne7-port-0
+    source: Duct32-69k
+    target: EquilibriumFlame6-ne7
+    sourceHandle: Duct32-69k-port-1
+    targetHandle: EquilibriumFlame6-ne7-port-0
+    type: flow
+    attributes:
+      index: 212
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange7-h5pSuddenAreaChange7-h5p-port-1-JunctionStaticP16-6fdJunctionStaticP16-6fd-port-1
+    source: SuddenAreaChange7-h5p
+    target: JunctionStaticP16-6fd
+    sourceHandle: SuddenAreaChange7-h5p-port-1
+    targetHandle: JunctionStaticP16-6fd-port-1
+    type: flow
+    attributes:
+      index: 209
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP16-6fdJunctionStaticP16-6fd-port-2-Duct32-69kDuct32-69k-port-0
+    source: JunctionStaticP16-6fd
+    target: Duct32-69k
+    sourceHandle: JunctionStaticP16-6fd-port-2
+    targetHandle: Duct32-69k-port-0
+    type: flow
+    attributes:
+      index: 210
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice22-a8oOrifice22-a8o-port-1-Duct33-pmeDuct33-pme-port-0
+    source: Orifice22-a8o
+    target: Duct33-pme
+    sourceHandle: Orifice22-a8o-port-1
+    targetHandle: Duct33-pme-port-0
+    type: flow
+    attributes:
+      index: 111
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct33-pmeDuct33-pme-port-1-JunctionStaticP16-6fdJunctionStaticP16-6fd-port-0
+    source: Duct33-pme
+    target: JunctionStaticP16-6fd
+    sourceHandle: Duct33-pme-port-1
+    targetHandle: JunctionStaticP16-6fd-port-0
+    type: flow
+    attributes:
+      index: 153
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe13-52nPipe13-52n-port-1-LosslessSplitter16-ngmLosslessSplitter16-ngm-port-0
+    source: Pipe13-52n
+    target: LosslessSplitter16-ngm
+    sourceHandle: Pipe13-52n-port-1
+    targetHandle: LosslessSplitter16-ngm-port-0
+    type: flow
+    attributes:
+      index: 53
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice23-yn0Orifice23-yn0-port-1-JunctionStaticP17-cxiJunctionStaticP17-cxi-port-0
+    source: Orifice23-yn0
+    target: JunctionStaticP17-cxi
+    sourceHandle: Orifice23-yn0-port-1
+    targetHandle: JunctionStaticP17-cxi-port-0
+    type: flow
+    attributes:
+      index: 113
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame6-ne7EquilibriumFlame6-ne7-port-1-JunctionStaticP17-cxiJunctionStaticP17-cxi-port-1
+    source: EquilibriumFlame6-ne7
+    target: JunctionStaticP17-cxi
+    sourceHandle: EquilibriumFlame6-ne7-port-1
+    targetHandle: JunctionStaticP17-cxi-port-1
+    type: flow
+    attributes:
+      index: 155
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter17-ljjLosslessSplitter17-ljj-port-1-Pipe13-52nPipe13-52n-port-0
+    source: LosslessSplitter17-ljj
+    target: Pipe13-52n
+    sourceHandle: LosslessSplitter17-ljj-port-1
+    targetHandle: Pipe13-52n-port-0
+    type: flow
+    attributes:
+      index: 36
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter17-ljjLosslessSplitter17-ljj-port-2-Duct34-11hDuct34-11h-port-0
+    source: LosslessSplitter17-ljj
+    target: Duct34-11h
+    sourceHandle: LosslessSplitter17-ljj-port-2
+    targetHandle: Duct34-11h-port-0
+    type: flow
+    attributes:
+      index: 37
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct34-11hDuct34-11h-port-1-LosslessSplitter18-ek4LosslessSplitter18-ek4-port-0
+    source: Duct34-11h
+    target: LosslessSplitter18-ek4
+    sourceHandle: Duct34-11h-port-1
+    targetHandle: LosslessSplitter18-ek4-port-0
+    type: flow
+    attributes:
+      index: 54
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter18-ek4LosslessSplitter18-ek4-port-1-Orifice23-yn0Orifice23-yn0-port-0
+    source: LosslessSplitter18-ek4
+    target: Orifice23-yn0
+    sourceHandle: LosslessSplitter18-ek4-port-1
+    targetHandle: Orifice23-yn0-port-0
+    type: flow
+    attributes:
+      index: 81
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct35-sz9Duct35-sz9-port-1-JunctionStaticP18-ordJunctionStaticP18-ord-port-0
+    source: Duct35-sz9
+    target: JunctionStaticP18-ord
+    sourceHandle: Duct35-sz9-port-1
+    targetHandle: JunctionStaticP18-ord-port-0
+    type: flow
+    attributes:
+      index: 213
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter18-ek4LosslessSplitter18-ek4-port-2-Duct36-igsDuct36-igs-port-0
+    source: LosslessSplitter18-ek4
+    target: Duct36-igs
+    sourceHandle: LosslessSplitter18-ek4-port-2
+    targetHandle: Duct36-igs-port-0
+    type: flow
+    attributes:
+      index: 82
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct36-igsDuct36-igs-port-1-Orifice24-31bOrifice24-31b-port-0
+    source: Duct36-igs
+    target: Orifice24-31b
+    sourceHandle: Duct36-igs-port-1
+    targetHandle: Orifice24-31b-port-0
+    type: flow
+    attributes:
+      index: 114
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice24-31bOrifice24-31b-port-1-JunctionStaticP18-ordJunctionStaticP18-ord-port-1
+    source: Orifice24-31b
+    target: JunctionStaticP18-ord
+    sourceHandle: Orifice24-31b-port-1
+    targetHandle: JunctionStaticP18-ord-port-1
+    type: flow
+    attributes:
+      index: 159
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP18-ordJunctionStaticP18-ord-port-2-IsentropicAreaChange13-hqbIsentropicAreaChange13-hqb-port-0
+    source: JunctionStaticP18-ord
+    target: IsentropicAreaChange13-hqb
+    sourceHandle: JunctionStaticP18-ord-port-2
+    targetHandle: IsentropicAreaChange13-hqb-port-0
+    type: flow
+    attributes:
+      index: 215
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP17-cxiJunctionStaticP17-cxi-port-3-Duct35-sz9Duct35-sz9-port-0
+    source: JunctionStaticP17-cxi
+    target: Duct35-sz9
+    sourceHandle: JunctionStaticP17-cxi-port-3
+    targetHandle: Duct35-sz9-port-0
+    type: flow
+    attributes:
+      index: 156
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct37-ltuDuct37-ltu-port-1-JunctionStaticP17-cxiJunctionStaticP17-cxi-port-2
+    source: Duct37-ltu
+    target: JunctionStaticP17-cxi
+    sourceHandle: Duct37-ltu-port-1
+    targetHandle: JunctionStaticP17-cxi-port-2
+    type: flow
+    attributes:
+      index: 157
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice25-l8dOrifice25-l8d-port-1-Duct37-ltuDuct37-ltu-port-0
+    source: Orifice25-l8d
+    target: Duct37-ltu
+    sourceHandle: Orifice25-l8d-port-1
+    targetHandle: Duct37-ltu-port-0
+    type: flow
+    attributes:
+      index: 214
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP17-cxiJunctionStaticP17-cxi-port-4-Orifice21-z14Orifice21-z14-port-0
+    source: JunctionStaticP17-cxi
+    target: Orifice21-z14
+    sourceHandle: JunctionStaticP17-cxi-port-4
+    targetHandle: Orifice21-z14-port-0
+    type: flow
+    attributes:
+      index: 158
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter19-p2iLosslessSplitter19-p2i-port-1-Orifice26-32dOrifice26-32d-port-0
+    source: LosslessSplitter19-p2i
+    target: Orifice26-32d
+    sourceHandle: LosslessSplitter19-p2i-port-1
+    targetHandle: Orifice26-32d-port-0
+    type: flow
+    attributes:
+      index: 83
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter19-p2iLosslessSplitter19-p2i-port-2-IsentropicAreaChange14-d01IsentropicAreaChange14-d01-port-0
+    source: LosslessSplitter19-p2i
+    target: IsentropicAreaChange14-d01
+    sourceHandle: LosslessSplitter19-p2i-port-2
+    targetHandle: IsentropicAreaChange14-d01-port-0
+    type: flow
+    attributes:
+      index: 84
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange14-d01IsentropicAreaChange14-d01-port-1-Pipe14-yxaPipe14-yxa-port-0
+    source: IsentropicAreaChange14-d01
+    target: Pipe14-yxa
+    sourceHandle: IsentropicAreaChange14-d01-port-1
+    targetHandle: Pipe14-yxa-port-0
+    type: flow
+    attributes:
+      index: 116
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe14-yxaPipe14-yxa-port-1-MassSource7-o13MassSource7-o13-port-0
+    source: Pipe14-yxa
+    target: MassSource7-o13
+    sourceHandle: Pipe14-yxa-port-1
+    targetHandle: MassSource7-o13-port-0
+    type: flow
+    attributes:
+      index: 161
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource7-o13MassSource7-o13-port-1-SuddenAreaChange8-z8iSuddenAreaChange8-z8i-port-0
+    source: MassSource7-o13
+    target: SuddenAreaChange8-z8i
+    sourceHandle: MassSource7-o13-port-1
+    targetHandle: SuddenAreaChange8-z8i-port-0
+    type: flow
+    attributes:
+      index: 218
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct38-ct9Duct38-ct9-port-1-EquilibriumFlame7-zpeEquilibriumFlame7-zpe-port-0
+    source: Duct38-ct9
+    target: EquilibriumFlame7-zpe
+    sourceHandle: Duct38-ct9-port-1
+    targetHandle: EquilibriumFlame7-zpe-port-0
+    type: flow
+    attributes:
+      index: 219
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange8-z8iSuddenAreaChange8-z8i-port-1-JunctionStaticP19-5n7JunctionStaticP19-5n7-port-1
+    source: SuddenAreaChange8-z8i
+    target: JunctionStaticP19-5n7
+    sourceHandle: SuddenAreaChange8-z8i-port-1
+    targetHandle: JunctionStaticP19-5n7-port-1
+    type: flow
+    attributes:
+      index: 216
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP19-5n7JunctionStaticP19-5n7-port-2-Duct38-ct9Duct38-ct9-port-0
+    source: JunctionStaticP19-5n7
+    target: Duct38-ct9
+    sourceHandle: JunctionStaticP19-5n7-port-2
+    targetHandle: Duct38-ct9-port-0
+    type: flow
+    attributes:
+      index: 217
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice26-32dOrifice26-32d-port-1-Duct39-1o4Duct39-1o4-port-0
+    source: Orifice26-32d
+    target: Duct39-1o4
+    sourceHandle: Orifice26-32d-port-1
+    targetHandle: Duct39-1o4-port-0
+    type: flow
+    attributes:
+      index: 115
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct39-1o4Duct39-1o4-port-1-JunctionStaticP19-5n7JunctionStaticP19-5n7-port-0
+    source: Duct39-1o4
+    target: JunctionStaticP19-5n7
+    sourceHandle: Duct39-1o4-port-1
+    targetHandle: JunctionStaticP19-5n7-port-0
+    type: flow
+    attributes:
+      index: 160
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe15-9tqPipe15-9tq-port-1-LosslessSplitter19-p2iLosslessSplitter19-p2i-port-0
+    source: Pipe15-9tq
+    target: LosslessSplitter19-p2i
+    sourceHandle: Pipe15-9tq-port-1
+    targetHandle: LosslessSplitter19-p2i-port-0
+    type: flow
+    attributes:
+      index: 55
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice27-eh1Orifice27-eh1-port-1-JunctionStaticP20-1bvJunctionStaticP20-1bv-port-0
+    source: Orifice27-eh1
+    target: JunctionStaticP20-1bv
+    sourceHandle: Orifice27-eh1-port-1
+    targetHandle: JunctionStaticP20-1bv-port-0
+    type: flow
+    attributes:
+      index: 117
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame7-zpeEquilibriumFlame7-zpe-port-1-JunctionStaticP20-1bvJunctionStaticP20-1bv-port-1
+    source: EquilibriumFlame7-zpe
+    target: JunctionStaticP20-1bv
+    sourceHandle: EquilibriumFlame7-zpe-port-1
+    targetHandle: JunctionStaticP20-1bv-port-1
+    type: flow
+    attributes:
+      index: 162
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter20-w5bLosslessSplitter20-w5b-port-1-Pipe15-9tqPipe15-9tq-port-0
+    source: LosslessSplitter20-w5b
+    target: Pipe15-9tq
+    sourceHandle: LosslessSplitter20-w5b-port-1
+    targetHandle: Pipe15-9tq-port-0
+    type: flow
+    attributes:
+      index: 38
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter20-w5bLosslessSplitter20-w5b-port-2-Duct40-bweDuct40-bwe-port-0
+    source: LosslessSplitter20-w5b
+    target: Duct40-bwe
+    sourceHandle: LosslessSplitter20-w5b-port-2
+    targetHandle: Duct40-bwe-port-0
+    type: flow
+    attributes:
+      index: 39
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct40-bweDuct40-bwe-port-1-LosslessSplitter21-qw8LosslessSplitter21-qw8-port-0
+    source: Duct40-bwe
+    target: LosslessSplitter21-qw8
+    sourceHandle: Duct40-bwe-port-1
+    targetHandle: LosslessSplitter21-qw8-port-0
+    type: flow
+    attributes:
+      index: 56
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter21-qw8LosslessSplitter21-qw8-port-1-Orifice27-eh1Orifice27-eh1-port-0
+    source: LosslessSplitter21-qw8
+    target: Orifice27-eh1
+    sourceHandle: LosslessSplitter21-qw8-port-1
+    targetHandle: Orifice27-eh1-port-0
+    type: flow
+    attributes:
+      index: 85
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct41-2chDuct41-2ch-port-1-JunctionStaticP21-uv4JunctionStaticP21-uv4-port-0
+    source: Duct41-2ch
+    target: JunctionStaticP21-uv4
+    sourceHandle: Duct41-2ch-port-1
+    targetHandle: JunctionStaticP21-uv4-port-0
+    type: flow
+    attributes:
+      index: 220
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter21-qw8LosslessSplitter21-qw8-port-2-Duct42-un3Duct42-un3-port-0
+    source: LosslessSplitter21-qw8
+    target: Duct42-un3
+    sourceHandle: LosslessSplitter21-qw8-port-2
+    targetHandle: Duct42-un3-port-0
+    type: flow
+    attributes:
+      index: 86
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct42-un3Duct42-un3-port-1-Orifice28-8bxOrifice28-8bx-port-0
+    source: Duct42-un3
+    target: Orifice28-8bx
+    sourceHandle: Duct42-un3-port-1
+    targetHandle: Orifice28-8bx-port-0
+    type: flow
+    attributes:
+      index: 118
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice28-8bxOrifice28-8bx-port-1-JunctionStaticP21-uv4JunctionStaticP21-uv4-port-1
+    source: Orifice28-8bx
+    target: JunctionStaticP21-uv4
+    sourceHandle: Orifice28-8bx-port-1
+    targetHandle: JunctionStaticP21-uv4-port-1
+    type: flow
+    attributes:
+      index: 166
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP21-uv4JunctionStaticP21-uv4-port-2-IsentropicAreaChange15-7wbIsentropicAreaChange15-7wb-port-0
+    source: JunctionStaticP21-uv4
+    target: IsentropicAreaChange15-7wb
+    sourceHandle: JunctionStaticP21-uv4-port-2
+    targetHandle: IsentropicAreaChange15-7wb-port-0
+    type: flow
+    attributes:
+      index: 222
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP20-1bvJunctionStaticP20-1bv-port-3-Duct41-2chDuct41-2ch-port-0
+    source: JunctionStaticP20-1bv
+    target: Duct41-2ch
+    sourceHandle: JunctionStaticP20-1bv-port-3
+    targetHandle: Duct41-2ch-port-0
+    type: flow
+    attributes:
+      index: 163
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Duct43-phtDuct43-pht-port-1-JunctionStaticP20-1bvJunctionStaticP20-1bv-port-2
+    source: Duct43-pht
+    target: JunctionStaticP20-1bv
+    sourceHandle: Duct43-pht-port-1
+    targetHandle: JunctionStaticP20-1bv-port-2
+    type: flow
+    attributes:
+      index: 164
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice29-nzyOrifice29-nzy-port-1-Duct43-phtDuct43-pht-port-0
+    source: Orifice29-nzy
+    target: Duct43-pht
+    sourceHandle: Orifice29-nzy-port-1
+    targetHandle: Duct43-pht-port-0
+    type: flow
+    attributes:
+      index: 221
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-LosslessSplitter22-2x5LosslessSplitter22-2x5-port-1-Orifice30-znmOrifice30-znm-port-0
+    source: LosslessSplitter22-2x5
+    target: Orifice30-znm
+    sourceHandle: LosslessSplitter22-2x5-port-1
+    targetHandle: Orifice30-znm-port-0
+    type: flow
+    attributes:
+      index: 87
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter22-2x5LosslessSplitter22-2x5-port-2-IsentropicAreaChange16-z0zIsentropicAreaChange16-z0z-port-0
+    source: LosslessSplitter22-2x5
+    target: IsentropicAreaChange16-z0z
+    sourceHandle: LosslessSplitter22-2x5-port-2
+    targetHandle: IsentropicAreaChange16-z0z-port-0
+    type: flow
+    attributes:
+      index: 88
+      thermoModel: auto
+      area: 0.006
+  - id: reactflow__edge-IsentropicAreaChange16-z0zIsentropicAreaChange16-z0z-port-1-Pipe16-zt8Pipe16-zt8-port-0
+    source: IsentropicAreaChange16-z0z
+    target: Pipe16-zt8
+    sourceHandle: IsentropicAreaChange16-z0z-port-1
+    targetHandle: Pipe16-zt8-port-0
+    type: flow
+    attributes:
+      index: 120
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Pipe16-zt8Pipe16-zt8-port-1-MassSource8-biiMassSource8-bii-port-0
+    source: Pipe16-zt8
+    target: MassSource8-bii
+    sourceHandle: Pipe16-zt8-port-1
+    targetHandle: MassSource8-bii-port-0
+    type: flow
+    attributes:
+      index: 168
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-MassSource8-biiMassSource8-bii-port-1-SuddenAreaChange9-7hxSuddenAreaChange9-7hx-port-0
+    source: MassSource8-bii
+    target: SuddenAreaChange9-7hx
+    sourceHandle: MassSource8-bii-port-1
+    targetHandle: SuddenAreaChange9-7hx-port-0
+    type: flow
+    attributes:
+      index: 225
+      thermoModel: auto
+      area: 0.004
+  - id: reactflow__edge-Duct44-ho5Duct44-ho5-port-1-EquilibriumFlame8-7c6EquilibriumFlame8-7c6-port-0
+    source: Duct44-ho5
+    target: EquilibriumFlame8-7c6
+    sourceHandle: Duct44-ho5-port-1
+    targetHandle: EquilibriumFlame8-7c6-port-0
+    type: flow
+    attributes:
+      index: 226
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-SuddenAreaChange9-7hxSuddenAreaChange9-7hx-port-1-JunctionStaticP22-vlbJunctionStaticP22-vlb-port-1
+    source: SuddenAreaChange9-7hx
+    target: JunctionStaticP22-vlb
+    sourceHandle: SuddenAreaChange9-7hx-port-1
+    targetHandle: JunctionStaticP22-vlb-port-1
+    type: flow
+    attributes:
+      index: 223
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-JunctionStaticP22-vlbJunctionStaticP22-vlb-port-2-Duct44-ho5Duct44-ho5-port-0
+    source: JunctionStaticP22-vlb
+    target: Duct44-ho5
+    sourceHandle: JunctionStaticP22-vlb-port-2
+    targetHandle: Duct44-ho5-port-0
+    type: flow
+    attributes:
+      index: 224
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Orifice30-znmOrifice30-znm-port-1-Duct45-fbrDuct45-fbr-port-0
+    source: Orifice30-znm
+    target: Duct45-fbr
+    sourceHandle: Orifice30-znm-port-1
+    targetHandle: Duct45-fbr-port-0
+    type: flow
+    attributes:
+      index: 119
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Duct45-fbrDuct45-fbr-port-1-JunctionStaticP22-vlbJunctionStaticP22-vlb-port-0
+    source: Duct45-fbr
+    target: JunctionStaticP22-vlb
+    sourceHandle: Duct45-fbr-port-1
+    targetHandle: JunctionStaticP22-vlb-port-0
+    type: flow
+    attributes:
+      index: 167
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-Pipe17-66tPipe17-66t-port-1-LosslessSplitter22-2x5LosslessSplitter22-2x5-port-0
+    source: Pipe17-66t
+    target: LosslessSplitter22-2x5
+    sourceHandle: Pipe17-66t-port-1
+    targetHandle: LosslessSplitter22-2x5-port-0
+    type: flow
+    attributes:
+      index: 57
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Orifice31-c93Orifice31-c93-port-1-JunctionStaticP23-5e5JunctionStaticP23-5e5-port-0
+    source: Orifice31-c93
+    target: JunctionStaticP23-5e5
+    sourceHandle: Orifice31-c93-port-1
+    targetHandle: JunctionStaticP23-5e5-port-0
+    type: flow
+    attributes:
+      index: 121
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-EquilibriumFlame8-7c6EquilibriumFlame8-7c6-port-1-JunctionStaticP23-5e5JunctionStaticP23-5e5-port-1
+    source: EquilibriumFlame8-7c6
+    target: JunctionStaticP23-5e5
+    sourceHandle: EquilibriumFlame8-7c6-port-1
+    targetHandle: JunctionStaticP23-5e5-port-1
+    type: flow
+    attributes:
+      index: 169
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter23-hblLosslessSplitter23-hbl-port-1-Pipe17-66tPipe17-66t-port-0
+    source: LosslessSplitter23-hbl
+    target: Pipe17-66t
+    sourceHandle: LosslessSplitter23-hbl-port-1
+    targetHandle: Pipe17-66t-port-0
+    type: flow
+    attributes:
+      index: 40
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-LosslessSplitter23-hblLosslessSplitter23-hbl-port-2-Duct46-kneDuct46-kne-port-0
+    source: LosslessSplitter23-hbl
+    target: Duct46-kne
+    sourceHandle: LosslessSplitter23-hbl-port-2
+    targetHandle: Duct46-kne-port-0
+    type: flow
+    attributes:
+      index: 41
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-Duct46-kneDuct46-kne-port-1-LosslessSplitter24-vyeLosslessSplitter24-vye-port-0
+    source: Duct46-kne
+    target: LosslessSplitter24-vye
+    sourceHandle: Duct46-kne-port-1
+    targetHandle: LosslessSplitter24-vye-port-0
+    type: flow
+    attributes:
+      index: 58
+      thermoModel: auto
+      area: 0.01
+  - id: reactflow__edge-LosslessSplitter24-vyeLosslessSplitter24-vye-port-1-Orifice31-c93Orifice31-c93-port-0
+    source: LosslessSplitter24-vye
+    target: Orifice31-c93
+    sourceHandle: LosslessSplitter24-vye-port-1
+    targetHandle: Orifice31-c93-port-0
+    type: flow
+    attributes:
+      index: 89
+      thermoModel: auto
+      area: 0.0035
+  - id: reactflow__edge-Duct47-z0aDuct47-z0a-port-1-JunctionStaticP24-krnJunctionStaticP24-krn-port-0
+    source: Duct47-z0a
+    target: JunctionStaticP24-krn
+    sourceHandle: Duct47-z0a-port-1
+    targetHandle: JunctionStaticP24-krn-port-0
+    type: flow
+    attributes:
+      index: 227
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter24-vyeLosslessSplitter24-vye-port-2-Duct48-awzDuct48-awz-port-0
+    source: LosslessSplitter24-vye
+    target: Duct48-awz
+    sourceHandle: LosslessSplitter24-vye-port-2
+    targetHandle: Duct48-awz-port-0
+    type: flow
+    attributes:
+      index: 90
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Duct48-awzDuct48-awz-port-1-Orifice32-h2tOrifice32-h2t-port-0
+    source: Duct48-awz
+    target: Orifice32-h2t
+    sourceHandle: Duct48-awz-port-1
+    targetHandle: Orifice32-h2t-port-0
+    type: flow
+    attributes:
+      index: 122
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-Orifice32-h2tOrifice32-h2t-port-1-JunctionStaticP24-krnJunctionStaticP24-krn-port-1
+    source: Orifice32-h2t
+    target: JunctionStaticP24-krn
+    sourceHandle: Orifice32-h2t-port-1
+    targetHandle: JunctionStaticP24-krn-port-1
+    type: flow
+    attributes:
+      index: 172
+      thermoModel: auto
+      area: 0.0045
+  - id: reactflow__edge-JunctionStaticP24-krnJunctionStaticP24-krn-port-2-IsentropicAreaChange17-iziIsentropicAreaChange17-izi-port-0
+    source: JunctionStaticP24-krn
+    target: IsentropicAreaChange17-izi
+    sourceHandle: JunctionStaticP24-krn-port-2
+    targetHandle: IsentropicAreaChange17-izi-port-0
+    type: flow
+    attributes:
+      index: 228
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP23-5e5JunctionStaticP23-5e5-port-3-Duct47-z0aDuct47-z0a-port-0
+    source: JunctionStaticP23-5e5
+    target: Duct47-z0a
+    sourceHandle: JunctionStaticP23-5e5-port-3
+    targetHandle: Duct47-z0a-port-0
+    type: flow
+    attributes:
+      index: 170
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-JunctionStaticP23-5e5JunctionStaticP23-5e5-port-4-Orifice29-nzyOrifice29-nzy-port-0
+    source: JunctionStaticP23-5e5
+    target: Orifice29-nzy
+    sourceHandle: JunctionStaticP23-5e5-port-4
+    targetHandle: Orifice29-nzy-port-0
+    type: flow
+    attributes:
+      index: 171
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP20-1bvJunctionStaticP20-1bv-port-4-Orifice25-l8dOrifice25-l8d-port-0
+    source: JunctionStaticP20-1bv
+    target: Orifice25-l8d
+    sourceHandle: JunctionStaticP20-1bv-port-4
+    targetHandle: Orifice25-l8d-port-0
+    type: flow
+    attributes:
+      index: 165
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP14-bg3JunctionStaticP14-bg3-port-4-Orifice17-ch2Orifice17-ch2-port-0
+    source: JunctionStaticP14-bg3
+    target: Orifice17-ch2
+    sourceHandle: JunctionStaticP14-bg3-port-4
+    targetHandle: Orifice17-ch2-port-0
+    type: flow
+    attributes:
+      index: 151
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Duct49-5c3Duct49-5c3-port-1-JunctionStaticP23-5e5JunctionStaticP23-5e5-port-2
+    source: Duct49-5c3
+    target: JunctionStaticP23-5e5
+    sourceHandle: Duct49-5c3-port-1
+    targetHandle: JunctionStaticP23-5e5-port-2
+    type: flow
+    attributes:
+      index: 124
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-JunctionStaticP2-mp3JunctionStaticP2-mp3-port-4-Orifice33-xbaOrifice33-xba-port-0
+    source: JunctionStaticP2-mp3
+    target: Orifice33-xba
+    sourceHandle: JunctionStaticP2-mp3-port-4
+    targetHandle: Orifice33-xba-port-0
+    type: flow
+    attributes:
+      index: 61
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-Orifice33-xbaOrifice33-xba-port-1-Duct49-5c3Duct49-5c3-port-0
+    source: Orifice33-xba
+    target: Duct49-5c3
+    sourceHandle: Orifice33-xba-port-1
+    targetHandle: Duct49-5c3-port-0
+    type: flow
+    attributes:
+      index: 93
+      thermoModel: auto
+      area: 0.0015
+  - id: reactflow__edge-IsentropicAreaChange17-iziIsentropicAreaChange17-izi-port-1-Mixer1-c1hMixer1-c1h-port-7
+    source: IsentropicAreaChange17-izi
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange17-izi-port-1
+    targetHandle: Mixer1-c1h-port-7
+    type: flow
+    attributes:
+      index: 173
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange15-7wbIsentropicAreaChange15-7wb-port-1-Mixer1-c1hMixer1-c1h-port-6
+    source: IsentropicAreaChange15-7wb
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange15-7wb-port-1
+    targetHandle: Mixer1-c1h-port-6
+    type: flow
+    attributes:
+      index: 174
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange13-hqbIsentropicAreaChange13-hqb-port-1-Mixer1-c1hMixer1-c1h-port-5
+    source: IsentropicAreaChange13-hqb
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange13-hqb-port-1
+    targetHandle: Mixer1-c1h-port-5
+    type: flow
+    attributes:
+      index: 175
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange11-h3kIsentropicAreaChange11-h3k-port-1-Mixer1-c1hMixer1-c1h-port-4
+    source: IsentropicAreaChange11-h3k
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange11-h3k-port-1
+    targetHandle: Mixer1-c1h-port-4
+    type: flow
+    attributes:
+      index: 176
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange9-o26IsentropicAreaChange9-o26-port-1-Mixer1-c1hMixer1-c1h-port-3
+    source: IsentropicAreaChange9-o26
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange9-o26-port-1
+    targetHandle: Mixer1-c1h-port-3
+    type: flow
+    attributes:
+      index: 177
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange7-ymgIsentropicAreaChange7-ymg-port-1-Mixer1-c1hMixer1-c1h-port-2
+    source: IsentropicAreaChange7-ymg
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange7-ymg-port-1
+    targetHandle: Mixer1-c1h-port-2
+    type: flow
+    attributes:
+      index: 178
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange5-3qtIsentropicAreaChange5-3qt-port-1-Mixer1-c1hMixer1-c1h-port-1
+    source: IsentropicAreaChange5-3qt
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange5-3qt-port-1
+    targetHandle: Mixer1-c1h-port-1
+    type: flow
+    attributes:
+      index: 179
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-IsentropicAreaChange3-u23IsentropicAreaChange3-u23-port-1-Mixer1-c1hMixer1-c1h-port-0
+    source: IsentropicAreaChange3-u23
+    target: Mixer1-c1h
+    sourceHandle: IsentropicAreaChange3-u23-port-1
+    targetHandle: Mixer1-c1h-port-0
+    type: flow
+    attributes:
+      index: 125
+      thermoModel: auto
+      area: 0.008
+  - id: reactflow__edge-Mixer1-c1hMixer1-c1h-port-8-ChokedNozzleOutlet1-upwChokedNozzleOutlet1-upw-port-0
+    source: Mixer1-c1h
+    target: ChokedNozzleOutlet1-upw
+    sourceHandle: Mixer1-c1h-port-8
+    targetHandle: ChokedNozzleOutlet1-upw-port-0
+    type: flow
+    attributes:
+      index: 180
+      thermoModel: auto
       area: 0.04
-      thermoModel: equilibrium
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-1-Pipe18-el1Pipe18-el1-port-0
+    source: LosslessSplitter25-9jl
+    target: Pipe18-el1
+    sourceHandle: LosslessSplitter25-9jl-port-1
+    targetHandle: Pipe18-el1-port-0
+    type: flow
+    attributes:
+      index: 14
+      thermoModel: auto
+      area: 0.002
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-2-LosslessSplitter2-tsyLosslessSplitter2-tsy-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter2-tsy
+    sourceHandle: LosslessSplitter25-9jl-port-2
+    targetHandle: LosslessSplitter2-tsy-port-0
+    type: flow
+    attributes:
+      index: 9
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-3-LosslessSplitter5-t4sLosslessSplitter5-t4s-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter5-t4s
+    sourceHandle: LosslessSplitter25-9jl-port-3
+    targetHandle: LosslessSplitter5-t4s-port-0
+    type: flow
+    attributes:
+      index: 15
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-4-LosslessSplitter8-vnbLosslessSplitter8-vnb-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter8-vnb
+    sourceHandle: LosslessSplitter25-9jl-port-4
+    targetHandle: LosslessSplitter8-vnb-port-0
+    type: flow
+    attributes:
+      index: 16
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-MassFlowInlet2-b0rMassFlowInlet2-b0r-port-0-Pipe19-penPipe19-pen-port-0
+    source: MassFlowInlet2-b0r
+    target: Pipe19-pen
+    sourceHandle: MassFlowInlet2-b0r-port-0
+    targetHandle: Pipe19-pen-port-0
+    type: flow
+    attributes:
+      index: 31
+      thermoModel: auto
+      area: 0.06
+  - id: reactflow__edge-Pipe19-penPipe19-pen-port-1-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-0
+    source: Pipe19-pen
+    target: LosslessSplitter25-9jl
+    sourceHandle: Pipe19-pen-port-1
+    targetHandle: LosslessSplitter25-9jl-port-0
+    type: flow
+    attributes:
+      index: 17
+      thermoModel: auto
+      area: 0.06
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-5-LosslessSplitter11-pnxLosslessSplitter11-pnx-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter11-pnx
+    sourceHandle: LosslessSplitter25-9jl-port-5
+    targetHandle: LosslessSplitter11-pnx-port-0
+    type: flow
+    attributes:
+      index: 18
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-6-LosslessSplitter14-2obLosslessSplitter14-2ob-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter14-2ob
+    sourceHandle: LosslessSplitter25-9jl-port-6
+    targetHandle: LosslessSplitter14-2ob-port-0
+    type: flow
+    attributes:
+      index: 19
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-7-LosslessSplitter17-ljjLosslessSplitter17-ljj-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter17-ljj
+    sourceHandle: LosslessSplitter25-9jl-port-7
+    targetHandle: LosslessSplitter17-ljj-port-0
+    type: flow
+    attributes:
+      index: 20
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-8-LosslessSplitter20-w5bLosslessSplitter20-w5b-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter20-w5b
+    sourceHandle: LosslessSplitter25-9jl-port-8
+    targetHandle: LosslessSplitter20-w5b-port-0
+    type: flow
+    attributes:
+      index: 21
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-LosslessSplitter25-9jlLosslessSplitter25-9jl-port-9-LosslessSplitter23-hblLosslessSplitter23-hbl-port-0
+    source: LosslessSplitter25-9jl
+    target: LosslessSplitter23-hbl
+    sourceHandle: LosslessSplitter25-9jl-port-9
+    targetHandle: LosslessSplitter23-hbl-port-0
+    type: flow
+    attributes:
+      index: 22
+      thermoModel: auto
+      area: 0.012
+  - id: reactflow__edge-Pipe18-el1Pipe18-el1-port-1-PressureOutlet1-w8zPressureOutlet1-w8z-port-0
+    source: Pipe18-el1
+    target: PressureOutlet1-w8z
+    sourceHandle: Pipe18-el1-port-1
+    targetHandle: PressureOutlet1-w8z-port-0
+    type: flow
+    attributes:
+      index: 26
+      thermoModel: auto
+      area: 0.002
 uiAttributes:
   nodes:
-  - id: MassFlowInlet_1
+  - id: LosslessSplitter1-1ly
     position:
-      x: 0.0
-      y: -1260.0
+      x: 650
+      y: 201.83333333333334
     data: {}
-  - id: Pipe_1
+  - id: Orifice2-jxi
     position:
-      x: 240.0
-      y: 0.0
+      x: 780
+      y: 160
     data: {}
-  - id: LosslessSplitter_1
+  - id: IsentropicAreaChange2-ahu
     position:
-      x: 480.0
-      y: 0.0
+      x: 710
+      y: 223.44391971664697
     data: {}
-  - id: Pipe_2
+  - id: Pipe1-9a1
     position:
-      x: 720.0
-      y: -560.0
+      x: 780
+      y: 223.44391971664697
     data: {}
-  - id: PressureOutlet_1
+  - id: MassSource1-2zp
     position:
-      x: 960.0
-      y: -560.0
+      x: 870
+      y: 223.44391971664697
     data: {}
-  - id: JunctionStaticP_1
+  - id: SuddenAreaChange2-r8r
     position:
-      x: 0.0
-      y: -1120.0
+      x: 960
+      y: 223.44391971664697
     data: {}
-  - id: ChokedNozzleOutlet_1
+  - id: Duct1-5wz
     position:
-      x: 0.0
-      y: -980.0
+      x: 1095
+      y: 223.44391971664697
     data: {}
-  - id: Pipe_3
+  - id: EquilibriumFlame1-bw7
     position:
-      x: 720.0
-      y: -420.0
+      x: 1185
+      y: 223.44391971664697
     data: {}
-  - id: LosslessSplitter_2
+  - id: JunctionStaticP1-69w
     position:
-      x: 960.0
-      y: -420.0
+      x: 1035
+      y: 229.44391971664697
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct2-dec
+    position:
+      x: 870
+      y: 160
+    data: {}
+  - id: LosslessSplitter2-tsy
+    position:
+      x: 470.1036904402396
+      y: 268.369420694368
+    data: {}
+  - id: Pipe2-dr4
+    position:
+      x: 560
+      y: 207.33333333333334
+    data: {}
+  - id: Duct3-gxt
+    position:
+      x: 780
+      y: 285
+    data: {}
+  - id: Orifice3-kvn
+    position:
+      x: 1095
+      y: 285
+    data: {}
+  - id: JunctionStaticP2-mp3
+    position:
+      x: 1275.04422158171
+      y: 222.44391971664697
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter3-2ms
+    position:
+      x: 990
+      y: 305
+    data: {}
+  - id: Duct5-rmc
+    position:
+      x: 1345
+      y: 223.44391971664697
+    data: {}
+  - id: JunctionStaticP3-ryk
+    position:
+      x: 1435
+      y: 229.44391971664697
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct6-qkl
+    position:
+      x: 1095
+      y: 345
+    data: {}
+  - id: Orifice4-vzw
+    position:
+      x: 1345
+      y: 285
+    data: {}
+  - id: IsentropicAreaChange3-u23
+    position:
+      x: 1500
+      y: 223.44391971664697
+    data: {}
+  - id: Orifice5-svi
+    position:
+      x: 1267.54422158171
+      y: 407.57939314011577
+    data:
+      rotation: 270
+  - id: Duct7-xtd
+    position:
+      x: 1267.54422158171
+      y: 318.2902065228742
+    data:
+      rotation: 270
+  - id: LosslessSplitter4-35g
+    position:
+      x: 650.4752093575885
+      y: 463.6113252713093
+    data: {}
+  - id: Orifice6-d7h
+    position:
+      x: 780.4752093575885
+      y: 421.7779919379759
+    data: {}
+  - id: IsentropicAreaChange4-3ac
+    position:
+      x: 710.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: Pipe4-moo
+    position:
+      x: 780.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: MassSource2-ki1
+    position:
+      x: 870.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: SuddenAreaChange3-mwx
+    position:
+      x: 960.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: Duct8-sij
+    position:
+      x: 1095.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: EquilibriumFlame2-1h8
+    position:
+      x: 1185.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: JunctionStaticP4-8wu
+    position:
+      x: 1035.4752093575885
+      y: 491.2219116546229
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct9-i6y
+    position:
+      x: 870.4752093575885
+      y: 421.7779919379759
+    data: {}
+  - id: LosslessSplitter5-t4s
+    position:
+      x: 470.57889979782794
+      y: 530.147412632344
+    data: {}
+  - id: Pipe5-a77
+    position:
+      x: 560.4752093575885
+      y: 469.1113252713093
+    data: {}
+  - id: Duct10-rjd
+    position:
+      x: 780.4752093575885
+      y: 546.7779919379759
+    data: {}
+  - id: Orifice7-9p4
+    position:
+      x: 1095.4752093575885
+      y: 546.7779919379759
+    data: {}
+  - id: JunctionStaticP5-zjw
+    position:
+      x: 1275.04422158171
+      y: 484.2219116546229
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter6-psb
+    position:
+      x: 990.4752093575885
+      y: 566.7779919379759
+    data: {}
+  - id: Duct11-tx4
+    position:
+      x: 1345.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: JunctionStaticP6-4jp
+    position:
+      x: 1435.4752093575885
+      y: 491.2219116546229
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct12-5vq
+    position:
+      x: 1095.4752093575885
+      y: 606.7779919379759
+    data: {}
+  - id: Orifice8-0k2
+    position:
+      x: 1345.4752093575885
+      y: 546.7779919379759
+    data: {}
+  - id: IsentropicAreaChange5-3qt
+    position:
+      x: 1500.4752093575885
+      y: 485.2219116546229
+    data: {}
+  - id: Orifice9-whs
+    position:
+      x: 1267.54422158171
+      y: 669.3573850780917
+    data:
+      rotation: 270
+  - id: Duct13-joz
+    position:
+      x: 1267.54422158171
+      y: 580.0681984608501
+    data:
+      rotation: 270
+  - id: LosslessSplitter7-pt7
+    position:
+      x: 649.4240347365146
+      y: 727.3740478862645
     data: {}
-  - id: LossElement_1
+  - id: Orifice10-xxy
     position:
-      x: 1200.0
-      y: -1610.0
+      x: 779.4240347365146
+      y: 685.5407145529311
     data: {}
-  - id: MassSource_1
+  - id: IsentropicAreaChange6-8rc
     position:
-      x: 1440.0
-      y: -1610.0
+      x: 709.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: EquilibriumFlame_1
+  - id: Pipe6-67e
     position:
-      x: 1680.0
-      y: -490.0
+      x: 779.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: JunctionStaticP_2
+  - id: MassSource3-7vd
     position:
-      x: 1920.0
-      y: -490.0
+      x: 869.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: LossElement_2
+  - id: SuddenAreaChange4-1w0
     position:
-      x: 1200.0
-      y: -1470.0
+      x: 959.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: JunctionStaticP_3
+  - id: Duct14-bwc
     position:
-      x: 1440.0
-      y: -1470.0
+      x: 1094.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: LossElement_3
+  - id: EquilibriumFlame3-ef8
     position:
-      x: 1200.0
-      y: -1330.0
+      x: 1184.4240347365146
+      y: 748.9846342695781
     data: {}
-  - id: JunctionStaticP_4
+  - id: JunctionStaticP7-f5z
     position:
-      x: 1440.0
-      y: -1330.0
+      x: 1034.4240347365146
+      y: 754.9846342695781
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct15-nua
+    position:
+      x: 869.4240347365146
+      y: 685.5407145529311
+    data: {}
+  - id: LosslessSplitter8-vnb
+    position:
+      x: 469.5277251767543
+      y: 793.9101352472992
+    data: {}
+  - id: Pipe7-fxa
+    position:
+      x: 559.4240347365146
+      y: 732.8740478862645
+    data: {}
+  - id: Duct16-xtf
+    position:
+      x: 779.4240347365146
+      y: 810.5407145529311
+    data: {}
+  - id: Orifice11-k1g
+    position:
+      x: 1094.4240347365146
+      y: 810.5407145529311
+    data: {}
+  - id: JunctionStaticP8-p3z
+    position:
+      x: 1274.4682563182246
+      y: 747.9846342695781
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter9-osh
+    position:
+      x: 989.4240347365146
+      y: 830.5407145529311
+    data: {}
+  - id: Duct17-57i
+    position:
+      x: 1344.4240347365146
+      y: 748.9846342695781
+    data: {}
+  - id: JunctionStaticP9-cr6
+    position:
+      x: 1434.4240347365146
+      y: 754.9846342695781
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct18-aii
+    position:
+      x: 1094.4240347365146
+      y: 870.5407145529311
+    data: {}
+  - id: Orifice12-wth
+    position:
+      x: 1344.4240347365146
+      y: 810.5407145529311
+    data: {}
+  - id: IsentropicAreaChange7-ymg
+    position:
+      x: 1499.4240347365146
+      y: 748.9846342695781
+    data: {}
+  - id: Orifice13-dzv
+    position:
+      x: 1266.9682563182246
+      y: 933.120107693047
+    data:
+      rotation: 270
+  - id: Duct19-npo
+    position:
+      x: 1266.9682563182246
+      y: 843.8309210758053
+    data:
+      rotation: 270
+  - id: LosslessSplitter10-jqr
+    position:
+      x: 649.8992440941031
+      y: 989.1520398242403
+    data: {}
+  - id: Orifice14-tpm
+    position:
+      x: 779.8992440941031
+      y: 947.3187064909071
+    data: {}
+  - id: IsentropicAreaChange8-utu
+    position:
+      x: 709.8992440941031
+      y: 1010.7626262075539
+    data: {}
+  - id: Pipe8-786
+    position:
+      x: 779.8992440941031
+      y: 1010.7626262075539
+    data: {}
+  - id: MassSource4-hlo
+    position:
+      x: 869.8992440941031
+      y: 1010.7626262075539
     data: {}
-  - id: IsentropicAreaChange_1
+  - id: SuddenAreaChange5-p4c
     position:
-      x: 0.0
-      y: -840.0
+      x: 959.8992440941031
+      y: 1010.7626262075539
     data: {}
-  - id: Pipe_4
+  - id: Duct20-x1d
     position:
-      x: 0.0
-      y: -700.0
+      x: 1094.899244094103
+      y: 1010.7626262075539
     data: {}
-  - id: Pipe_5
+  - id: EquilibriumFlame4-kr5
     position:
-      x: 720.0
-      y: -280.0
+      x: 1184.899244094103
+      y: 1010.7626262075539
     data: {}
-  - id: LosslessSplitter_3
+  - id: JunctionStaticP10-x3k
     position:
-      x: 960.0
-      y: -280.0
+      x: 1034.899244094103
+      y: 1016.7626262075539
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct21-jfp
+    position:
+      x: 869.8992440941031
+      y: 947.3187064909071
+    data: {}
+  - id: LosslessSplitter11-pnx
+    position:
+      x: 470.00293453434256
+      y: 1055.688127185275
+    data: {}
+  - id: Pipe9-3gz
+    position:
+      x: 559.8992440941031
+      y: 994.6520398242403
+    data: {}
+  - id: Duct22-4y0
+    position:
+      x: 779.8992440941031
+      y: 1072.318706490907
     data: {}
-  - id: LossElement_4
+  - id: Orifice15-l6b
     position:
-      x: 1200.0
-      y: -1190.0
+      x: 1094.899244094103
+      y: 1072.318706490907
     data: {}
-  - id: MassSource_2
+  - id: JunctionStaticP11-d9p
+    position:
+      x: 1274.4682563182246
+      y: 1009.7626262075539
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter12-cyq
     position:
-      x: 1440.0
-      y: -1190.0
+      x: 989.8992440941031
+      y: 1092.318706490907
     data: {}
-  - id: EquilibriumFlame_2
+  - id: Duct23-v05
     position:
-      x: 1680.0
-      y: -350.0
+      x: 1344.899244094103
+      y: 1010.7626262075539
     data: {}
-  - id: JunctionStaticP_5
+  - id: JunctionStaticP12-nsk
     position:
-      x: 1920.0
-      y: -350.0
+      x: 1434.899244094103
+      y: 1016.7626262075539
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct24-rvd
+    position:
+      x: 1094.899244094103
+      y: 1132.318706490907
     data: {}
-  - id: LossElement_5
+  - id: Orifice16-v46
     position:
-      x: 1200.0
-      y: -1050.0
+      x: 1344.899244094103
+      y: 1072.318706490907
     data: {}
-  - id: JunctionStaticP_6
+  - id: IsentropicAreaChange9-o26
     position:
-      x: 1440.0
-      y: -1050.0
+      x: 1499.899244094103
+      y: 1010.7626262075539
     data: {}
-  - id: LossElement_6
+  - id: Orifice17-ch2
+    position:
+      x: 1266.9682563182246
+      y: 1194.898099631023
+    data:
+      rotation: 270
+  - id: Duct25-y7e
     position:
-      x: 1200.0
-      y: -910.0
+      x: 1266.9682563182246
+      y: 1105.6089130137814
+    data:
+      rotation: 270
+  - id: LosslessSplitter13-4id
+    position:
+      x: 649.2519341365887
+      y: 1255.3047548848551
     data: {}
-  - id: JunctionStaticP_7
+  - id: Orifice18-3ae
     position:
-      x: 1440.0
-      y: -910.0
+      x: 779.2519341365887
+      y: 1213.4714215515216
     data: {}
-  - id: IsentropicAreaChange_2
+  - id: IsentropicAreaChange10-x2c
     position:
-      x: 0.0
-      y: -560.0
+      x: 709.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: Pipe_6
+  - id: Pipe10-wur
     position:
-      x: 0.0
-      y: -420.0
+      x: 779.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: Pipe_7
+  - id: MassSource5-m0c
     position:
-      x: 720.0
-      y: -140.0
+      x: 869.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: LosslessSplitter_4
+  - id: SuddenAreaChange6-d0n
     position:
-      x: 960.0
-      y: -140.0
+      x: 959.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: LossElement_7
+  - id: Duct26-lt5
     position:
-      x: 1200.0
-      y: -770.0
+      x: 1094.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: MassSource_3
+  - id: EquilibriumFlame5-ytu
     position:
-      x: 1440.0
-      y: -770.0
+      x: 1184.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: EquilibriumFlame_3
+  - id: JunctionStaticP13-pmk
+    position:
+      x: 1034.2519341365887
+      y: 1282.9153412681687
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct27-6mb
     position:
-      x: 1680.0
-      y: -210.0
+      x: 869.2519341365887
+      y: 1213.4714215515216
     data: {}
-  - id: JunctionStaticP_8
+  - id: LosslessSplitter14-2ob
     position:
-      x: 1920.0
-      y: -210.0
+      x: 469.3556245768282
+      y: 1321.8408422458897
     data: {}
-  - id: LossElement_8
+  - id: Pipe11-sze
     position:
-      x: 1200.0
-      y: -630.0
+      x: 559.2519341365887
+      y: 1260.8047548848551
     data: {}
-  - id: JunctionStaticP_9
+  - id: Duct28-fy2
     position:
-      x: 1440.0
-      y: -630.0
+      x: 779.2519341365887
+      y: 1338.4714215515216
     data: {}
-  - id: LossElement_9
+  - id: Orifice19-tl1
     position:
-      x: 1200.0
-      y: -490.0
+      x: 1094.2519341365887
+      y: 1338.4714215515216
     data: {}
-  - id: JunctionStaticP_10
+  - id: JunctionStaticP14-bg3
     position:
-      x: 1440.0
-      y: -490.0
+      x: 1274.2961557182987
+      y: 1275.9153412681687
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter15-sb8
+    position:
+      x: 989.2519341365887
+      y: 1358.4714215515216
     data: {}
-  - id: IsentropicAreaChange_3
+  - id: Duct29-13c
     position:
-      x: 0.0
-      y: -280.0
+      x: 1344.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: Pipe_8
+  - id: JunctionStaticP15-ztt
+    position:
+      x: 1434.2519341365887
+      y: 1282.9153412681687
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct30-uhm
     position:
-      x: 0.0
-      y: -140.0
+      x: 1094.2519341365887
+      y: 1398.4714215515216
     data: {}
-  - id: Pipe_9
+  - id: Orifice20-09n
     position:
-      x: 720.0
-      y: 0.0
+      x: 1344.2519341365887
+      y: 1338.4714215515216
     data: {}
-  - id: LosslessSplitter_5
+  - id: IsentropicAreaChange11-h3k
     position:
-      x: 960.0
-      y: 0.0
+      x: 1499.2519341365887
+      y: 1276.9153412681687
     data: {}
-  - id: LossElement_10
+  - id: Orifice21-z14
     position:
-      x: 1200.0
-      y: -350.0
+      x: 1266.7961557182987
+      y: 1461.0508146916375
+    data:
+      rotation: 270
+  - id: Duct31-1zs
+    position:
+      x: 1266.7961557182987
+      y: 1371.7616280743957
+    data:
+      rotation: 270
+  - id: LosslessSplitter16-ngm
+    position:
+      x: 649.7271434941772
+      y: 1517.082746822831
     data: {}
-  - id: MassSource_4
+  - id: Orifice22-a8o
     position:
-      x: 1440.0
-      y: -350.0
+      x: 779.7271434941772
+      y: 1475.2494134894976
     data: {}
-  - id: EquilibriumFlame_4
+  - id: IsentropicAreaChange12-i3q
     position:
-      x: 1680.0
-      y: -70.0
+      x: 709.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: JunctionStaticP_11
+  - id: Pipe12-tc8
     position:
-      x: 1920.0
-      y: -70.0
+      x: 779.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: LossElement_11
+  - id: MassSource6-99l
     position:
-      x: 1200.0
-      y: -210.0
+      x: 869.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: JunctionStaticP_12
+  - id: SuddenAreaChange7-h5p
     position:
-      x: 1440.0
-      y: -210.0
+      x: 959.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: LossElement_12
+  - id: Duct32-69k
     position:
-      x: 1200.0
-      y: -70.0
+      x: 1094.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: JunctionStaticP_13
+  - id: EquilibriumFlame6-ne7
     position:
-      x: 1440.0
-      y: -70.0
+      x: 1184.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: IsentropicAreaChange_4
+  - id: JunctionStaticP16-6fd
+    position:
+      x: 1034.7271434941772
+      y: 1544.6933332061446
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct33-pme
     position:
-      x: 0.0
-      y: 0.0
+      x: 869.7271434941772
+      y: 1475.2494134894976
     data: {}
-  - id: Pipe_10
+  - id: LosslessSplitter17-ljj
     position:
-      x: 0.0
-      y: 140.0
+      x: 469.83083393441666
+      y: 1583.6188341838656
     data: {}
-  - id: Pipe_11
+  - id: Pipe13-52n
     position:
-      x: 720.0
-      y: 140.0
+      x: 559.7271434941772
+      y: 1522.582746822831
     data: {}
-  - id: LosslessSplitter_6
+  - id: Duct34-11h
     position:
-      x: 960.0
-      y: 140.0
+      x: 779.7271434941772
+      y: 1600.2494134894976
     data: {}
-  - id: LossElement_13
+  - id: Orifice23-yn0
     position:
-      x: 1200.0
-      y: 70.0
+      x: 1094.7271434941772
+      y: 1600.2494134894976
     data: {}
-  - id: MassSource_5
+  - id: JunctionStaticP17-cxi
     position:
-      x: 1440.0
-      y: 70.0
+      x: 1274.2961557182987
+      y: 1537.6933332061446
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter18-ek4
+    position:
+      x: 989.7271434941772
+      y: 1620.2494134894976
     data: {}
-  - id: EquilibriumFlame_5
+  - id: Duct35-sz9
     position:
-      x: 1680.0
-      y: 70.0
+      x: 1344.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: JunctionStaticP_14
+  - id: JunctionStaticP18-ord
+    position:
+      x: 1434.7271434941772
+      y: 1544.6933332061446
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct36-igs
     position:
-      x: 1920.0
-      y: 70.0
+      x: 1094.7271434941772
+      y: 1660.2494134894976
     data: {}
-  - id: LossElement_14
+  - id: Orifice24-31b
     position:
-      x: 1200.0
-      y: 210.0
+      x: 1344.7271434941772
+      y: 1600.2494134894976
     data: {}
-  - id: JunctionStaticP_15
+  - id: IsentropicAreaChange13-hqb
     position:
-      x: 1440.0
-      y: 210.0
+      x: 1499.7271434941772
+      y: 1538.6933332061446
     data: {}
-  - id: LossElement_15
+  - id: Orifice25-l8d
+    position:
+      x: 1266.7961557182987
+      y: 1722.8288066296134
+    data:
+      rotation: 270
+  - id: Duct37-ltu
+    position:
+      x: 1266.7961557182987
+      y: 1633.5396200123716
+    data:
+      rotation: 270
+  - id: LosslessSplitter19-p2i
     position:
-      x: 1200.0
-      y: 350.0
+      x: 648.6759688731033
+      y: 1780.845469437786
     data: {}
-  - id: JunctionStaticP_16
+  - id: Orifice26-32d
     position:
-      x: 1440.0
-      y: 350.0
+      x: 778.6759688731033
+      y: 1739.0121361044528
     data: {}
-  - id: IsentropicAreaChange_5
+  - id: IsentropicAreaChange14-d01
     position:
-      x: 0.0
-      y: 280.0
+      x: 708.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: Pipe_12
+  - id: Pipe14-yxa
     position:
-      x: 0.0
-      y: 420.0
+      x: 778.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: Pipe_13
+  - id: MassSource7-o13
     position:
-      x: 720.0
-      y: 280.0
+      x: 868.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: LosslessSplitter_7
+  - id: SuddenAreaChange8-z8i
     position:
-      x: 960.0
-      y: 280.0
+      x: 958.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: LossElement_16
+  - id: Duct38-ct9
     position:
-      x: 1200.0
-      y: 490.0
+      x: 1093.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: MassSource_6
+  - id: EquilibriumFlame7-zpe
     position:
-      x: 1440.0
-      y: 490.0
+      x: 1183.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: EquilibriumFlame_6
+  - id: JunctionStaticP19-5n7
     position:
-      x: 1680.0
-      y: 210.0
+      x: 1033.6759688731033
+      y: 1808.4560558210997
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct39-1o4
+    position:
+      x: 868.6759688731033
+      y: 1739.0121361044528
     data: {}
-  - id: JunctionStaticP_17
+  - id: LosslessSplitter20-w5b
     position:
-      x: 1920.0
-      y: 210.0
+      x: 468.779659313343
+      y: 1847.3815567988208
     data: {}
-  - id: LossElement_17
+  - id: Pipe15-9tq
     position:
-      x: 1200.0
-      y: 630.0
+      x: 558.6759688731033
+      y: 1786.345469437786
     data: {}
-  - id: JunctionStaticP_18
+  - id: Duct40-bwe
     position:
-      x: 1440.0
-      y: 630.0
+      x: 778.6759688731033
+      y: 1864.0121361044528
     data: {}
-  - id: LossElement_18
+  - id: Orifice27-eh1
     position:
-      x: 1200.0
-      y: 770.0
+      x: 1093.6759688731033
+      y: 1864.0121361044528
     data: {}
-  - id: JunctionStaticP_19
+  - id: JunctionStaticP20-1bv
+    position:
+      x: 1273.7201904548133
+      y: 1801.4560558210997
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter21-qw8
     position:
-      x: 1440.0
-      y: 770.0
+      x: 988.6759688731033
+      y: 1884.0121361044528
     data: {}
-  - id: IsentropicAreaChange_6
+  - id: Duct41-2ch
     position:
-      x: 0.0
-      y: 560.0
+      x: 1343.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: Pipe_14
+  - id: JunctionStaticP21-uv4
     position:
-      x: 0.0
-      y: 700.0
+      x: 1433.6759688731033
+      y: 1808.4560558210997
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct42-un3
+    position:
+      x: 1093.6759688731033
+      y: 1924.0121361044528
     data: {}
-  - id: Pipe_15
+  - id: Orifice28-8bx
     position:
-      x: 720.0
-      y: 420.0
+      x: 1343.6759688731033
+      y: 1864.0121361044528
     data: {}
-  - id: LosslessSplitter_8
+  - id: IsentropicAreaChange15-7wb
     position:
-      x: 960.0
-      y: 420.0
+      x: 1498.6759688731033
+      y: 1802.4560558210997
     data: {}
-  - id: LossElement_19
+  - id: Orifice29-nzy
+    position:
+      x: 1266.2201904548133
+      y: 1986.5915292445686
+    data:
+      rotation: 270
+  - id: Duct43-pht
     position:
-      x: 1200.0
-      y: 910.0
+      x: 1266.2201904548133
+      y: 1897.302342627327
+    data:
+      rotation: 270
+  - id: LosslessSplitter22-2x5
+    position:
+      x: 649.1511782306918
+      y: 2042.623461375762
     data: {}
-  - id: MassSource_7
+  - id: Orifice30-znm
     position:
-      x: 1440.0
-      y: 910.0
+      x: 779.1511782306918
+      y: 2000.7901280424287
     data: {}
-  - id: EquilibriumFlame_7
+  - id: IsentropicAreaChange16-z0z
     position:
-      x: 1680.0
-      y: 350.0
+      x: 709.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: JunctionStaticP_20
+  - id: Pipe16-zt8
     position:
-      x: 1920.0
-      y: 350.0
+      x: 779.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: LossElement_20
+  - id: MassSource8-bii
     position:
-      x: 1200.0
-      y: 1050.0
+      x: 869.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: JunctionStaticP_21
+  - id: SuddenAreaChange9-7hx
     position:
-      x: 1440.0
-      y: 1050.0
+      x: 959.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: LossElement_21
+  - id: Duct44-ho5
     position:
-      x: 1200.0
-      y: 1190.0
+      x: 1094.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: JunctionStaticP_22
+  - id: EquilibriumFlame8-7c6
     position:
-      x: 1440.0
-      y: 1190.0
+      x: 1184.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: IsentropicAreaChange_7
+  - id: JunctionStaticP22-vlb
+    position:
+      x: 1034.1511782306918
+      y: 2070.2340477590756
+    data:
+      portAngles:
+        '0': 120
+        '1': 180
+  - id: Duct45-fbr
     position:
-      x: 0.0
-      y: 840.0
+      x: 869.1511782306918
+      y: 2000.7901280424287
     data: {}
-  - id: Pipe_16
+  - id: LosslessSplitter23-hbl
     position:
-      x: 0.0
-      y: 980.0
+      x: 469.2548686709313
+      y: 2109.1595487367968
     data: {}
-  - id: Pipe_17
+  - id: Pipe17-66t
     position:
-      x: 720.0
-      y: 560.0
+      x: 559.1511782306918
+      y: 2048.123461375762
     data: {}
-  - id: LosslessSplitter_9
+  - id: Duct46-kne
     position:
-      x: 960.0
-      y: 560.0
+      x: 779.1511782306918
+      y: 2125.790128042429
     data: {}
-  - id: LossElement_22
+  - id: Orifice31-c93
     position:
-      x: 1200.0
-      y: 1330.0
+      x: 1094.1511782306918
+      y: 2125.790128042429
     data: {}
-  - id: MassSource_8
+  - id: JunctionStaticP23-5e5
     position:
-      x: 1440.0
-      y: 1330.0
+      x: 1273.7201904548133
+      y: 2063.2340477590756
+    data:
+      portAngles:
+        '0': 225
+        '1': 180
+        '2': 270
+        '3': 0
+        '4': 90
+  - id: LosslessSplitter24-vye
+    position:
+      x: 989.1511782306918
+      y: 2145.790128042429
     data: {}
-  - id: EquilibriumFlame_8
+  - id: Duct47-z0a
     position:
-      x: 1680.0
-      y: 490.0
+      x: 1344.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: JunctionStaticP_23
+  - id: JunctionStaticP24-krn
+    position:
+      x: 1434.1511782306918
+      y: 2070.2340477590756
+    data:
+      portAngles:
+        '0': 180
+        '1': 270
+  - id: Duct48-awz
     position:
-      x: 1920.0
-      y: 490.0
+      x: 1094.1511782306918
+      y: 2185.790128042429
     data: {}
-  - id: LossElement_23
+  - id: Orifice32-h2t
     position:
-      x: 1200.0
-      y: 1470.0
+      x: 1344.1511782306918
+      y: 2125.790128042429
     data: {}
-  - id: JunctionStaticP_24
+  - id: IsentropicAreaChange17-izi
     position:
-      x: 1440.0
-      y: 1470.0
+      x: 1499.1511782306918
+      y: 2064.2340477590756
     data: {}
-  - id: LossElement_24
+  - id: Orifice33-xba
     position:
-      x: 1200.0
-      y: 1610.0
+      x: 1603.6233111312229
+      y: 190.74469902357578
+    data:
+      rotation: 90
+  - id: Duct49-5c3
+    position:
+      x: 1603.6233111312229
+      y: 2176.3423183365717
+    data:
+      rotation: 90
+  - id: Mixer1-c1h
+    position:
+      x: 1938.4286821312844
+      y: 1111.6377100813747
+    data:
+      portAngles:
+        '0': 100
+        '1': 120
+        '2': 140
+        '5': 220
+        '6': 240
+        '7': 260
+  - id: ChokedNozzleOutlet1-upw
+    position:
+      x: 2062.148191736203
+      y: 1126.2132434805399
     data: {}
-  - id: JunctionStaticP_25
+  - id: MassFlowInlet2-b0r
     position:
-      x: 1440.0
-      y: 1610.0
+      x: -162.19776243251468
+      y: 1183.3994867465146
     data: {}
-  - id: IsentropicAreaChange_8
+  - id: LosslessSplitter25-9jl
     position:
-      x: 0.0
-      y: 1120.0
+      x: 21.05506755041432
+      y: 1094.8994867465146
     data: {}
-  - id: Pipe_18
+  - id: Pipe18-el1
     position:
-      x: 0.0
-      y: 1260.0
+      x: 44.466508162113314
+      y: 903.6730956462827
+    data:
+      rotation: 270
+  - id: Pipe19-pen
+    position:
+      x: -87.14667834352352
+      y: 1177.3994867465146
     data: {}
+  - id: PressureOutlet1-w8z
+    position:
+      x: 59.460825461740285
+      y: 777.8957494463443
+    data:
+      rotation: 0
+      portAngles:
+        '0': 270
 uiState:
   counters:
     nodeCounters:
       MassFlowInlet: 1
-      Pipe: 18
-      LosslessSplitter: 9
+      TotalPressureInlet: 0
       PressureOutlet: 1
-      JunctionStaticP: 25
+      MassFlowOutlet: 0
       ChokedNozzleOutlet: 1
-      LossElement: 24
-      MassSource: 8
+      Wall: 0
+      Cavity: 0
+      IsentropicAreaChange: 16
+      TransferMatrix: 0
+      SuddenAreaChange: 8
+      LossElement: 0
+      LinearResistance: 0
+      Duct: 48
+      Pipe: 18
+      HeatReleaseFlame: 0
       EquilibriumFlame: 8
-      IsentropicAreaChange: 8
+      MassSource: 8
+      Orifice: 32
+      LossyNozzle: 0
+      SuddenContraction: 0
+      HelmholtzResonator: 0
+      FannoPipe: 0
+      TaperedDuct: 0
+      JunctionStaticP: 25
+      LosslessSplitter: 25
+      ForcedSplitter: 0
     totalNodeCounters:
-      MassFlowInlet: 1
-      Pipe: 18
-      LosslessSplitter: 9
+      MassFlowInlet: 2
+      TotalPressureInlet: 1
       PressureOutlet: 1
-      JunctionStaticP: 25
+      MassFlowOutlet: 0
       ChokedNozzleOutlet: 1
-      LossElement: 24
-      MassSource: 8
+      Wall: 0
+      Cavity: 0
+      IsentropicAreaChange: 17
+      TransferMatrix: 0
+      SuddenAreaChange: 9
+      LossElement: 0
+      LinearResistance: 0
+      Duct: 49
+      Pipe: 19
+      HeatReleaseFlame: 1
       EquilibriumFlame: 8
-      IsentropicAreaChange: 8
+      MassSource: 8
+      Orifice: 33
+      LossyNozzle: 0
+      SuddenContraction: 1
+      HelmholtzResonator: 0
+      FannoPipe: 0
+      TaperedDuct: 0
+      JunctionStaticP: 25
+      LosslessSplitter: 25
+      ForcedSplitter: 0

@@ -44,9 +44,12 @@
 # element's incident ports.
 
 version: 2.0.0
+meta:
+  title: Gas-turbine secondary-air system
 model:
   id: nefes
   globalAttributes:
+    thermoModel: perfect_gas
     gasConstant: 287.0
     heatCapacityRatio: 1.4
     referencePressure: 900000.0
@@ -139,6 +142,7 @@ model:
     attributes:
       label: dump-1480--340
       index: 13
+      contractionCoefficient: 1.0
   - id: LossElement_4
     type: LossElement
     attributes:
@@ -225,6 +229,7 @@ model:
     attributes:
       label: dump-1480-270
       index: 27
+      contractionCoefficient: 1.0
   - id: LossElement_10
     type: LossElement
     attributes:
@@ -311,6 +316,7 @@ model:
     attributes:
       label: dump-1480-880
       index: 41
+      contractionCoefficient: 1.0
   - id: LossElement_16
     type: LossElement
     attributes:
@@ -384,6 +390,7 @@ model:
     attributes:
       label: dump-1480-1320
       index: 53
+      contractionCoefficient: 1.0
   - id: LossElement_21
     type: LossElement
     attributes:
@@ -449,6 +456,7 @@ model:
     attributes:
       index: 0
       area: 0.02
+      label: edge_1
   - id: edge_2
     source: MassFlowInlet_1
     target: Duct_2
@@ -458,6 +466,7 @@ model:
     attributes:
       index: 1
       area: 0.015
+      label: edge_2
   - id: edge_3
     source: JunctionStaticP_1
     target: IsentropicAreaChange_1
@@ -467,6 +476,7 @@ model:
     attributes:
       index: 2
       area: 0.03
+      label: edge_3
   - id: edge_4
     source: IsentropicAreaChange_1
     target: Duct_3
@@ -476,6 +486,7 @@ model:
     attributes:
       index: 3
       area: 0.025
+      label: edge_4
   - id: edge_5
     source: LosslessSplitter_1
     target: LossElement_1
@@ -485,6 +496,7 @@ model:
     attributes:
       index: 4
       area: 0.012
+      label: edge_5
   - id: edge_6
     source: LossElement_1
     target: Duct_4
@@ -494,6 +506,7 @@ model:
     attributes:
       index: 5
       area: 0.012
+      label: edge_6
   - id: edge_7
     source: JunctionStaticP_2
     target: IsentropicAreaChange_2
@@ -503,6 +516,7 @@ model:
     attributes:
       index: 6
       area: 0.004
+      label: edge_7
   - id: edge_8
     source: IsentropicAreaChange_2
     target: LossElement_2
@@ -512,6 +526,7 @@ model:
     attributes:
       index: 7
       area: 0.002
+      label: edge_8
   - id: edge_9
     source: LossElement_2
     target: PressureOutlet_1
@@ -521,6 +536,7 @@ model:
     attributes:
       index: 8
       area: 0.002
+      label: edge_9
   - id: edge_10
     source: JunctionStaticP_2
     target: LossElement_3
@@ -530,6 +546,7 @@ model:
     attributes:
       index: 9
       area: 0.004
+      label: edge_10
   - id: edge_11
     source: LossElement_3
     target: PressureOutlet_2
@@ -539,6 +556,7 @@ model:
     attributes:
       index: 10
       area: 0.004
+      label: edge_11
   - id: edge_12
     source: JunctionStaticP_2
     target: IsentropicAreaChange_3
@@ -548,6 +566,7 @@ model:
     attributes:
       index: 11
       area: 0.004
+      label: edge_12
   - id: edge_13
     source: IsentropicAreaChange_3
     target: SuddenAreaChange_1
@@ -557,6 +576,7 @@ model:
     attributes:
       index: 12
       area: 0.0025
+      label: edge_13
   - id: edge_14
     source: SuddenAreaChange_1
     target: LossElement_4
@@ -566,6 +586,7 @@ model:
     attributes:
       index: 13
       area: 0.006
+      label: edge_14
   - id: edge_15
     source: LossElement_4
     target: PressureOutlet_3
@@ -575,6 +596,7 @@ model:
     attributes:
       index: 14
       area: 0.006
+      label: edge_15
   - id: edge_16
     source: JunctionStaticP_2
     target: LossElement_5
@@ -584,6 +606,7 @@ model:
     attributes:
       index: 15
       area: 0.004
+      label: edge_16
   - id: edge_17
     source: LossElement_5
     target: LossElement_6
@@ -593,6 +616,7 @@ model:
     attributes:
       index: 16
       area: 0.004
+      label: edge_17
   - id: edge_18
     source: LossElement_6
     target: PressureOutlet_4
@@ -602,6 +626,7 @@ model:
     attributes:
       index: 17
       area: 0.004
+      label: edge_18
   - id: edge_19
     source: JunctionStaticP_2
     target: IsentropicAreaChange_4
@@ -611,6 +636,7 @@ model:
     attributes:
       index: 18
       area: 0.004
+      label: edge_19
   - id: edge_20
     source: IsentropicAreaChange_4
     target: LossElement_7
@@ -620,6 +646,7 @@ model:
     attributes:
       index: 19
       area: 0.002
+      label: edge_20
   - id: edge_21
     source: LossElement_7
     target: PressureOutlet_5
@@ -629,6 +656,7 @@ model:
     attributes:
       index: 20
       area: 0.002
+      label: edge_21
   - id: edge_22
     source: LosslessSplitter_1
     target: LossElement_8
@@ -638,6 +666,7 @@ model:
     attributes:
       index: 21
       area: 0.012
+      label: edge_22
   - id: edge_23
     source: LossElement_8
     target: Duct_5
@@ -647,6 +676,7 @@ model:
     attributes:
       index: 22
       area: 0.012
+      label: edge_23
   - id: edge_24
     source: JunctionStaticP_3
     target: LossElement_9
@@ -656,6 +686,7 @@ model:
     attributes:
       index: 23
       area: 0.004
+      label: edge_24
   - id: edge_25
     source: LossElement_9
     target: PressureOutlet_6
@@ -665,6 +696,7 @@ model:
     attributes:
       index: 24
       area: 0.004
+      label: edge_25
   - id: edge_26
     source: JunctionStaticP_3
     target: IsentropicAreaChange_5
@@ -674,6 +706,7 @@ model:
     attributes:
       index: 25
       area: 0.004
+      label: edge_26
   - id: edge_27
     source: IsentropicAreaChange_5
     target: SuddenAreaChange_2
@@ -683,6 +716,7 @@ model:
     attributes:
       index: 26
       area: 0.0025
+      label: edge_27
   - id: edge_28
     source: SuddenAreaChange_2
     target: LossElement_10
@@ -692,6 +726,7 @@ model:
     attributes:
       index: 27
       area: 0.006
+      label: edge_28
   - id: edge_29
     source: LossElement_10
     target: PressureOutlet_7
@@ -701,6 +736,7 @@ model:
     attributes:
       index: 28
       area: 0.006
+      label: edge_29
   - id: edge_30
     source: JunctionStaticP_3
     target: LossElement_11
@@ -710,6 +746,7 @@ model:
     attributes:
       index: 29
       area: 0.004
+      label: edge_30
   - id: edge_31
     source: LossElement_11
     target: LossElement_12
@@ -719,6 +756,7 @@ model:
     attributes:
       index: 30
       area: 0.004
+      label: edge_31
   - id: edge_32
     source: LossElement_12
     target: PressureOutlet_8
@@ -728,6 +766,7 @@ model:
     attributes:
       index: 31
       area: 0.004
+      label: edge_32
   - id: edge_33
     source: JunctionStaticP_3
     target: IsentropicAreaChange_6
@@ -737,6 +776,7 @@ model:
     attributes:
       index: 32
       area: 0.004
+      label: edge_33
   - id: edge_34
     source: IsentropicAreaChange_6
     target: LossElement_13
@@ -746,6 +786,7 @@ model:
     attributes:
       index: 33
       area: 0.002
+      label: edge_34
   - id: edge_35
     source: LossElement_13
     target: PressureOutlet_9
@@ -755,6 +796,7 @@ model:
     attributes:
       index: 34
       area: 0.002
+      label: edge_35
   - id: edge_36
     source: JunctionStaticP_3
     target: LossElement_14
@@ -764,6 +806,7 @@ model:
     attributes:
       index: 35
       area: 0.004
+      label: edge_36
   - id: edge_37
     source: LossElement_14
     target: PressureOutlet_10
@@ -773,6 +816,7 @@ model:
     attributes:
       index: 36
       area: 0.004
+      label: edge_37
   - id: edge_38
     source: LosslessSplitter_1
     target: LossElement_15
@@ -782,6 +826,7 @@ model:
     attributes:
       index: 37
       area: 0.012
+      label: edge_38
   - id: edge_39
     source: LossElement_15
     target: Duct_6
@@ -791,6 +836,7 @@ model:
     attributes:
       index: 38
       area: 0.012
+      label: edge_39
   - id: edge_40
     source: JunctionStaticP_4
     target: IsentropicAreaChange_7
@@ -800,6 +846,7 @@ model:
     attributes:
       index: 39
       area: 0.004
+      label: edge_40
   - id: edge_41
     source: IsentropicAreaChange_7
     target: SuddenAreaChange_3
@@ -809,6 +856,7 @@ model:
     attributes:
       index: 40
       area: 0.0025
+      label: edge_41
   - id: edge_42
     source: SuddenAreaChange_3
     target: LossElement_16
@@ -818,6 +866,7 @@ model:
     attributes:
       index: 41
       area: 0.006
+      label: edge_42
   - id: edge_43
     source: LossElement_16
     target: PressureOutlet_11
@@ -827,6 +876,7 @@ model:
     attributes:
       index: 42
       area: 0.006
+      label: edge_43
   - id: edge_44
     source: JunctionStaticP_4
     target: LossElement_17
@@ -836,6 +886,7 @@ model:
     attributes:
       index: 43
       area: 0.004
+      label: edge_44
   - id: edge_45
     source: LossElement_17
     target: LossElement_18
@@ -845,6 +896,7 @@ model:
     attributes:
       index: 44
       area: 0.004
+      label: edge_45
   - id: edge_46
     source: LossElement_18
     target: PressureOutlet_12
@@ -854,6 +906,7 @@ model:
     attributes:
       index: 45
       area: 0.004
+      label: edge_46
   - id: edge_47
     source: JunctionStaticP_4
     target: IsentropicAreaChange_8
@@ -863,6 +916,7 @@ model:
     attributes:
       index: 46
       area: 0.004
+      label: edge_47
   - id: edge_48
     source: IsentropicAreaChange_8
     target: LossElement_19
@@ -872,6 +926,7 @@ model:
     attributes:
       index: 47
       area: 0.002
+      label: edge_48
   - id: edge_49
     source: LossElement_19
     target: PressureOutlet_13
@@ -881,6 +936,7 @@ model:
     attributes:
       index: 48
       area: 0.002
+      label: edge_49
   - id: edge_50
     source: JunctionStaticP_4
     target: LossElement_20
@@ -890,6 +946,7 @@ model:
     attributes:
       index: 49
       area: 0.004
+      label: edge_50
   - id: edge_51
     source: LossElement_20
     target: PressureOutlet_14
@@ -899,6 +956,7 @@ model:
     attributes:
       index: 50
       area: 0.004
+      label: edge_51
   - id: edge_52
     source: JunctionStaticP_4
     target: IsentropicAreaChange_9
@@ -908,6 +966,7 @@ model:
     attributes:
       index: 51
       area: 0.004
+      label: edge_52
   - id: edge_53
     source: IsentropicAreaChange_9
     target: SuddenAreaChange_4
@@ -917,6 +976,7 @@ model:
     attributes:
       index: 52
       area: 0.0025
+      label: edge_53
   - id: edge_54
     source: SuddenAreaChange_4
     target: LossElement_21
@@ -926,6 +986,7 @@ model:
     attributes:
       index: 53
       area: 0.006
+      label: edge_54
   - id: edge_55
     source: LossElement_21
     target: PressureOutlet_15
@@ -935,6 +996,7 @@ model:
     attributes:
       index: 54
       area: 0.006
+      label: edge_55
   - id: edge_56
     source: JunctionStaticP_2
     target: LossElement_22
@@ -944,6 +1006,7 @@ model:
     attributes:
       index: 55
       area: 0.003
+      label: edge_56
   - id: edge_57
     source: LossElement_22
     target: JunctionStaticP_3
@@ -953,6 +1016,7 @@ model:
     attributes:
       index: 56
       area: 0.003
+      label: edge_57
   - id: edge_58
     source: Duct_1
     target: JunctionStaticP_1
@@ -962,6 +1026,7 @@ model:
     attributes:
       index: 57
       area: 0.02
+      label: edge_58
   - id: edge_59
     source: Duct_2
     target: JunctionStaticP_1
@@ -971,6 +1036,7 @@ model:
     attributes:
       index: 58
       area: 0.015
+      label: edge_59
   - id: edge_60
     source: Duct_3
     target: LosslessSplitter_1
@@ -980,6 +1046,7 @@ model:
     attributes:
       index: 59
       area: 0.025
+      label: edge_60
   - id: edge_61
     source: Duct_4
     target: JunctionStaticP_2
@@ -989,6 +1056,7 @@ model:
     attributes:
       index: 60
       area: 0.012
+      label: edge_61
   - id: edge_62
     source: Duct_5
     target: JunctionStaticP_3
@@ -998,6 +1066,7 @@ model:
     attributes:
       index: 61
       area: 0.012
+      label: edge_62
   - id: edge_63
     source: Duct_6
     target: JunctionStaticP_4
@@ -1007,260 +1076,324 @@ model:
     attributes:
       index: 62
       area: 0.012
+      label: edge_63
 uiAttributes:
   nodes:
   - id: TotalPressureInlet_1
     position:
       x: 0.0
       y: 60.0
+    data: {}
   - id: MassFlowInlet_1
     position:
       x: 0.0
       y: 260.0
+    data: {}
   - id: JunctionStaticP_1
     position:
       x: 240.0
       y: 160.0
+    data: {}
   - id: IsentropicAreaChange_1
     position:
       x: 480.0
       y: 160.0
+    data: {}
   - id: LosslessSplitter_1
     position:
       x: 720.0
       y: 160.0
+    data: {}
   - id: LossElement_1
     position:
       x: 960.0
       y: -360.0
+    data: {}
   - id: JunctionStaticP_2
     position:
       x: 1200.0
       y: -360.0
+    data: {}
   - id: IsentropicAreaChange_2
     position:
       x: 1480.0
       y: -560.0
+    data: {}
   - id: LossElement_2
     position:
       x: 1680.0
       y: -560.0
+    data: {}
   - id: PressureOutlet_1
     position:
       x: 1880.0
       y: -560.0
+    data: {}
   - id: LossElement_3
     position:
       x: 1480.0
       y: -450.0
+    data: {}
   - id: PressureOutlet_2
     position:
       x: 1680.0
       y: -450.0
+    data: {}
   - id: IsentropicAreaChange_3
     position:
       x: 1480.0
       y: -340.0
+    data: {}
   - id: SuddenAreaChange_1
     position:
       x: 1680.0
       y: -340.0
+    data: {}
   - id: LossElement_4
     position:
       x: 1880.0
       y: -340.0
+    data: {}
   - id: PressureOutlet_3
     position:
       x: 2080.0
       y: -340.0
+    data: {}
   - id: LossElement_5
     position:
       x: 1480.0
       y: -230.0
+    data: {}
   - id: LossElement_6
     position:
       x: 1680.0
       y: -230.0
+    data: {}
   - id: PressureOutlet_4
     position:
       x: 1880.0
       y: -230.0
+    data: {}
   - id: IsentropicAreaChange_4
     position:
       x: 1480.0
       y: -120.0
+    data: {}
   - id: LossElement_7
     position:
       x: 1680.0
       y: -120.0
+    data: {}
   - id: PressureOutlet_5
     position:
       x: 1880.0
       y: -120.0
+    data: {}
   - id: LossElement_8
     position:
       x: 960.0
       y: 360.0
+    data: {}
   - id: JunctionStaticP_3
     position:
       x: 1200.0
       y: 360.0
+    data: {}
   - id: LossElement_9
     position:
       x: 1480.0
       y: 160.0
+    data: {}
   - id: PressureOutlet_6
     position:
       x: 1680.0
       y: 160.0
+    data: {}
   - id: IsentropicAreaChange_5
     position:
       x: 1480.0
       y: 270.0
+    data: {}
   - id: SuddenAreaChange_2
     position:
       x: 1680.0
       y: 270.0
+    data: {}
   - id: LossElement_10
     position:
       x: 1880.0
       y: 270.0
+    data: {}
   - id: PressureOutlet_7
     position:
       x: 2080.0
       y: 270.0
+    data: {}
   - id: LossElement_11
     position:
       x: 1480.0
       y: 380.0
+    data: {}
   - id: LossElement_12
     position:
       x: 1680.0
       y: 380.0
+    data: {}
   - id: PressureOutlet_8
     position:
       x: 1880.0
       y: 380.0
+    data: {}
   - id: IsentropicAreaChange_6
     position:
       x: 1480.0
       y: 490.0
+    data: {}
   - id: LossElement_13
     position:
       x: 1680.0
       y: 490.0
+    data: {}
   - id: PressureOutlet_9
     position:
       x: 1880.0
       y: 490.0
+    data: {}
   - id: LossElement_14
     position:
       x: 1480.0
       y: 600.0
+    data: {}
   - id: PressureOutlet_10
     position:
       x: 1680.0
       y: 600.0
+    data: {}
   - id: LossElement_15
     position:
       x: 960.0
       y: 1080.0
+    data: {}
   - id: JunctionStaticP_4
     position:
       x: 1200.0
       y: 1080.0
+    data: {}
   - id: IsentropicAreaChange_7
     position:
       x: 1480.0
       y: 880.0
+    data: {}
   - id: SuddenAreaChange_3
     position:
       x: 1680.0
       y: 880.0
+    data: {}
   - id: LossElement_16
     position:
       x: 1880.0
       y: 880.0
+    data: {}
   - id: PressureOutlet_11
     position:
       x: 2080.0
       y: 880.0
+    data: {}
   - id: LossElement_17
     position:
       x: 1480.0
       y: 990.0
+    data: {}
   - id: LossElement_18
     position:
       x: 1680.0
       y: 990.0
+    data: {}
   - id: PressureOutlet_12
     position:
       x: 1880.0
       y: 990.0
+    data: {}
   - id: IsentropicAreaChange_8
     position:
       x: 1480.0
       y: 1100.0
+    data: {}
   - id: LossElement_19
     position:
       x: 1680.0
       y: 1100.0
+    data: {}
   - id: PressureOutlet_13
     position:
       x: 1880.0
       y: 1100.0
+    data: {}
   - id: LossElement_20
     position:
       x: 1480.0
       y: 1210.0
+    data: {}
   - id: PressureOutlet_14
     position:
       x: 1680.0
       y: 1210.0
+    data: {}
   - id: IsentropicAreaChange_9
     position:
       x: 1480.0
       y: 1320.0
+    data: {}
   - id: SuddenAreaChange_4
     position:
       x: 1680.0
       y: 1320.0
+    data: {}
   - id: LossElement_21
     position:
       x: 1880.0
       y: 1320.0
+    data: {}
   - id: PressureOutlet_15
     position:
       x: 2080.0
       y: 1320.0
+    data: {}
   - id: LossElement_22
     position:
       x: 1200.0
       y: -120.0
+    data: {}
   - id: Duct_1
     position:
       x: 120.0
       y: 60.0
+    data: {}
   - id: Duct_2
     position:
       x: 120.0
       y: 260.0
+    data: {}
   - id: Duct_3
     position:
       x: 600.0
       y: 160.0
+    data: {}
   - id: Duct_4
     position:
       x: 1080.0
       y: -360.0
+    data: {}
   - id: Duct_5
     position:
       x: 1080.0
       y: 360.0
+    data: {}
   - id: Duct_6
     position:
       x: 1080.0
       y: 1080.0
+    data: {}
 uiState:
   counters:
     nodeCounters:
