@@ -1,13 +1,31 @@
 # Nefes — network solver for reacting compressible flows and thermoacoustics
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
-![image](assets/readme-banner.png)
 
+<div align="center">
+
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)|[![python](https://img.shields.io/badge/python-3.11-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)|[![Documentation](https://img.shields.io/badge/Documentation-latest-blue.svg)](https://cetinalanyalioglu.github.io/Nefes/)|[![DOI](https://joss.theoj.org/papers/???/status.svg)](???)
+|:-:|:-:|:-:|:-:|
+
+
+[![Tests](https://github.com/cetinalanyalioglu/Nefes/actions/workflows/WORKFLOW_FILE.yml/badge.svg)](https://github.com/cetinalanyalioglu/Nefes/actions/workflows/WORKFLOW_FILE.yml)|[![codecov](https://codecov.io/gh/cetinalanyalioglu/Nefes/branch/master/graph/badge.svg)](https://codecov.io/gh/cetinalanyalioglu/Nefes)|[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)|[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)|[![Linting: flake8](https://img.shields.io/badge/linting-flake8-yellowgreen)](https://github.com/PyCQA/flake8)
+|:-:|:-:|:-:|:-:|:-:|
+
+</div>
 
 Nefes models a fluid system as a directed graph of lumped elements.
 It solves the steady mean flow and the linear perturbations about that mean (acoustics, entropy, and composition) without resolving the full three-dimensional field.
 The perturbation layer is the linearization of the same mean-flow residual, so the two stay consistent by construction.
 
+![image](assets/readme-banner.png)
+
 The companion browser UI [Nemo](https://github.com/cetinalanyalioglu/Nemo) builds Nefes networks interactively.
+
+---
+
+**[Capabilities](#capabilities)** |
+**[Installation](#installation)** |
+**[Documentation](#documentation)** |
+**[Minimal example: a reacting Rijke tube](#minimal-example-a-reacting-rijke-tube)** |
+**[Contributing](#contributing)** |
 
 ## Capabilities
 
