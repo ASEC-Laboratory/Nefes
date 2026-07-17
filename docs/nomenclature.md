@@ -116,7 +116,7 @@ A related remark on numeric subscripts: they denote **port indices** ($p_0$, $p_
 | **seeding** | tagging one unknown with an imaginary perturbation, $x \leftarrow x + \mathrm{i}h_{\text{cs}}$ |
 | **stamp** | a local contribution an element writes into the assembled (mean-flow or perturbation) operator |
 | **storage** | the finite-volume compliance and inertance restored to an element under an unsteady perturbation |
-| **terminal** | a single-port element who acts as a boundary condition |
+| **terminal** | a single-port boundary element and its incident edge at which the perturbation network imposes an acoustic boundary law on the waves |
 | **transfer matrix** | a frequency-domain 2-port relating the flow variables at two stations along their arrows |
 | **transport (edge) equation** | the donor/upwind relation that carries total enthalpy (and any scalar) along an edge |
 | **well-posed** | having exactly as many independent conditions as unknowns — solvable and unambiguous |
