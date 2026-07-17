@@ -1,5 +1,7 @@
 """Mean-flow solver vs analytic 1-D compressible flow."""
 
+import time
+
 import numpy as np
 import pytest
 
@@ -191,3 +193,27 @@ def test_progress_interval_thins_iteration_prints(capsys):
     solve(prob, verbose=2, progress_interval=100)  # only iteration 0 of each stage
     sparse = len(_iter_rows(capsys.readouterr().out))
     assert sparse < every
+
+
+# -- solve timing -----------------------------------------------------------------
+
+
+def test_solve_reports_elapsed_time():
+    # The reading is a measurement, so it is pinned only as far as it is meaningful: positive,
+    # finite, and no larger than the wall-clock span the call actually occupied.
+    prob = _nozzle(pt=2.0e5, Tt=300.0, p_out=1.0e5)
+    t0 = time.perf_counter()
+    res = solve(prob)
+    span = time.perf_counter() - t0
+    assert res.converged
+    assert np.isfinite(res.elapsed)
+    assert 0.0 < res.elapsed <= span
+
+
+def test_elapsed_does_not_perturb_the_converged_state():
+    # Timing is an observation of the solve, never an input to it: the state must be identical
+    # to the same solve's, bit for bit.
+    prob = _nozzle(pt=2.0e5, Tt=300.0, p_out=1.0e5)
+    a, b = solve(prob), solve(prob)
+    np.testing.assert_array_equal(a.x, b.x)
+    assert a.iterations == b.iterations and a.residual_norm == b.residual_norm

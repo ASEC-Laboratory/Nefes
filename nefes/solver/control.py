@@ -17,6 +17,7 @@ Todini & Pilati's global gradient algorithm for the zero-flow singularity of
 hydraulic-network solvers.
 """
 
+import time
 import warnings
 from dataclasses import dataclass, field
 from typing import List
@@ -420,6 +421,10 @@ class SolveResult:
     iterations: int
     residual_norm: float
     history: List[float] = field(default_factory=list)
+    # Seconds spent in the solve that produced this state, measured on a monotonic clock.  The
+    # first solve of a session carries the kernels' one-off compilation (see the note on
+    # ``elapsed`` in ``solve``); a restored state that was never re-solved reports 0.0.
+    elapsed: float = 0.0
 
     def __repr__(self) -> str:
         """One-line solver outcome: convergence, iteration count, residual, and state shape."""
@@ -621,8 +626,19 @@ def solve(
     Returns
     -------
     SolveResult
-        The converged state and solve diagnostics.
+        The converged state and solve diagnostics, including the ``elapsed`` seconds the solve
+        took.  That reading covers everything this call does (the seed, every continuation stage,
+        and any subsonic-scope re-solve), so on the first solve of a session it also carries the
+        one-off compilation of the kernels, which typically dwarfs the solve itself.  Time a
+        second solve to measure the solver rather than the compiler.
+
+    Notes
+    -----
+    ``elapsed`` is a measurement of this machine and this run, not a property of the network:
+    unlike the converged state it is not reproducible, and it is deliberately not written to a
+    case file.
     """
+    t_start = time.perf_counter()
     mdot_ref = prob.var_scale[0]
     # artificial-friction resistance: scale the dimensionless kappa schedule so the
     # injected artificial dP is a fixed fraction of the real driving dP (kappa_scale
@@ -727,4 +743,11 @@ def solve(
                     "near-choke state, but is at the edge of the present (subsonic) scope.",
                     stacklevel=2,
                 )
-    return SolveResult(x=x2d, converged=converged, iterations=total_it, residual_norm=norm, history=history)
+    return SolveResult(
+        x=x2d,
+        converged=converged,
+        iterations=total_it,
+        residual_norm=norm,
+        history=history,
+        elapsed=time.perf_counter() - t_start,
+    )

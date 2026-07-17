@@ -7,6 +7,7 @@ that a bare solve stays subsonic, that the switch restores the raw branch, and t
 choking (a real throat pinning at M = 1) is untouched.
 """
 
+import time
 import warnings
 
 import numpy as np
@@ -140,3 +141,20 @@ def test_switch_off_accepts_the_supersonic_branch_as_converged():
     sol = _resistance_free_ring().solve(enforce_subsonic=False)
     assert sol.converged
     assert sol.field("M").max() > 1.0  # the accepted branch really is supersonic
+
+
+def test_rescued_solve_reports_its_total_time():
+    """A rescued solve times the whole call, the nested re-solve included.
+
+    This case reaches the spurious branch cold (``test_switch_off_exposes_the_supersonic_branch``
+    pins the raw M = 1.43), so the default solve here pays for two solves.  ``elapsed`` must
+    account for both rather than for the rescue leg alone.
+    """
+    _converging_nozzle().solve()  # warm the kernels: their one-off compilation is not solve time
+    t0 = time.perf_counter()
+    sol = _converging_nozzle().solve()
+    span = time.perf_counter() - t0
+    assert sol.converged
+    assert sol.field("M").max() < 1.0  # the rescue ran
+    assert 0.0 < sol.elapsed <= span
+    assert sol.elapsed >= 0.5 * span  # the whole call, not one leg of it

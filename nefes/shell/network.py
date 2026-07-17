@@ -1266,6 +1266,27 @@ class Solution:
         return self.result.residual_norm
 
     @property
+    def elapsed(self) -> float:
+        """Seconds the mean-flow solve took, on a monotonic clock.
+
+        Covers the whole of :meth:`Network.solve` (the seed, every continuation stage, and any
+        subsonic-scope re-solve).  The first solve of a session also carries the one-off
+        compilation of the kernels, which typically dwarfs the solve itself, so a sweep's second
+        and later solves are the ones that measure the solver.  A solution restored from a case
+        file without re-solving reports ``0.0``.
+
+        Being a reading of this machine and this run, it is the one field here that does not
+        reproduce across runs, and it is not written to a case file.
+
+        Examples
+        --------
+        >>> sol = net.solve()  # doctest: +SKIP
+        >>> f"{sol.elapsed * 1e3:.1f} ms in {sol.iterations} iteration(s)"  # doctest: +SKIP
+        '2.5 ms in 6 iteration(s)'
+        """
+        return self.result.elapsed
+
+    @property
     def x(self) -> np.ndarray:
         """Raw converged state vector."""
         return self.result.x

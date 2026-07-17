@@ -7,6 +7,9 @@ It is the practical counterpart to the [design philosophy](philosophy.md): the p
 
 The numerics are deterministic by construction: the residual and Jacobian are exact functions of the state, evaluated by compiled kernels that draw on no randomness and no wall-clock time, so a given network and initial guess produce the same converged state on every run.
 The solver's only stochastic-looking ingredient, the random probe of the contour eigensolver, is drawn from a fixed seed so that even the acoustic spectrum is reproducible.
+A solve does *read* the clock once, to report how long it took, but that reading is an output and never an input: no residual, Jacobian, or convergence test consults it, so it cannot influence the state the solve returns.
+It is accordingly the one reported quantity that does not reproduce, a measurement of the machine and the run rather than of the network, and it is kept out of the case file so that the saved record stays a function of the network alone.
+A reader comparing two runs should expect every number to agree except this one.
 The one hazard to determinism is operational rather than algorithmic: the compiled kernel code described in [kernel architecture](kernel-architecture.md) is cached, which can serve stale machine code after a source edit and so make a result depend on build history rather than on source alone; clearing the cache after any kernel change is therefore part of the reproducibility discipline.
 
 ## Pinned environments {#sec-repro-environments}
