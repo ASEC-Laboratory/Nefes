@@ -39,6 +39,14 @@ $$
 where $\dot{Q}$ is the prescribed power, so the edges downstream of it sit hundreds of kelvin above the feed.
 The seed adds this rise on top of the mixing estimate, using the mass flow it has already propagated.
 
+That divisor is exact wherever an inlet prescribes the flow, and an estimate wherever it does not.
+A network fed through a total-pressure inlet leaves its mass flow to the solve, so the propagation has nothing to carry onto the flame's edge and falls back to $\dot m_{\text{ref}}$.
+The estimate errs in a forgiving direction on its own: it is measured cold and cannot see that heat release throttles the flow, so it sits *below* the true value, which overstates the rise and seeds the flame hot.
+That is the cheap side of the curve, and the solve absorbs it, taking more steps as the discrepancy grows.
+The costly direction is a reference set well *above* the true flow, which understates the rise and seeds the flame cold on the steep side described below.
+A solve therefore compares the flow its flame seed assumed against the one it reached, and reports a flame seeded from a mass flow an order of magnitude too large, naming $\dot m_{\text{ref}}$ as the quantity to reconsider (tests: `test_cold_flame_seed_is_reported`, `test_pt_inlet_flame_converges_from_default_seed`).
+Leaving $\dot m_{\text{ref}}$ unset is the reliable choice: it is then derived from the boundary specification, where the error stays in the forgiving direction.
+
 Seeding the burnt side cold is not a matter of a few wasted iterations.
 The enthalpy rise varies as $1/\overline{\dot m}$, so the energy row's sensitivity to the mass flow, $\partial(\Delta h_t)/\partial\overline{\dot m} = -\dot{Q}/\overline{\dot m}^{2}$, steepens without bound as the flow falls.
 A guess on the cold side of that wall sends the first step toward a smaller mass flow, which steepens the wall further; the line search then rejects every trial and the iteration stalls with the flow collapsed toward rest.

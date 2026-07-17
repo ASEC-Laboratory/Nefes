@@ -68,6 +68,14 @@ EPS_FB = 1e-5
 # the continuation's ``eps``.
 MDOT_SEED_FLOOR = 1e-3
 
+# Factor by which a flame seed's assumed mass flow may exceed the realized one before the solve
+# reports the seed as misleading.  The seeded rise varies as Q_dot / mdot, so an over-stated flow
+# understates the rise and starts the iteration on the steep side of that curve: a factor of a few
+# is absorbed (the solve converges, taking more steps), while an order of magnitude can stall it.
+# The threshold sits between the two, above the error a flame-blind estimate of a throttled flow
+# incurs on its own and below the error that has been seen to stall a solve.
+FLAME_SEED_MDOT_TOL = 10.0
+
 # Globalization tuning for the damped Newton in ``_solve_stage``.  These are standard,
 # solver-independent line-search / Levenberg-Marquardt defaults, not physics: the exact values
 # only trade robustness against a few extra residual evaluations on hard iterates.
@@ -414,6 +422,55 @@ def auto_initial_guess(prob, mdot0=None, p0=None, max_sweeps=1000):
     return x
 
 
+def _flame_divisor_edges(prob):
+    """Each heat-release flame paired with the edge whose mass flow scales its enthalpy rise.
+
+    The flame kernel raises its outflow total enthalpy by ``Q_dot / |mdot|`` taken on its first
+    port (the outflow edge), and the seed estimates the same rise on the same edge, so this is
+    the one flow whose seed error carries straight into the seeded temperature.
+    """
+    rid = np.asarray(prob.node_rid)
+    row_ptr = np.asarray(prob.row_ptr)
+    col_edge = np.asarray(prob.col_edge)
+    return [(int(n), int(col_edge[row_ptr[n]])) for n in np.nonzero(rid == FLAME_HEAT_RELEASE)[0]]
+
+
+def _warn_on_cold_flame_seed(prob, flame_edges, seed_mdot, x2d, mdot_ref):
+    """Report a flame whose seeded mass flow badly overstates the one the solve reached.
+
+    The seeded rise varies as ``Q_dot / mdot``, so a seed flow above the realized one seeds the
+    flame cold, which is the expensive direction: it starts the iteration on the steep side of
+    that curve.  Silent when the flow is prescribed (the seed is then exact) or when the estimate
+    is merely a few times off, which the solve absorbs.
+    """
+    names = prob.node_names or ()
+    worst = None
+    for n, e in flame_edges:
+        seeded = abs(float(seed_mdot[e]))
+        realized = abs(float(x2d[0, e].real))
+        if realized <= 0.0 or seeded <= realized * FLAME_SEED_MDOT_TOL:
+            continue
+        ratio = seeded / realized
+        if worst is None or ratio > worst[0]:
+            label = names[n] if n < len(names) and names[n] else f"#{n}"
+            worst = (ratio, label, seeded, realized)
+    if worst is None:
+        return
+    ratio, label, seeded, realized = worst
+    others = f" ({len(flame_edges) - 1} other flame(s) not reported)" if len(flame_edges) > 1 else ""
+    warnings.warn(
+        f"the heat-release flame {label!r} seeded its total-enthalpy rise from a mass flow of "
+        f"{seeded:.4g} kg/s, but the solve settled at {realized:.4g} kg/s on that edge, so the "
+        f"seeded rise was about {ratio:.0f}x too small{others}. The rise varies as Q_dot / mdot, "
+        f"so seeding a flame cold starts the iteration on the steep side of that curve and costs "
+        f"extra steps, or stalls it outright. The seed takes this flow from the boundaries and "
+        f"falls back to mdot_ref ({mdot_ref:.4g} kg/s) where no inlet prescribes it, so an "
+        f"mdot_ref well above the true flow produces exactly this; leaving mdot_ref unset lets it "
+        f"be estimated from the boundary specification instead.",
+        stacklevel=3,
+    )
+
+
 @dataclass
 class SolveResult:
     x: np.ndarray  # converged state, shape (3, E)
@@ -665,6 +722,11 @@ def solve(
         x2d = auto_initial_guess(prob)
     else:
         x2d = initial_guess(prob)
+    # A flame's seeded rise is only as good as the mass flow the seed divided into it, so keep
+    # that flow to compare against the realized one once the solve has run.  Only for a seed of
+    # our own making: a caller-supplied x0 owes nothing to mdot_ref.
+    flame_edges = _flame_divisor_edges(prob) if x0 is None else []
+    seed_mdot = x2d[0, :].copy() if flame_edges else None
     # seed the burnt marker from the topology flood-fill (demoted to an initial guess; the
     # signed-flow transport self-corrects it).  Skipped when the caller supplies x0.
     if x0 is None and getattr(prob, "marker_row", -1) >= 0 and prob.marker_seed is not None:
@@ -743,6 +805,8 @@ def solve(
                     "near-choke state, but is at the edge of the present (subsonic) scope.",
                     stacklevel=2,
                 )
+    if flame_edges:
+        _warn_on_cold_flame_seed(prob, flame_edges, seed_mdot, x2d, mdot_ref)
     return SolveResult(
         x=x2d,
         converged=converged,

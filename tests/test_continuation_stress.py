@@ -9,9 +9,12 @@ physical (subsonic, positive, mass-conserving) steady state, including from a
 quiescent (zero-flow) cold start.
 """
 
+import warnings
+
 import numpy as np
 import pytest
 
+import nefes
 from nefes.assembly.recover import ES_M, ES_MDOT, ES_P, ES_T
 from nefes.elements import catalog as cat
 from nefes.shell.build import build_problem
@@ -170,3 +173,76 @@ def test_heat_release_flame_default_seed_matches_ramped_solve():
         assert ramped.converged
         x = ramped.x
     assert np.allclose(ramped.x, direct.x, rtol=1e-8)
+
+
+# -- the flame seed's divisor: a flow the seed must estimate when no inlet prescribes it ----
+
+
+def _pt_fed_flame(Qdot, mdot_ref=None):
+    """``reservoir -> duct -> heat_release_flame -> duct -> choked_nozzle``.
+
+    A total-pressure inlet leaves the mass flow to the solve, so the seed must estimate the flow
+    it divides ``Qdot`` by.  ``mdot_ref=None`` takes the reference the network derives itself.
+    """
+    kw = {} if mdot_ref is None else {"mdot_ref": mdot_ref}
+    return nefes.Network(
+        nodes=[
+            cat.total_pressure_inlet(3.0e5, 300.0, name="reservoir"),
+            cat.duct(0.3, name="cold"),
+            cat.heat_release_flame(Qdot, name="burner"),
+            cat.duct(0.6, name="hot"),
+            cat.choked_nozzle_outlet(0.006, name="nozzle"),
+        ],
+        edges=[(0, 1, 0.01), (1, 2, 0.01), (2, 3, 0.01), (3, 4, 0.01)],
+        p_ref=P_REF,
+        T_ref=300.0,
+        **kw,
+    )
+
+
+@pytest.mark.parametrize("Qdot", [1.0e5, 1.0e6, 2.0e6])
+def test_pt_inlet_flame_converges_from_default_seed(Qdot):
+    # The flow is an outcome here, so the seed divides Qdot by the derived reference rather than a
+    # prescribed flow.  Heat release throttles the true flow and the cold reference cannot see it,
+    # but the resulting seed error is small enough that the default path still converges.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # no diagnostic is due on the default path
+        sol = _pt_fed_flame(Qdot).solve()
+    assert sol.converged
+    assert sol.field("M").max() < 1.0
+    assert np.all(sol.field("T") > 0.0)
+
+
+def test_cold_flame_seed_is_reported():
+    # An mdot_ref far above the true flow (~2.7 kg/s) makes the seed divide Qdot by a flow an
+    # order of magnitude too large, so it seeds the flame cold.  That is the one case the seed
+    # cannot absorb, and it must say so rather than fail mutely.
+    with pytest.warns(UserWarning, match=r"burner.*seeded its total-enthalpy rise"):
+        _pt_fed_flame(1.0e6, mdot_ref=50.0).solve()
+
+
+def test_flame_seed_report_names_the_reference_to_blame():
+    with pytest.warns(UserWarning, match=r"mdot_ref"):
+        _pt_fed_flame(1.0e6, mdot_ref=50.0).solve()
+
+
+def test_prescribed_inflow_flame_seed_is_not_reported():
+    # A mass-flow inlet pins the flow, so the seed's divisor is exact and no diagnostic is due --
+    # even with an mdot_ref just as wrong as the reported case above.
+    net = nefes.Network(
+        nodes=[
+            cat.mass_flow_inlet(0.5, 300.0, name="inlet"),
+            cat.duct(0.3, name="cold"),
+            cat.heat_release_flame(2.0e5, name="burner"),
+            cat.duct(0.6, name="hot"),
+            cat.choked_nozzle_outlet(0.006, name="nozzle"),
+        ],
+        edges=[(0, 1, 0.01), (1, 2, 0.01), (2, 3, 0.01), (3, 4, 0.01)],
+        p_ref=P_REF,
+        T_ref=300.0,
+        mdot_ref=50.0,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        sol = net.solve()
+    assert sol.converged
