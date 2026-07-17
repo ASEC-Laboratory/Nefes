@@ -111,6 +111,13 @@ _MAX_REFINE_ROUNDS = 3
 # det-phase or passes very close to an eigenvalue; the count is then not trusted as a rank.
 _WINDING_ROUND_TOL = 0.05
 
+# The argument-principle count certifies completeness only if the det-phase advances less than this
+# fraction of pi between adjacent counting nodes.  Above it the winding sum aliases: the true per-step
+# rotation may exceed pi (a mode grazing the region boundary, or -- at low mean-flow Mach -- a dense
+# convected/entropy spectrum rotating the phase too fast) and wraps to the wrong branch, so the integer
+# it lands on cannot be trusted even when it comes out clean (a spurious zero is the common outcome).
+_COUNT_MAX_JUMP_FRAC = 0.9
+
 # Relative step of the central difference that forms the eigen-Newton derivative A'(omega) x
 # (h = _NEWTON_FD_REL * (|omega| + 1)).  Shared with the continuation corrector in trajectory.py.
 _NEWTON_FD_REL = 1e-6
@@ -507,6 +514,30 @@ def _dedup(omegas, modes, residuals, rtol=1e-4):
     return kept
 
 
+def _winding_certifiable(cert_info) -> bool:
+    """Whether an argument-principle winding is resolved finely enough to certify completeness.
+
+    The winding is a sum of per-step det-phase increments, each wrapped into ``(-pi, pi]``.  Once
+    the true rotation between two adjacent counting nodes reaches ``pi`` the wrap picks the wrong
+    branch and the sum aliases -- landing on a spurious integer (often zero), *cleanly*, so the
+    distance-to-integer test (``round_error``) cannot flag it.  The only tell is a per-step jump
+    near ``pi``: above :data:`_COUNT_MAX_JUMP_FRAC` of it the count is untrustworthy and may not
+    certify.  A dense convected/entropy spectrum at low mean-flow Mach is where this bites.
+
+    Parameters
+    ----------
+    cert_info : dict
+        The diagnostics from :func:`contour.winding_count` (uses ``"max_jump"``).
+
+    Returns
+    -------
+    bool
+        ``True`` if the largest per-step phase increment stays safely below ``pi``.
+    """
+    max_jump = cert_info.get("max_jump")
+    return max_jump is not None and np.isfinite(max_jump) and max_jump <= _COUNT_MAX_JUMP_FRAC * np.pi
+
+
 @accepts_solution
 def eigenmodes(
     prob,
@@ -646,8 +677,12 @@ def eigenmodes(
     The completeness certificate (``certify``) counts *algebraic* multiplicity, so a
     genuine repeated root contributes more than one to :attr:`EigenmodeResult.expected`
     while the de-duplicated mode list holds it once; such (non-generic) exact
-    degeneracies therefore read as uncertified.  A large ``round_error`` or a mode on
-    the region boundary likewise leaves the count ambiguous and is warned about.
+    degeneracies therefore read as uncertified.  The count is likewise withheld (and
+    warned about) when the counting contour does not resolve the determinant phase --
+    a per-step phase jump near ``pi``, whether from a mode grazing the region boundary
+    or, at low mean-flow Mach, a convected/entropy spectrum too dense for the contour,
+    which aliases the winding onto a spurious (often zero) count.  The acoustic modes
+    are then recovered with ``isentropic=True``.
 
     See also
     --------
@@ -692,8 +727,10 @@ def eigenmodes(
     # Completeness certificate: count the eigenvalues actually inside the region from the
     # winding of det A (argument principle) -- independent of what Beyn's probe resolves.
     # The counting contour *is* the region the tiles cover and the acceptance test uses, so
-    # "counted inside" and "kept inside" agree; it is resolved with enough nodes that the
-    # det-phase rotates well under pi per step even at the full mode count.
+    # "counted inside" and "kept inside" agree.  The node count is sized from the acoustic mode
+    # spacing; a spectrum that is denser than that (a low-Mach convected/entropy spectrum) rotates
+    # the det-phase faster than the contour resolves, and the winding then aliases -- caught below
+    # by the per-step jump, which withholds the certificate rather than trusting an aliased integer.
     expected = None
     if certify:
         est_region = max(1, _estimate_mode_count(blocks, bound.center.real - bound.rx, bound.center.real + bound.rx))
@@ -708,10 +745,20 @@ def eigenmodes(
                 EigenmodeWarning,
                 stacklevel=2,
             )
-        elif cert_info["max_jump"] > 0.9 * np.pi:
+        elif not _winding_certifiable(cert_info):
+            # The det-phase advances by nearly pi between adjacent counting nodes, so the winding
+            # sum aliases and its integer -- even a clean one -- cannot certify completeness.  This
+            # is a single mode grazing the region boundary, or, at low mean-flow Mach, a dense
+            # convected/entropy spectrum that the acoustic-sized contour cannot resolve (the winding
+            # then aliases to a spurious value, typically zero).  Withhold the certificate.
+            expected = None
             warnings.warn(
-                "a mode lies very close to the search-region boundary (rapid det-phase rotation on the "
-                "counting contour); its membership is ambiguous -- shift freq_band/growth_band to resolve it.",
+                "completeness uncertified: the determinant phase rotates too fast between adjacent "
+                "counting nodes to trust the argument-principle mode count. A mode may sit on the "
+                "search-region boundary (shift/narrow freq_band or growth_band), or -- at low mean-flow "
+                "Mach -- a dense convected/entropy spectrum aliases the count. Raise n_nodes for a "
+                "sparse spectrum, or pass isentropic=True to drop the convected modes (or read the "
+                "acoustic resonances off forced_response peaks).",
                 EigenmodeWarning,
                 stacklevel=2,
             )
