@@ -467,6 +467,23 @@ resp.plot_transfer_matrix(0, 2).show()
 
 Use `multiport_scattering_matrix()` when terminals straddle branches; `transfer_matrix(a, b)` assumes a serial path (check `resp.transfer_residual(a, b) ~ 0`).
 
+**Freezing terminals to fold in closed branches.**
+By default `perturbation_response` neutralizes every 1-port terminal into a measurement port.
+Pass `freeze=[node, ...]` to instead hold the listed terminals at their *declared* boundary condition and fold them into the operator, so an interior branch terminated by a wall — a closed tuning stub, a side resonator, a Helmholtz neck — drops out of the port list and the network reduces to its genuine open ports.
+A frozen terminal keeps whatever closure it carries: a `wall` is rigid (`R=+1`) by default, or the explicit `PerturbationBC` set on it.
+This is how a muffler with tuning stubs reads out as a clean inlet→outlet two-port, and it is also how a *lossy* branch enters — an absorptive or yielding end wall is just a wall whose declared reflection is `R<1`, frozen like any other, with no manual condensation of the multiport matrix.
+
+```python
+# closed tuning stubs terminated by walls -> clean inlet->outlet two-port
+resp = sol.perturbation_response(freqs, freeze=[wall_a, wall_b])
+S = resp.acoustic_scattering_matrix(inlet_edge, outlet_edge)  # (n_freq, 2, 2)
+
+# an absorptive end wall: declare the loss on the wall (at build, or before solve), then freeze it
+wall_a = net.add(cat.wall(perturbation_bc=PerturbationBC.reflection(0.8)))
+```
+
+The declared closure is read from the network at solve time, so set the wall's `PerturbationBC` at construction or with `net.set_perturbation_bc(node, bc)` *before* `net.solve()`; changing it on an already-solved network does not take effect.
+
 ### 7c. Eigenmodes — linear stability
 
 Free oscillations are the roots of `det A(omega)=0`, found by contour integration with a completeness certificate.

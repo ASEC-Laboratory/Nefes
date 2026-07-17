@@ -181,8 +181,11 @@ Each notebook opens with its network topology drawn by the **Nemo** UI, then bui
 - **`entropy_generator.ipynb`** — replicates De Domenico, Rolland & Hochgreb (2019, *JSV* 440),
   "nozzles with losses", at the Cambridge Entropy Generator geometry: the mean-flow pressure
   rise (their Fig. 5) and the compact acoustic + entropic transfer functions (their Fig. 6).
-- **`dokumaci_expansion_chamber.ipynb`** — validates the acoustic-network layer against
-  Dokumacı (2021), Fig 5.15: a through-flow expansion-chamber muffler transmission loss.
+- **`parrott_helicopter_muffler.ipynb`** — validates the acoustic-network layer against
+  Parrott, NASA TN D-7309 (1973): a flight-tested three-stage concentric extended-tube
+  exhaust muffler. The Nefes network reproduces the classical transfer-matrix transmission
+  loss to machine precision, with the measured field data overlaid, and additionally solves
+  the mean flow the reference assumes.
 
 ## Running the notebooks
 

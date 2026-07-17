@@ -58,6 +58,6 @@ They live in subfolders by the layer they exercise (`getting-started/`, `flow/`,
 |---|---|---|
 | `validation/greyvenstein_laurie_network.ipynb` | The Greyvenstein & Laurie compressed-air benchmark network | [benchmarks](../validation/benchmarks.md#sec-bench-greyvenstein-laurie) |
 | `validation/entropy_generator.ipynb` | The Cambridge Entropy Generator, nozzles with losses | [benchmarks](../validation/benchmarks.md) |
-| `validation/dokumaci_expansion_chamber.ipynb` | An expansion-chamber acoustic two-port against a reference | [benchmarks](../validation/benchmarks.md) |
+| `validation/parrott_helicopter_muffler.ipynb` | Parrott's three-stage helicopter exhaust muffler: network vs transfer-matrix and measured data | [benchmarks](../validation/benchmarks.md#sec-bench-parrott-muffler) |
 
 Each notebook is self-contained and regenerable from the pinned environment described in [reproducibility](../design/reproducibility.md#sec-repro-environments); the figures embedded in the theory documents are the same computations run inline, so a notebook and its companion document should always agree.
