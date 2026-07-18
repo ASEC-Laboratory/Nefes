@@ -8,10 +8,20 @@
 #
 # Preview locally with `quarto preview docs`; the example pages execute notebooks, so point
 # Quarto at the project environment first, e.g. `QUARTO_PYTHON=$(which python) quarto render docs`.
+#
+# Appearance lives in _theme/: a light/dark SCSS pair layered on cosmo (the dark file only
+# overrides the semantic color tokens), the web-font includes, staged copies of the logo
+# assets (source of truth: /assets — wordmark for the navbar, N mark for the favicon),
+# and a small runtime script (theme-runtime.html) that persists the
+# dark/light choice when the site is browsed over file:// and re-skins Plotly figures to the
+# active mode. The navbar hosts search plus the reader-mode and dark-mode toggles; note the
+# toggles rely on scripts that browsers block over file://, so prefer `quarto preview`.
 
 project:
   type: website
   output-dir: _site
+  resources:
+    - _theme/nefes-logo-dark.svg  # runtime-swapped navbar logo; not referenced statically
   pre-render:
     - quartodoc build --config _quarto.yml
     - _scripts/build_examples.py
@@ -30,11 +40,21 @@ project:
 
 website:
   title: "Nefes"
-  description: "Network solver for reacting compressible flows and thermoacoustics."
-  reader-mode: true
+  description: "NEtwork solver for Flow, Eigenmodes, and Stability."
+  favicon: _theme/nefes-n-mark.svg
+  page-navigation: true
+  back-to-top-navigation: true
+  navbar:
+    title: false
+    logo: _theme/nefes-logo-light.svg
+    logo-alt: "Nefes"
+  search:
+    location: navbar
+    type: overlay
+  page-footer:
+    center: "Nefes — NEtwork solver for Flow, Eigenmodes, and Stability."
   sidebar:
     style: docked
-    search: true
     collapse-level: 1
     contents:
       - href: index.md
@@ -190,12 +210,22 @@ quartodoc:
 
 format:
   html:
-    theme: [cosmo, custom.scss]
+    theme:
+      light: [cosmo, _theme/nefes-light.scss]
+      dark: [cosmo, _theme/nefes-light.scss, _theme/nefes-dark.scss]
+    respect-user-color-scheme: true
+    highlight-style: github
+    include-in-header:
+      - _theme/fonts.html
+      - _theme/theme-runtime.html
     toc: true
     toc-depth: 3
+    toc-expand: 2
+    toc-title: "On this page"
     html-math-method: katex
     code-copy: true
     code-overflow: wrap
+    smooth-scroll: true
     link-external-newwindow: true
 
 bibliography: references.bib

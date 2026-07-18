@@ -1,0 +1,298 @@
+/*
+  Nefes documentation theme — light.
+
+  The palette derives from the package's own plotting theme (nefes/plotting/theme.py):
+  the ink/gray scale used for figure text, axes and grid lines becomes the page's text,
+  border and surface scale, so embedded figures look native to the pages.  The accent is
+  an ember orange, the combustion note in the figure colorway.
+
+  Layering: the dark theme includes this file first and overrides the semantic tokens,
+  so rules below must reference semantic tokens (never raw hex) wherever the two modes
+  differ.
+*/
+
+/*-- scss:defaults --*/
+
+// Ink / gray scale (shared with the plotting theme)
+$nefes-ink: #1f2933 !default;
+$nefes-gray-700: #3e4c59 !default;
+$nefes-gray-600: #52606d !default;
+$nefes-gray-400: #7b8794 !default;
+$nefes-gray-300: #9aa5b1 !default;
+$nefes-gray-200: #cbd2d9 !default;
+$nefes-gray-100: #e4e7eb !default;
+$nefes-gray-50: #f5f7fa !default;
+
+// Ember accent
+$nefes-ember: #ea580c !default;
+$nefes-ember-deep: #c2410c !default;
+$nefes-ember-deeper: #9a3412 !default;
+$nefes-ember-soft: #fdba74 !default;
+
+// Semantic tokens (the dark theme overrides these)
+$nefes-text-2: $nefes-gray-600 !default;  // secondary text: captions, TOC, footer
+$nefes-text-3: $nefes-gray-400 !default;  // faint text: kickers, labels
+$nefes-surface: $nefes-gray-50 !default;  // sidebar and code-block background
+$nefes-border: $nefes-gray-100 !default;
+$nefes-rule-strong: $nefes-gray-300 !default;  // table head rule
+$nefes-wave: "%23ea580c" !default;  // URL-encoded ember for the title wave
+
+// Typography
+$font-family-sans-serif: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+  sans-serif !default;
+$font-family-base: $font-family-sans-serif !default;
+$font-family-monospace: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace !default;
+$font-size-root: 16px !default;
+$line-height-base: 1.65 !default;
+$headings-font-family: $font-family-sans-serif !default;
+$headings-font-weight: 600 !default;
+$headings-line-height: 1.25 !default;
+$h1-font-size: 2rem !default;
+$h2-font-size: 1.45rem !default;
+$h3-font-size: 1.18rem !default;
+$h4-font-size: 1.02rem !default;
+
+// Page colors
+$body-bg: #ffffff !default;
+$body-color: $nefes-ink !default;
+$headings-color: $nefes-ink !default;
+$text-muted: $nefes-text-2 !default;
+$link-color: $nefes-ember-deep !default;
+$link-hover-color: $nefes-ember-deeper !default;
+$border-color: $nefes-border !default;
+$border-radius: 0.375rem !default;
+
+// Code
+$code-color: $nefes-gray-700 !default;
+$code-bg: #eef1f5 !default;
+$code-block-bg: $nefes-surface !default;
+$pre-color: $code-color !default;  // plain text outputs (cosmo defaults this to black)
+
+// Chrome
+$navbar-bg: #ffffff !default;
+$navbar-fg: $nefes-ink !default;
+$navbar-hl: $nefes-ember-deep !default;
+$sidebar-bg: $nefes-surface !default;
+$sidebar-fg: $nefes-text-2 !default;
+$sidebar-hl: $nefes-ember-deep !default;
+$footer-bg: $body-bg !default;
+$footer-fg: $nefes-text-2 !default;
+$toc-color: $nefes-text-2 !default;
+$toc-active-border: $nefes-ember !default;
+$toc-inactive-border: $nefes-border !default;
+
+/*-- scss:rules --*/
+
+// ---------- Headings and the title wave ----------
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.01em;
+}
+
+main.content h2 {
+  margin-top: 2.2rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid $nefes-border;
+}
+
+main.content h3 {
+  margin-top: 1.7rem;
+}
+
+// The signature: a small wave under the page title, the acoustic echo of the logo.
+main.content > h1:first-of-type::after,
+main.content > section.level1:first-of-type > h1::after,
+.quarto-title h1.title::after {
+  content: "";
+  display: block;
+  width: 72px;
+  height: 8px;
+  margin-top: 0.6rem;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8' viewBox='0 0 24 8'%3E%3Cpath d='M0 4 Q6 1 12 4 T24 4' fill='none' stroke='#{$nefes-wave}' stroke-width='1.5'/%3E%3C/svg%3E")
+    0 50% / 24px 8px repeat-x;
+}
+
+// ---------- Body text ----------
+
+p {
+  margin-bottom: 0.9rem;
+}
+
+li {
+  margin-bottom: 0.3rem;
+}
+
+// Prose links: quiet underline that commits on hover.
+main.content p a:not(.footnote-ref),
+main.content li a,
+main.content td a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: rgba($link-color, 0.35);
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+blockquote {
+  border-left: 3px solid rgba($nefes-ember, 0.5);
+  color: $nefes-text-2;
+}
+
+// KaTeX renders math at 1.21em by default, conspicuously larger than the body text;
+// bring it close to the text size (still a hair larger, which aids sub/superscripts).
+.katex {
+  font-size: 1.06em;
+}
+
+.katex-display {
+  margin: 1.15em 0;
+}
+
+// ---------- Navigation chrome ----------
+
+.navbar {
+  font-family: $font-family-sans-serif;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid $nefes-border;
+}
+
+.navbar-brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.navbar-brand img {
+  height: 34px;
+}
+
+#quarto-sidebar {
+  font-family: $font-family-sans-serif;
+  border-right: 1px solid $nefes-border;
+}
+
+.sidebar-menu-container {
+  font-size: 0.85rem;
+}
+
+// Top-level section headers read as quiet kickers above their entries.
+.sidebar-menu-container > ul > li.sidebar-item-section > .sidebar-item-container a.sidebar-item-text {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: $nefes-text-3;
+}
+
+.sidebar-menu-container > ul > li.sidebar-item-section {
+  margin-top: 0.9rem;
+}
+
+// Quarto shades $sidebar-hl before rules compile; pin the raw ember token instead.
+div.sidebar-item-container .sidebar-link.active,
+div.sidebar-item-container .sidebar-link:hover {
+  color: $nefes-ember-deep;
+}
+
+div.sidebar-item-container .sidebar-link.active {
+  font-weight: 600;
+}
+
+nav[role="doc-toc"] {
+  font-family: $font-family-sans-serif;
+}
+
+nav[role="doc-toc"] > h2#toc-title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: $nefes-text-3;
+  border: none;
+}
+
+.page-navigation {
+  font-family: $font-family-sans-serif;
+}
+
+.nav-footer {
+  font-family: $font-family-sans-serif;
+  font-size: 0.8rem;
+  border-top: 1px solid $nefes-border;
+  align-items: center;
+  min-height: 0;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.nav-footer p {
+  margin: 0;
+}
+
+// ---------- Code ----------
+
+pre.sourceCode,
+div.sourceCode pre {
+  border-radius: $border-radius;
+  padding: 0.75rem 1rem;
+}
+
+div.sourceCode {
+  border: 1px solid $nefes-border;
+  border-radius: $border-radius;
+  background-color: $code-block-bg;
+}
+
+p code:not(.sourceCode),
+li code:not(.sourceCode),
+td code:not(.sourceCode) {
+  background-color: $code-bg;
+  padding: 0.12em 0.35em;
+  border-radius: 0.3rem;
+}
+
+// ---------- Tables, figures, callouts ----------
+
+main.content table {
+  font-family: $font-family-sans-serif;
+  font-size: 0.87em;
+}
+
+main.content table > thead {
+  border-bottom: 1.5px solid $nefes-rule-strong;
+}
+
+.figure-caption,
+figcaption {
+  font-family: $font-family-sans-serif;
+  font-size: 0.82em;
+  color: $nefes-text-2;
+}
+
+div.callout {
+  border-radius: $border-radius;
+}
+
+div.callout .callout-header {
+  font-family: $font-family-sans-serif;
+}
+
+// ---------- Quality floor ----------
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid $nefes-ember;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+}

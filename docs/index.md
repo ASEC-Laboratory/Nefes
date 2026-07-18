@@ -1,6 +1,6 @@
 # Nefes documentation
 
-Nefes models a compressible fluid system as a directed graph and solves for its steady mean flow, and for the linear perturbations (acoustics, entropy and scalar perturbations) behaviour around that flow, without resolving the full three-dimensional field.
+Nefes — the *NEtwork solver for Flow, Eigenmodes, and Stability*, and Turkish for *breath* — models a compressible fluid system as a directed graph and solves for its steady mean flow, and for the linear perturbations (acoustics, entropy and scalar perturbations) behaviour around that flow, without resolving the full three-dimensional field.
 Throughout the documentation we will casually refer to the whole set of these linearized perturbations as *acoustics*, and the associated network approach as *acoustic network*.
 Depending on the context, the reader should be aware that the set of perturbation variables may include entropy waves and scalar (composition) waves in addition to the regular upstream and downstream acoustic waves.
 This tree is the authoritative documentation: the physics and mathematics, the numerical and architectural philosophy, and the verification and validation evidence that backs every claim.
