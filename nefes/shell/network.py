@@ -481,12 +481,15 @@ class Network:
         """
         return self._elements[self.element_index(key)]
 
-    def parameters(self, advanced: bool = False):
+    def parameters(self, advanced: bool = False, layer: Optional[str] = None):
         """The inventory of every addressable parameter: address, value, unit, bounds.
 
         The read-only companion of :meth:`get` / :meth:`set`: one row per named element
-        parameter (in node order), per edge area, and per network-level reference.  The
-        returned :class:`~nefes.shell.params.ParameterInventory` is a list of
+        parameter (in node order), per edge area, and per network-level reference, plus
+        the scalar knobs of any attached object that exposes them (a dynamic source's
+        gain and lag, a boundary condition's reflection magnitude and phase) under
+        extended dotted addresses.  The returned
+        :class:`~nefes.shell.params.ParameterInventory` is a list of
         :class:`~nefes.shell.params.ParameterInfo` rows with dict-style access by address
         and table reprs.
 
@@ -495,6 +498,11 @@ class Network:
         advanced : bool, optional
             Include the advanced knobs (smoothing ``eps``, ``ref_port``, the solver seed
             references) usually left alone (default ``False``).
+        layer : str, optional
+            Narrow to one solution layer: ``"mean"`` (parameters that reshape the mean
+            flow) or ``"perturbation"`` (parameters entering only the acoustic operator:
+            storage volumes, inertance lengths, source and boundary knobs).  Default:
+            both.
 
         Returns
         -------
@@ -504,6 +512,8 @@ class Network:
         --------
         >>> net.parameters()["inlet.mdot"].value
         0.3
+        >>> net.parameters(layer="perturbation").addresses  # doctest: +SKIP
+        ['plenum.volume', 'flame.dynamic_source.gain', ...]
 
         See Also
         --------
@@ -511,7 +521,7 @@ class Network:
         """
         from .params import inventory
 
-        return inventory(self, advanced=advanced)
+        return inventory(self, advanced=advanced, layer=layer)
 
     def get(self, address: str):
         """Read one parameter by its dotted address.

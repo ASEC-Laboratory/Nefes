@@ -32,8 +32,11 @@ from .dynamic_source import (
     n_tau_lowpass2,
     tabulated,
 )
+from .parametric import AttributeParams, is_parametric
 
 __all__ = [
+    "AttributeParams",
+    "is_parametric",
     "CompositeElementSpec",
     "CompositeMap",
     "GridRefinement",

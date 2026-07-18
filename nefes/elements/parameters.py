@@ -94,6 +94,11 @@ class ParamDescriptor:
     advanced : bool
         Excluded from the default :meth:`nefes.shell.network.Network.parameters`
         inventory (still fully addressable).
+    layer : str
+        Which solution layer the parameter touches: ``"mean"`` (default; enters the mean
+        residuals, so changing it reshapes the mean flow) or ``"perturbation"`` (enters
+        only the acoustic/perturbation operator -- storage volumes, inertance lengths,
+        boundary and source closures -- so the mean state is invariant to it).
     """
 
     name: str
@@ -110,6 +115,7 @@ class ParamDescriptor:
     doc: str = ""
     roundtrip: str = "yes"
     advanced: bool = False
+    layer: str = "mean"
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -291,7 +297,7 @@ def _storage_descriptors(first_slot: int) -> Tuple[ParamDescriptor, ...]:
     )
     names = ("l_up", "l_down", "end_correction")
     return tuple(
-        ParamDescriptor(nm, unit="m", lo=0.0, slot=first_slot + i, doc=doc)
+        ParamDescriptor(nm, unit="m", lo=0.0, slot=first_slot + i, doc=doc, layer="perturbation")
         for i, (nm, doc) in enumerate(zip(names, docs))
     )
 
@@ -406,7 +412,11 @@ ELEMENT_PARAMS: Dict[int, Tuple[ParamDescriptor, ...]] = {
         _PERTURBATION_BC,
     ),
     WALL: (_PERTURBATION_BC,),
-    CAVITY: (ParamDescriptor("volume", unit="m^3", lo=0.0, lo_open=True, slot=0, doc="enclosed cavity volume"),),
+    CAVITY: (
+        ParamDescriptor(
+            "volume", unit="m^3", lo=0.0, lo_open=True, slot=0, doc="enclosed cavity volume", layer="perturbation"
+        ),
+    ),
     ISEN_AREA_CHANGE: _storage_descriptors(0),
     TRANSFER_MATRIX: (
         ParamDescriptor(
@@ -448,8 +458,16 @@ ELEMENT_PARAMS: Dict[int, Tuple[ParamDescriptor, ...]] = {
         *_STREAM_FIELDS,
         _DYNAMIC_SOURCE,
     ),
-    JUNCTION: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
-    SPLITTER: (ParamDescriptor("volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)"),),
+    JUNCTION: (
+        ParamDescriptor(
+            "volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)", layer="perturbation"
+        ),
+    ),
+    SPLITTER: (
+        ParamDescriptor(
+            "volume", unit="m^3", lo=0.0, slot=0, doc="plenum chamber volume (0 = no compliance)", layer="perturbation"
+        ),
+    ),
     MIXER: (
         ParamDescriptor(
             "recovery",

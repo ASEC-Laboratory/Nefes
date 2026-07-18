@@ -40,10 +40,17 @@ with a genuine resonance, :func:`~nefes.perturbation.continuation.rational_fit`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from typing import List, Optional
 
 import numpy as np
+
+from .parameters import ParamDescriptor
+from .parametric import AttributeParams, is_parametric
+
+# multi-term knob addresses: "terms[<k>].<name>"
+_TERM_ADDRESS = re.compile(r"^terms\[(\d+)\]\.(.+)$")
 
 # Reference quantities a response term may read at its edge.  Composition scalars are
 # named "Z:<scalar-name>" and resolved against the compiled problem's ``scalar_names``.
@@ -98,7 +105,7 @@ class Constant(TransferFunction):
         return f"Constant({self.value!r})"
 
 
-class NTau(TransferFunction):
+class NTau(AttributeParams, TransferFunction):
     """The ``n-tau`` flame model ``F(f) = n * exp(-i * 2 pi f * tau)``.
 
     The (generally complex) interaction index ``n`` times a pure time lag ``tau``
@@ -116,6 +123,10 @@ class NTau(TransferFunction):
     """
 
     analytic = True
+    _PARAM_SPEC = (
+        ParamDescriptor("n", doc="interaction index (response gain)"),
+        ParamDescriptor("tau", unit="s", lo=0.0, doc="time lag"),
+    )
 
     def __init__(self, n, tau):
         self.n = complex(n)
@@ -130,7 +141,7 @@ class NTau(TransferFunction):
         return f"NTau(n={self.n!r}, tau={self.tau!r})"
 
 
-class NTauLowpass(TransferFunction):
+class NTauLowpass(AttributeParams, TransferFunction):
     """The ``n-tau`` flame with a first-order gain roll-off ``F(f) = n e^{-i 2 pi f tau} / (1 + i f / f_c)``.
 
     The bare :class:`NTau` model has a frequency-independent gain ``n``, which lets a
@@ -156,6 +167,11 @@ class NTauLowpass(TransferFunction):
     """
 
     analytic = True
+    _PARAM_SPEC = (
+        ParamDescriptor("n", doc="low-frequency interaction index"),
+        ParamDescriptor("tau", unit="s", lo=0.0, doc="time lag"),
+        ParamDescriptor("fc", unit="Hz", lo=0.0, lo_open=True, doc="gain roll-off cutoff frequency"),
+    )
 
     def __init__(self, n, tau, fc):
         self.n = complex(n)
@@ -173,7 +189,7 @@ class NTauLowpass(TransferFunction):
         return f"NTauLowpass(n={self.n!r}, tau={self.tau!r}, fc={self.fc!r})"
 
 
-class NTauLowpass2(TransferFunction):
+class NTauLowpass2(AttributeParams, TransferFunction):
     """The ``n-tau`` flame with a second-order gain roll-off.
 
     ``F(f) = n e^{-i 2 pi f tau} / (1 - (f/f_c)^2 + 2 i zeta f / f_c)``, the delayed
@@ -213,6 +229,12 @@ class NTauLowpass2(TransferFunction):
     """
 
     analytic = True
+    _PARAM_SPEC = (
+        ParamDescriptor("n", doc="low-frequency interaction index"),
+        ParamDescriptor("tau", unit="s", lo=0.0, doc="time lag"),
+        ParamDescriptor("fc", unit="Hz", lo=0.0, lo_open=True, doc="gain roll-off cutoff frequency"),
+        ParamDescriptor("zeta", lo=0.0, lo_open=True, doc="roll-off damping ratio"),
+    )
 
     def __init__(self, n, tau, fc, zeta):
         self.n = complex(n)
@@ -234,7 +256,7 @@ class NTauLowpass2(TransferFunction):
         return f"NTauLowpass2(n={self.n!r}, tau={self.tau!r}, fc={self.fc!r}, zeta={self.zeta!r})"
 
 
-class FiniteImpulseResponse(TransferFunction):
+class FiniteImpulseResponse(AttributeParams, TransferFunction):
     """A flame response given by its impulse response ``h`` sampled every ``dt`` seconds.
 
     ``F(f) = sum_j h_j e^{-i 2 pi f j dt}``, the frequency response of the discrete impulse
@@ -283,16 +305,32 @@ class FiniteImpulseResponse(TransferFunction):
     """
 
     analytic = True
+    # scalar reductions only, never the sampled shape itself: an overall gain multiplier
+    # and a bulk shift of every lag
+    _PARAM_SPEC = (
+        ParamDescriptor("gain", doc="overall multiplier on the identified response"),
+        ParamDescriptor("delay", unit="s", lo=0.0, doc="bulk time shift added to every lag"),
+    )
 
-    def __init__(self, h, dt):
+    def __init__(self, h, dt, *, gain=1.0, delay=0.0):
         self.h = np.asarray(h, dtype=float).ravel()
         self.dt = float(dt)
         if self.h.size == 0:
             raise ValueError("the impulse response must have at least one coefficient")
         if self.dt <= 0.0:
             raise ValueError(f"the sampling interval dt must be positive; got {dt}")
-        self.lags = np.arange(self.h.size) * self.dt
+        self.gain = float(gain)
+        self.delay = float(delay)
+        if self.delay < 0.0:
+            raise ValueError(f"the bulk delay must be non-negative; got {delay}")
+        self.lags = np.arange(self.h.size) * self.dt + self.delay
         self.max_delay = float(self.lags[-1])
+
+    def with_value(self, name, value):
+        d = self._descriptor(name)
+        v = d.validate(value, where=type(self).__name__)
+        kw = {"gain": self.gain, "delay": self.delay, name: v}
+        return type(self)(self.h, self.dt, **kw)
 
     @property
     def nyquist(self) -> float:
@@ -302,10 +340,16 @@ class FiniteImpulseResponse(TransferFunction):
     def __call__(self, f):
         f = np.asarray(f, dtype=np.complex128)
         phase = np.multiply.outer(f, self.lags)  # (..., J+1)
-        return (self.h * np.exp(-2j * np.pi * phase)).sum(axis=-1)
+        return self.gain * (self.h * np.exp(-2j * np.pi * phase)).sum(axis=-1)
 
     def __repr__(self):
-        return f"FiniteImpulseResponse({self.h.size} coefficients, dt={self.dt!r} s, F(0)={self.h.sum():.4g})"
+        extra = "".join(
+            [f", gain={self.gain:g}" if self.gain != 1.0 else "", f", delay={self.delay:g} s" if self.delay else ""]
+        )
+        return (
+            f"FiniteImpulseResponse({self.h.size} coefficients, dt={self.dt!r} s, "
+            f"F(0)={self.gain * self.h.sum():.4g}{extra})"
+        )
 
 
 class Tabulated(TransferFunction):
@@ -720,6 +764,31 @@ class DynamicResponseTerm:
             )
         self.gain = float(self.gain)
 
+    _GAIN_DESC = ParamDescriptor("gain", doc="real multiplier on this response term")
+
+    def param_descriptors(self):
+        """This term's ``gain`` plus the transfer's own knobs (the term's name wins a clash)."""
+        descs = [self._GAIN_DESC]
+        if is_parametric(self.transfer):
+            descs += [d for d in self.transfer.param_descriptors() if d.name != "gain"]
+        return tuple(descs)
+
+    def get(self, name):
+        """Current value of one knob (own ``gain``, else delegated to the transfer)."""
+        if name == "gain":
+            return self.gain
+        if is_parametric(self.transfer):
+            return self.transfer.get(name)
+        raise KeyError(f"this term's transfer exposes no parameter {name!r}")
+
+    def with_value(self, name, value):
+        """A copy with one knob set (own ``gain``, else rebuilt around the modified transfer)."""
+        if name == "gain":
+            return replace(self, gain=self._GAIN_DESC.validate(value, where="DynamicResponseTerm"))
+        if is_parametric(self.transfer):
+            return replace(self, transfer=self.transfer.with_value(name, value))
+        raise KeyError(f"this term's transfer exposes no parameter {name!r}")
+
 
 @dataclass
 class DynamicSource:
@@ -773,6 +842,49 @@ class DynamicSource:
     def max_delay(self) -> float:
         """Longest pure time delay across the terms [s] (for the stability contour clamp)."""
         return max((t.transfer.max_delay for t in self.terms), default=0.0)
+
+    # -- scalar-parameter protocol (see nefes.elements.parametric) -----------------------
+    # A single-term source promotes its term's knobs to the top level ("gain", "tau"); a
+    # multi-term source prefixes them with the term index ("terms[0].gain").
+
+    @staticmethod
+    def _split_term(name):
+        m = _TERM_ADDRESS.match(name)
+        return (int(m.group(1)), m.group(2)) if m else (None, name)
+
+    def param_descriptors(self):
+        """The terms' knobs: promoted names for a single term, ``terms[k].`` prefixes otherwise."""
+        if len(self.terms) == 1:
+            return self.terms[0].param_descriptors()
+        descs = []
+        for k, t in enumerate(self.terms):
+            for d in t.param_descriptors():
+                descs.append(replace(d, name=f"terms[{k}].{d.name}"))
+        return tuple(descs)
+
+    def get(self, name):
+        """Current value of one knob (promoted or ``terms[k].``-prefixed)."""
+        k, leaf = self._split_term(name)
+        if k is None:
+            if len(self.terms) != 1:
+                raise KeyError(f"this source has {len(self.terms)} terms; address the knob as 'terms[k].{name}'")
+            k = 0
+        if not 0 <= k < len(self.terms):
+            raise KeyError(f"term index {k} out of range; this source has {len(self.terms)} terms")
+        return self.terms[k].get(leaf)
+
+    def with_value(self, name, value):
+        """A copy with one knob set on the addressed term."""
+        k, leaf = self._split_term(name)
+        if k is None:
+            if len(self.terms) != 1:
+                raise KeyError(f"this source has {len(self.terms)} terms; address the knob as 'terms[k].{name}'")
+            k = 0
+        if not 0 <= k < len(self.terms):
+            raise KeyError(f"term index {k} out of range; this source has {len(self.terms)} terms")
+        terms = list(self.terms)
+        terms[k] = terms[k].with_value(leaf, value)
+        return replace(self, terms=terms)
 
 
 # -- convenience constructors ----------------------------------------------

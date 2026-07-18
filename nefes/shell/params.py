@@ -16,7 +16,7 @@ import copy as _copy
 import difflib
 import numbers
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..elements.composite import is_composite
 from ..elements.ids import ALLOWS_AREA_CHANGE, ELEMENT_TYPE_NAMES
@@ -26,6 +26,7 @@ from ..elements.parameters import (
     find_descriptor,
     rebuild_composite,
 )
+from ..elements.parametric import is_parametric
 
 # Network-level reference parameters (dimension-preserving value knobs; the gas model is
 # deliberately outside this API -- reconfiguring it reshapes the problem).
@@ -65,6 +66,10 @@ class ParameterInfo:
         What the address points at: ``"element"``, ``"composite"``, ``"edge"`` or ``"network"``.
     doc : str
         One-line description.
+    layer : str
+        Which solution layer the parameter touches: ``"mean"`` (reshapes the mean flow, and
+        with it everything built on top) or ``"perturbation"`` (enters only the acoustic/
+        perturbation operator -- the mean state is invariant to it).
     """
 
     address: str
@@ -74,6 +79,7 @@ class ParameterInfo:
     kind: str = "float"
     target: str = "element"
     doc: str = ""
+    layer: str = "mean"
 
 
 class ParameterInventory(list):
@@ -248,6 +254,17 @@ def _element_area(net, n: int, for_write: bool) -> List[int]:
     )
 
 
+def _parametric_object(net, n: int, field: str):
+    """The protocol-bearing object behind an element's object-valued parameter (fail-closed)."""
+    el = net._elements[n]
+    obj = _read(el, find_descriptor(el, field))
+    if obj is None:
+        raise KeyError(f"{_element_label(el)} has no {field} attached, so its parameters are not addressable")
+    if not is_parametric(obj):
+        raise KeyError(f"{_element_label(el)}.{field} ({type(obj).__name__}) exposes no addressable parameters")
+    return obj
+
+
 def get_param(net, address: str):
     """Read one parameter by its dotted address (see :meth:`Network.get`)."""
     kind, payload = _resolve(net, address)
@@ -255,6 +272,9 @@ def get_param(net, address: str):
         return getattr(net, _NETWORK_ATTR[payload])
     if kind == "edge":
         return float(net._edges[payload][2])
+    if kind == "nested":
+        n, field, tail = payload
+        return _parametric_object(net, n, field).get(tail)
     n, leaf = payload
     el = net._elements[n]
     if leaf == "area":
@@ -289,6 +309,12 @@ def _resolve(net, address: str):
         if leaf != "area":
             raise KeyError(f"edge {head!r} has no parameter {leaf!r}; the one edge parameter is 'area'")
         return "edge", edge_index(net, head)
+    # a nested address: element, then an object-valued parameter, then that object's own
+    # knob (possibly dotted further, resolved by the object itself)
+    first, _, rest = address.partition(".")
+    if first in el_names and "." in rest:
+        field, _, tail = rest.partition(".")
+        return "nested", (el_names[first], field, tail)
     pool = list(el_names) + edge_names
     raise KeyError(f"unknown element or edge {head!r} in address {address!r}{_suggest(head, pool)}")
 
@@ -395,15 +421,27 @@ def update_params(net, mapping: Dict[str, object]) -> None:
     per_element: Dict[int, Dict[str, object]] = {}
     edge_writes: List[Tuple[int, object]] = []
     network_writes: List[Tuple[str, object]] = []
+    nested_writes: Dict[Tuple[int, str], List[Tuple[str, object]]] = {}
     for address, value in mapping.items():
         kind, payload = _resolve(net, address)
         if kind == "network":
             network_writes.append((payload, value))
         elif kind == "edge":
             edge_writes.append((payload, value))
+        elif kind == "nested":
+            n, field, tail = payload
+            _parametric_object(net, n, field).get(tail)  # resolve fail-closed before any write lands
+            nested_writes.setdefault((n, field), []).append((tail, value))
         else:
             n, leaf = payload
             per_element.setdefault(n, {})[leaf] = value
+    # nested writes to one object chain onto a single rebuilt copy, folded into the
+    # element write batch so validation and cache invalidation follow the ordinary path
+    for (n, field), writes in nested_writes.items():
+        obj = _parametric_object(net, n, field)
+        for tail, value in writes:
+            obj = obj.with_value(tail, value)
+        per_element.setdefault(n, {})[field] = obj
 
     for name, value in network_writes:
         set_network_param(net, name, value)
@@ -427,8 +465,16 @@ def set_network_param(net, name: str, value) -> None:
 # --------------------------------------------------------------------------- #
 # Inventory
 # --------------------------------------------------------------------------- #
-def inventory(net, advanced: bool = False) -> ParameterInventory:
-    """Build the full parameter inventory of a network (see :meth:`Network.parameters`)."""
+def inventory(net, advanced: bool = False, layer: Optional[str] = None) -> ParameterInventory:
+    """Build the full parameter inventory of a network (see :meth:`Network.parameters`).
+
+    Recurses into object-valued parameters whose value implements the scalar-parameter
+    protocol (:mod:`nefes.elements.parametric`), emitting their knobs as ordinary float
+    rows under extended dotted addresses (``flame.dynamic_source.gain``).  ``layer``
+    narrows the result to ``"mean"`` or ``"perturbation"`` rows.
+    """
+    if layer not in (None, "mean", "perturbation"):
+        raise ValueError(f"layer must be 'mean' or 'perturbation'; got {layer!r}")
     inv = ParameterInventory()
     for n, el in enumerate(net._elements):
         name = el.name or f"#{n}"
@@ -440,17 +486,35 @@ def inventory(net, advanced: bool = False) -> ParameterInventory:
             if d.advanced and not advanced:
                 continue
             target = "composite" if is_composite(el) else "element"
+            value = _read(el, d)
             inv.append(
                 ParameterInfo(
                     address=f"{name}.{d.name}",
-                    value=_read(el, d),
+                    value=value,
                     unit=d.unit,
                     bounds=d.bounds_text,
                     kind=d.kind,
                     target=target,
                     doc=d.doc,
+                    layer=d.layer,
                 )
             )
+            # the object's own scalar knobs join the address space; anything attached to
+            # the perturbation layer leaves the mean flow untouched by construction
+            if d.kind == "object" and is_parametric(value):
+                for sub in value.param_descriptors():
+                    inv.append(
+                        ParameterInfo(
+                            address=f"{name}.{d.name}.{sub.name}",
+                            value=value.get(sub.name),
+                            unit=sub.unit,
+                            bounds=sub.bounds_text,
+                            kind="float",
+                            target=target,
+                            doc=sub.doc,
+                            layer="perturbation",
+                        )
+                    )
     for ei, (_t, _h, a) in enumerate(net._edges):
         inv.append(
             ParameterInfo(
@@ -477,6 +541,8 @@ def inventory(net, advanced: bool = False) -> ParameterInventory:
                 doc=d.doc,
             )
         )
+    if layer is not None:
+        inv = ParameterInventory(r for r in inv if r.layer == layer)
     return inv
 
 

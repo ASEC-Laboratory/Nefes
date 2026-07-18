@@ -72,10 +72,12 @@ assembly time, so no complex-step differentiation flows through it.
 
 import cmath
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 import numpy as np
+
+from ...elements.parameters import ParamDescriptor
 
 KINDS = (
     "inherit",
@@ -221,6 +223,54 @@ class PerturbationBC:
                     f"amplitudes given for families {sorted(extra)} not in driven={self.driven!r}; "
                     "every amplitude key must be a driven family"
                 )
+
+    # -- scalar-parameter protocol (see nefes.elements.parametric) ----------
+    # Only a constant-valued reflection or impedance exposes knobs (magnitude and phase of
+    # the coefficient); a callable or tabulated closure keeps its shape to itself.
+
+    _MAG_R = ParamDescriptor("magnitude", lo=0.0, doc="reflection-coefficient magnitude |R|")
+    _PHASE_R = ParamDescriptor("phase", unit="rad", doc="reflection-coefficient phase arg(R)")
+    _MAG_Z = ParamDescriptor("magnitude", lo=0.0, doc="impedance magnitude |Z|")
+    _PHASE_Z = ParamDescriptor("phase", unit="rad", doc="impedance phase arg(Z)")
+
+    def _constant(self):
+        """``(attr, value)`` when the closure is a plain constant coefficient, else ``None``."""
+        if self.kind == "reflection" and isinstance(self.R, (int, float, complex)):
+            return "R", complex(self.R)
+        if self.kind == "impedance" and isinstance(self.Z, (int, float, complex)):
+            return "Z", complex(self.Z)
+        return None
+
+    def param_descriptors(self):
+        """Magnitude/phase of a constant reflection or impedance closure (empty otherwise)."""
+        c = self._constant()
+        if c is None:
+            return ()
+        return (self._MAG_R, self._PHASE_R) if c[0] == "R" else (self._MAG_Z, self._PHASE_Z)
+
+    def get(self, name: str) -> float:
+        """Current value of ``"magnitude"`` or ``"phase"`` of the constant coefficient."""
+        c = self._constant()
+        if c is None:
+            raise KeyError(f"a {self.kind!r} perturbation BC exposes no scalar parameter {name!r}")
+        if name == "magnitude":
+            return abs(c[1])
+        if name == "phase":
+            return cmath.phase(c[1])
+        raise KeyError(f"unknown perturbation BC parameter {name!r}; it has: ['magnitude', 'phase']")
+
+    def with_value(self, name: str, value):
+        """A copy with the constant coefficient's magnitude or phase set."""
+        c = self._constant()
+        if c is None:
+            raise KeyError(f"a {self.kind!r} perturbation BC exposes no scalar parameter {name!r}")
+        attr, z = c
+        descs = {d.name: d for d in self.param_descriptors()}
+        if name not in descs:
+            raise KeyError(f"unknown perturbation BC parameter {name!r}; it has: {sorted(descs)}")
+        v = descs[name].validate(value, where="PerturbationBC")
+        new = v * cmath.exp(1j * cmath.phase(z)) if name == "magnitude" else abs(z) * cmath.exp(1j * v)
+        return replace(self, **{attr: new})
 
     # -- evaluation on the frozen mean state --------------------------------
 

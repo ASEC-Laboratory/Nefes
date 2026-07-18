@@ -365,6 +365,20 @@ Addresses are resolved and validated *before* any write, so a mistyped address l
 Composite elements are rebuilt through their factory on a write, never patched.
 Address forms: `"element.field"`, `"edge.area"`, and for a single-port or constant-area element `"element.area"` fans out to its incident edges; bare `"p_ref"`, `"T_ref"` (and advanced `"mdot_ref"`, `"h_ref"`) address the network references.
 
+**Nested addresses.** An object attached to an element can expose its own scalar knobs (the scalar-parameter protocol): an attached flame response exposes its gain and lag, a constant reflection/impedance boundary condition its magnitude and phase, an identified impulse response an overall `gain` and bulk `delay`.
+These join the same address space and every write path:
+
+```python
+net.parameters(layer="perturbation")  # only the acoustic-layer rows (see below)
+net.get("flame.dynamic_source.tau")  # a single-term source promotes its term's knobs
+net.with_params({"flame.dynamic_source.gain": 0.5,  # blend the FTF halfway toward passive
+                 "inlet.perturbation_bc.magnitude": 0.7})
+# a multi-term source indexes its terms: "flame.dynamic_source.terms[1].gain"
+```
+
+**Layer tags.** Every inventory row carries `layer`: `"mean"` (reshapes the mean flow — feed conditions, lengths, areas) or `"perturbation"` (enters only the acoustic operator — storage volumes, inertance lengths, source and boundary knobs; the mean state is invariant to them by construction).
+`net.parameters(layer=...)` filters on it, and the eigenvalue sensitivities use it to skip the mean-flow chain term where it vanishes identically.
+
 ---
 
 ## 6. Parameter studies (sweeps)
@@ -528,6 +542,7 @@ Both routes are captured: the parameter's direct appearance in the operator and 
 sens = modes.sensitivities()  # every scalar parameter; assembly settings carried over
 sens = modes.sensitivities(include="*.length", exclude="*.mdot")  # glob narrowing
 sens = modes.sensitivities(params=["Duct3.length", "plenum.volume"])  # explicit list
+sens = modes.sensitivities(layer="perturbation")  # only acoustic-layer knobs (FTF gain/lag, BCs, volumes)
 sens  # ranked table: growth-rate change per +1% of each parameter (positive = destabilizing)
 sens["Duct3.length"]  # d omega / d p column for one address, one entry per mode
 sens.dgrowth_dp, sens.dfreq_dp  # (n_modes, n_params) derivative matrices, per parameter unit

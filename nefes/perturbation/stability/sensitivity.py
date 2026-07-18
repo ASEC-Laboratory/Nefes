@@ -75,11 +75,12 @@ def _match(address: str, patterns) -> bool:
     return any(fnmatch.fnmatch(address, pat) for pat in patterns)
 
 
-def _select_addresses(inventory, params, include, exclude) -> List:
-    """The inventory rows to probe, honoring ``params`` / ``include`` / ``exclude``.
+def _select_addresses(inventory, params, include, exclude, layer=None) -> List:
+    """The inventory rows to probe, honoring ``params`` / ``include`` / ``exclude`` / ``layer``.
 
     ``params`` (explicit address list) wins outright; otherwise every scalar numeric row is
-    taken, optionally narrowed by ``include`` glob patterns, minus ``exclude`` matches.
+    taken, optionally narrowed to one solution layer and by ``include`` glob patterns,
+    minus ``exclude`` matches.
     """
     if params is not None:
         rows = []
@@ -91,6 +92,8 @@ def _select_addresses(inventory, params, include, exclude) -> List:
         for r in inventory
         if r.kind == "float" and isinstance(r.value, (int, float)) and not isinstance(r.value, bool)
     ]
+    if layer is not None:
+        rows = [r for r in rows if r.layer == layer]
     if include is not None:
         rows = [r for r in rows if _match(r.address, include)]
     if exclude is not None:
@@ -141,6 +144,7 @@ def eigenvalue_sensitivities(
     params=None,
     include=None,
     exclude=None,
+    layer=None,
     rel_step=_REL_STEP,
     abs_step=_ABS_STEP,
     steps=None,
@@ -173,7 +177,13 @@ def eigenvalue_sensitivities(
         Overrides ``include``/``exclude``.
     include, exclude : str or list of str, optional
         Glob patterns over addresses (e.g. ``include="*.length"``,
-        ``exclude=["*.mdot", "*.Tt"]``).  Default: every scalar numeric parameter.
+        ``exclude=["*.mdot", "*.Tt"]``).  Default: every scalar numeric parameter,
+        including the knobs of attached objects that expose them (``*.dynamic_source.*``,
+        ``*.perturbation_bc.*``).
+    layer : str, optional
+        Narrow to one solution layer: ``"mean"`` or ``"perturbation"`` (see
+        :meth:`nefes.Network.parameters`).  A perturbation-layer parameter cannot move the
+        mean state, so its probe also skips the mean-flow chain term automatically.
     rel_step : float, optional
         Relative probe step for a nonzero parameter value (default ``1e-6``).
     abs_step : float, optional
@@ -232,7 +242,7 @@ def eigenvalue_sensitivities(
         eps = 1e-4 * prob0.var_scale[0]
 
     inventory = network.parameters()
-    rows = _select_addresses(inventory, params, include, exclude)
+    rows = _select_addresses(inventory, params, include, exclude, layer)
 
     n_modes = eigs.n_modes
     omega = np.asarray(eigs.omega, dtype=np.complex128)
@@ -276,21 +286,22 @@ def eigenvalue_sensitivities(
         left_res[i] = q_i
         a0[i] = np.vdot(y_i, A_i @ x_i)
 
-    # Mean-flow chain: one factorization of the mean Jacobian, shared by every parameter.
+    # Mean-flow chain: one factorization of the mean Jacobian, shared by every parameter
+    # that can actually move the mean state (perturbation-layer rows never do).
     luJ, R0 = None, None
-    if chain and rows:
+    if chain and any(getattr(r, "layer", "mean") == "mean" for r in rows):
         J = jacobian(prob0, x0, eps, eps_fb, 0.0).tocsc()
         luJ = spla.splu(J)
         R0 = residual(prob0, x0, eps, eps_fb)
 
-    def _perturbed(addr, p0, h):
+    def _perturbed(addr, p0, h, with_chain):
         """Blocks of the operator with ``addr`` stepped by ``h`` (mean state carried along)."""
         net_h = network.with_params({addr: p0 + h})
         prob_h = net_h.compile()
         if prob_h.n_eq != prob0.n_eq:
             raise ValueError("the stepped network compiles to a different system size")
         x_h = x0
-        if luJ is not None:
+        if with_chain and luJ is not None:
             dR = residual(prob_h, x0, eps, eps_fb) - R0
             x_h = x0 - unflatten(luJ.solve(dR), prob0.n_edges, prob0.n_solve)
         return build_acoustic_blocks(prob_h, x_h, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
@@ -301,17 +312,19 @@ def eigenvalue_sensitivities(
     for row in rows:
         addr, p0 = row.address, float(row.value)
         h = _step_for(row, rel_step, abs_step, steps)
+        # a perturbation-layer parameter cannot move the mean state: skip its chain term
+        with_chain = getattr(row, "layer", "mean") == "mean"
         try:
             try:
-                blocks_p = _perturbed(addr, p0, h)
+                blocks_p = _perturbed(addr, p0, h, with_chain)
             except Exception as exc_first:
                 try:
                     h = -h  # the stepped value left the admissible range: probe the other side
-                    blocks_p = _perturbed(addr, p0, h)
+                    blocks_p = _perturbed(addr, p0, h, with_chain)
                 except Exception:
                     raise exc_first  # both sides failed: the original error names the real obstacle
             if scheme == "central":
-                blocks_m = _perturbed(addr, p0, -h)
+                blocks_m = _perturbed(addr, p0, -h, with_chain)
         except Exception as exc:
             failed[addr] = f"{type(exc).__name__}: {exc}"
             continue
