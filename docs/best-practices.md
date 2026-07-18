@@ -528,6 +528,16 @@ modes.animate_mode(0).show()  # animated over one cycle
 modes.boundary_power(0)  # where energy enters/leaves for mode 0
 ```
 
+**Convected-wave controls.** `isentropic=True` removes *both* convected families (entropy and composition) at once; `convected=` removes them one at a time, so a mode's damping or drive can be attributed to its carrier — temperature spots versus mixture-ratio spots:
+
+```python
+sol.eigenmodes(freq_band=..., convected="all")  # full operator (default)
+sol.eigenmodes(freq_band=..., convected="entropy")  # entropy convects, composition frozen
+sol.eigenmodes(freq_band=..., convected="composition")  # composition convects, entropy pinned
+sol.eigenmodes(freq_band=..., convected="none")  # identical to isentropic=True
+sol.nyquist_stability(freqs, convected="entropy")  # same knob on the real-frequency driver
+```
+
 Always check `modes.certified`: `True` means the number found matched the argument-principle count (a completeness guarantee); `False` means the count could not be confirmed and the solver **warns why** — it never silently returns a partial spectrum.
 The common uncertified cases are a mode sitting on the search-region boundary (shift/widen `freq_band` or `growth_band`) and near-degenerate (repeated) modes.
 One genuine limit: at **very low mean-flow Mach** the entropy characteristic ill-conditions the operator, so a choked or near-quiescent mean flow may yield an uncertified or empty result with a warning.

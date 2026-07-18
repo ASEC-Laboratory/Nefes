@@ -161,7 +161,7 @@ def _set_row(A, row, cols0, coeff0, cols1, coeff1):
         A[row, c] = v
 
 
-def stamp_propagation(A, omega, duct_stamps, u_floor=1e-8, skip_entropy=False):
+def stamp_propagation(A, omega, duct_stamps, u_floor=1e-8, skip_entropy=False, skip_composition=None):
     """Apply the duct phase relations ``P(omega)`` to LIL matrix ``A`` in place.
 
     For each duct (tail station ``0`` -> head station ``1``):
@@ -170,10 +170,15 @@ def stamp_propagation(A, omega, duct_stamps, u_floor=1e-8, skip_entropy=False):
     tau_0)``.  At a quiescent duct (u ~ 0) the entropy wave is stationary and
     decoupled, so ``P0 = 1``.
 
-    ``skip_entropy`` (set under isentropic assembly) omits the entropy (h) phase row
+    ``skip_entropy`` (set when the entropy wave is pinned) omits the entropy (h) phase row
     entirely: it would only be overwritten by :func:`stamp_isentropic` with ``h = 0``,
     and at a complex ``omega`` its ``exp(-i w tau_0)`` can overflow needlessly.
+    ``skip_composition`` does the same for the composition scalar rows (their transport
+    keeps the steady, delay-free relation of the mean Jacobian); it defaults to
+    ``skip_entropy`` so the historical single-switch behavior is preserved.
     """
+    if skip_composition is None:
+        skip_composition = skip_entropy
     for st in duct_stamps:
         Pp = np.exp(-1j * omega * st.tau_p)
         Pm = np.exp(-1j * omega * st.tau_m)
@@ -182,20 +187,19 @@ def stamp_propagation(A, omega, duct_stamps, u_floor=1e-8, skip_entropy=False):
         _set_row(A, st.row_f, st.cols0, -Pp * st.L0[0, :], st.cols1, st.L1[0, :])
         # Row g:  g0 - Pm*g1 = 0
         _set_row(A, st.row_g, st.cols0, st.L0[1, :], st.cols1, -Pm * st.L1[1, :])
-        if skip_entropy:
-            # isentropic/stability mode: stamp_isentropic pins the entropy row to h = 0, and the
-            # convected scalars (entropy + composition) are decoupled -- their transit time
-            # tau_0 = L/u would overflow / pollute the acoustic spectrum at complex omega (the
-            # composition rows keep their steady J_alg convection).  Re-enabled in the full
-            # operator below (the forced-response path), where the convective phase matters.
+        if skip_entropy and skip_composition:
             continue
-        # Row h:  h1 - P0*h0 = 0
         P0 = np.exp(-1j * omega * st.tau_0) if abs(st.u) > u_floor else 1.0 + 0.0j
-        _set_row(A, st.row_h, st.cols0, -P0 * st.L0[2, :], st.cols1, st.L1[2, :])
-        # Composition scalars convect at u too (xi(head) = P0 xi(tail)); same convected wave
-        # as the entropy/h_t scalar, so it rides the same decouple under isentropic mode.
-        for row, c0, c1 in zip(st.comp_rows, st.comp_cols0, st.comp_cols1):
-            _set_row(A, row, (c0,), (-P0,), (c1,), (1.0 + 0.0j,))
+        if not skip_entropy:
+            # Row h:  h1 - P0*h0 = 0.  Skipped when the entropy wave is pinned: the row would
+            # only be overwritten by stamp_isentropic, and exp(-i w tau_0) can overflow at
+            # complex omega.
+            _set_row(A, st.row_h, st.cols0, -P0 * st.L0[2, :], st.cols1, st.L1[2, :])
+        if not skip_composition:
+            # Composition scalars convect at u too (xi(head) = P0 xi(tail)); when frozen their
+            # rows keep the steady, delay-free J_alg convection instead.
+            for row, c0, c1 in zip(st.comp_rows, st.comp_cols0, st.comp_cols1):
+                _set_row(A, row, (c0,), (-P0,), (c1,), (1.0 + 0.0j,))
 
 
 @dataclass

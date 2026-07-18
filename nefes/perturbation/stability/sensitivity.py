@@ -154,6 +154,7 @@ def eigenvalue_sensitivities(
     eps_fb=1e-6,
     u_floor=1e-8,
     isentropic=False,
+    convected=None,
     rng=None,
 ):
     """Differentiate every eigenvalue of ``eigs`` with respect to the network's parameters.
@@ -204,6 +205,9 @@ def eigenvalue_sensitivities(
         Operator-assembly regularizers, matching the ``eigenmodes`` call.
     isentropic : bool, optional
         Assemble with the entropy wave pinned, matching the ``eigenmodes`` call.
+    convected : str, optional
+        Fine-grained wave control, matching the ``eigenmodes`` call (see
+        :func:`nefes.perturbation.operator.operator.resolve_convected`).
     rng : numpy.random.Generator, optional
         Random source for the left-eigenvector start (default: a fixed seed).
 
@@ -247,7 +251,9 @@ def eigenvalue_sensitivities(
     n_modes = eigs.n_modes
     omega = np.asarray(eigs.omega, dtype=np.complex128)
 
-    blocks0 = build_acoustic_blocks(prob0, x0, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    blocks0 = build_acoustic_blocks(
+        prob0, x0, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
 
     # Per-mode ingredients: the right eigenvector (stored), a left eigenvector from the
     # factorized operator at the eigenvalue, and the omega-derivative normalization.
@@ -304,7 +310,9 @@ def eigenvalue_sensitivities(
         if with_chain and luJ is not None:
             dR = residual(prob_h, x0, eps, eps_fb) - R0
             x_h = x0 - unflatten(luJ.solve(dR), prob0.n_edges, prob0.n_solve)
-        return build_acoustic_blocks(prob_h, x_h, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+        return build_acoustic_blocks(
+            prob_h, x_h, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+        )
 
     addresses, values, units, used_steps = [], [], [], []
     columns = []  # per parameter: (n_modes,) d omega / d p

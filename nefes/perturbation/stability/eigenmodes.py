@@ -152,7 +152,7 @@ class EigenmodeWarning(UserWarning):
     """Diagnostic from the eigenmode search (no frequency dependence, saturated probes, ...)."""
 
 
-def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False):
+def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False, convected=None):
     """Assemble the frozen perturbation operator ``A(omega)`` about a mean state.
 
     The returned ``A_of`` is the *same* boundary-stamped operator that :func:`eigenmodes`
@@ -172,7 +172,11 @@ def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentrop
         is additionally raised to ``_ENTROPY_DECOUPLE_MACH * max(c)`` so the convected entropy
         phase never overflows on a near-stagnant duct (exact for the acoustic spectrum).
     isentropic : bool, optional
-        Pin the convected entropy wave to zero on every edge (acoustic-only), default False.
+        Pin the convected entropy wave to zero on every edge and freeze the composition
+        scalars (acoustic-only), default False.
+    convected : str, optional
+        Which convected wave families remain live: ``"all"`` / ``"entropy"`` /
+        ``"composition"`` / ``"none"`` (see :func:`operator.resolve_convected`).
 
     Returns
     -------
@@ -190,7 +194,9 @@ def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentrop
     # decouple the entropy wave on near-stagnant ducts (tau_0 -> inf would overflow at
     # complex omega); never affects the acoustic spectrum.
     u_floor = max(u_floor, _ENTROPY_DECOUPLE_MACH * float(np.max(est[ES_C])))
-    blocks = build_acoustic_blocks(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    blocks = build_acoustic_blocks(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
 
     def A_of(omega):
         return assemble_acoustic(omega, blocks, with_boundaries=True)
@@ -551,6 +557,7 @@ def eigenmodes(
     eps_fb=1e-6,
     u_floor=1e-8,
     isentropic=False,
+    convected=None,
     svd_tol=1e-10,
     residual_tol=_RESIDUAL_TOL,
     refine=True,
@@ -619,6 +626,13 @@ def eigenmodes(
         is the standard acoustic-stability assumption -- it drops entropy/convective modes
         from the spectrum and removes the near-stagnant entropy-phase overflow entirely --
         and uses the *same* solver, contour, and certificate machinery (no reconfiguration).
+    convected : str, optional
+        Fine-grained wave control, overriding the all-or-nothing ``isentropic``: which
+        convected families remain live -- ``"all"`` (default), ``"entropy"`` (entropy
+        convects, composition frozen), ``"composition"`` (composition convects, entropy
+        pinned), ``"none"`` (identical to ``isentropic=True``).  Separating the two
+        carriers attributes a mode's damping or drive to temperature spots versus
+        mixture-ratio spots.
     svd_tol : float, optional
         Relative singular-value cutoff for the Beyn rank (mode count). Default 1e-10.
         Consulted only on a sub-contour whose winding count could not be trusted; the
@@ -691,7 +705,9 @@ def eigenmodes(
     nyquist.open_loop_response : robust real-frequency stability count for the convected regime.
     eigenvalue_trajectory : track this spectrum as a setup parameter is varied.
     """
-    A_of, blocks, est, L = build_operator(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    A_of, blocks, est, L = build_operator(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
     terminals = find_terminals(prob, x_bar)
     n = int(blocks.J_alg.shape[0])
 
@@ -897,7 +913,7 @@ def eigenmodes(
         expected=expected,
         geometry=build_geometry(prob),
         storage=storage_stamps_from_est(prob, est),
-        _assembly=dict(eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=bool(isentropic)),
+        _assembly=dict(eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=bool(isentropic), convected=convected),
     )
 
 
