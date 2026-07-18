@@ -1,0 +1,113 @@
+<script>
+// Nefes theme runtime: dark/light persistence without a server, and Plotly adaptation.
+(function () {
+  var SENTINEL = "quarto-color-scheme";
+  var isDark = function () {
+    return document.body.classList.contains("quarto-dark");
+  };
+
+  // --- Persist the dark/light choice when browsing over file:// -------------------
+  // Quarto keeps the choice in localStorage over http(s) but falls back to a
+  // page-local variable on file:// URLs, so the toggle resets on every page turn.
+  // Where the browser allows localStorage for file:// (Chrome, Firefox), mirror
+  // the sentinel into it and re-apply it on load.
+  var initFilePersistence = function () {
+    if (window.location.protocol !== "file:") return;
+    var stored = null;
+    try {
+      stored = window.localStorage.getItem(SENTINEL);
+    } catch (e) {
+      return;
+    }
+    var toggle = window.quartoToggleColorScheme;
+    if (typeof toggle !== "function") return;
+    if (stored === "alternate" && !isDark()) toggle();
+    if (stored === "default" && isDark()) toggle();
+    window.quartoToggleColorScheme = function () {
+      toggle();
+      try {
+        window.localStorage.setItem(SENTINEL, isDark() ? "alternate" : "default");
+      } catch (e) {}
+    };
+  };
+
+  // --- Re-skin Plotly figures to the active mode ----------------------------------
+  // Figures are rendered with the light nefes template baked in.  In dark mode the
+  // paper is made transparent and the ink scale flipped; switching back relayouts
+  // the same keys to null, which restores the embedded template values exactly.
+  var PLOT_DARK = {
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+    "font.color": "#dbe1e8",
+    "title.font.color": "#f5f7fa",
+    "legend.bgcolor": "rgba(21,26,33,0.85)",
+    "legend.bordercolor": "#2a333e",
+    "legend.font.color": "#9aa5b1",
+    "hoverlabel.bgcolor": "#1b222b",
+    "hoverlabel.bordercolor": "#2a333e",
+    "hoverlabel.font.color": "#dbe1e8",
+    "modebar.color": "#9aa5b1",
+    "modebar.activecolor": "#fb923c",
+    "modebar.bgcolor": "rgba(0,0,0,0)"
+  };
+  var AXIS_DARK = {
+    grid: "#242d38",
+    line: "#4a5560",
+    tickfont: "#9aa5b1",
+    titlefont: "#dbe1e8"
+  };
+  var plotUpdate = function (gd, dark) {
+    var upd = {};
+    var key;
+    for (key in PLOT_DARK) {
+      upd[key] = dark ? PLOT_DARK[key] : null;
+    }
+    var layout = gd.layout || {};
+    for (key in layout) {
+      if (/^[xy]axis\d*$/.test(key)) {
+        upd[key + ".gridcolor"] = dark ? AXIS_DARK.grid : null;
+        upd[key + ".zerolinecolor"] = dark ? AXIS_DARK.grid : null;
+        upd[key + ".linecolor"] = dark ? AXIS_DARK.line : null;
+        upd[key + ".tickcolor"] = dark ? AXIS_DARK.line : null;
+        upd[key + ".tickfont.color"] = dark ? AXIS_DARK.tickfont : null;
+        upd[key + ".title.font.color"] = dark ? AXIS_DARK.titlefont : null;
+      }
+    }
+    return upd;
+  };
+  var adaptPlots = function () {
+    if (!window.Plotly) return;
+    var dark = isDark();
+    document.querySelectorAll(".plotly-graph-div").forEach(function (gd) {
+      if (!gd._fullLayout) return;
+      try {
+        window.Plotly.relayout(gd, plotUpdate(gd, dark));
+      } catch (e) {}
+    });
+  };
+
+  // --- Swap the navbar wordmark to the colorway of the active mode ----------------
+  var swapNavbarLogo = function () {
+    var want = isDark() ? "nefes-logo-dark.svg" : "nefes-logo-light.svg";
+    document.querySelectorAll(".navbar-brand img").forEach(function (img) {
+      if (img.src.indexOf(want) === -1) {
+        img.src = img.src.replace(/nefes-logo-(light|dark)\.svg/, want);
+      }
+    });
+  };
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initFilePersistence();
+    swapNavbarLogo();
+    // Adapt plots once they exist, then follow every toggle via the body class.
+    if (isDark()) window.addEventListener("load", adaptPlots);
+    new MutationObserver(function () {
+      swapNavbarLogo();
+      adaptPlots();
+    }).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  });
+})();
+</script>

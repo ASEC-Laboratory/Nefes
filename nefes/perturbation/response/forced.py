@@ -64,7 +64,7 @@ def _compositional_noise_gap(prob):
 
 
 @accepts_solution
-def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False):
+def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False, convected=None):
     """Solve the perturbation field under each terminal's declared boundary condition.
 
     The forcing is whatever the terminals' :class:`PerturbationBC`\\ s drive (their
@@ -125,7 +125,9 @@ def forced_response(prob, x_bar, freqs, *, eps=None, eps_fb=1e-6, u_floor=1e-8, 
             stacklevel=2,
         )
     omegas = 2.0 * np.pi * freqs  # operator assembly works in angular frequency (rad/s)
-    blocks = build_acoustic_blocks(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    blocks = build_acoustic_blocks(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
     est = states_table(prob, x_bar, caloric=True)
     _, L = edge_transforms(est)
 

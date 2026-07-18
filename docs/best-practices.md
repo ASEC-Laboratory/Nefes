@@ -230,16 +230,28 @@ net.gas.species_set.reduction_report  # which candidates were kept, and why
 ```
 
 **Tuning the automatic slate.**
-Three keyword dials on `equilibrium()` size the automatic set without hand-listing species.
-`reducer="none"` keeps every candidate; `reduce_threshold` sets the trace mole-fraction cutoff (larger keeps fewer species, smaller keeps more); `reduce_above` sets the candidate count above which the reduction runs at all (lower it to trim a lean slate, raise it to keep a broad one whole).
+Five keyword dials on `equilibrium()` size the automatic set without hand-listing species.
+`reducer="none"` keeps every candidate; `reduce_threshold` sets the trace mole-fraction cutoff (larger keeps fewer species, smaller keeps more); `reduce_above` sets the candidate count above which the reduction runs at all (lower it to trim a lean slate, raise it to keep a broad one whole); `max_species` caps the kept count; and `must_species` keeps named species regardless of abundance.
 
 ```python
 gas = nefes.equilibrium(reduce_threshold=1e-4)  # trim harder: drop species below 1e-4 mole fraction
 gas = nefes.equilibrium(reducer="none")          # keep the full candidate slate
+gas = nefes.equilibrium(max_species=20)          # keep the 20 highest-peaking species
+gas = nefes.equilibrium(must_species=["NO"])     # keep NO even though it is trace at equilibrium
 ```
 
-`reduce_threshold` only bites once the candidate count exceeds `reduce_above`, so a small pool (a hydrogen/air case, say) is kept whole unless you also lower the gate.
-The same three settings exist on the case file (`speciesReducer`, `speciesReduceThreshold`, `speciesReduceAbove`).
+`reduce_threshold` only bites once the candidate count exceeds `reduce_above`, so a small pool (a hydrogen/air case, say) is kept whole unless you also lower the gate; setting `max_species` runs the reduction regardless, since a cap has nothing to act on otherwise.
+`max_species` is a ceiling, not a target: it keeps the highest-peaking species and only ever discards the lowest-ranked non-trace ones, so to sweep set size and see how large a slate a case needs, pair it with a loose `reduce_threshold` so the cap alone drives the count.
+
+```python
+for n in (5, 10, 20, 40):
+    T = _flame_network(nefes.equilibrium(max_species=n, reduce_threshold=1e-12)).solve().edge(1)["T"]
+    print(n, T)  # watch the flame temperature settle as the slate grows
+```
+
+The feed species and one carrier of every fed-in element always survive the cap (and count against it), so the equilibrium never loses a constituent it must balance; `max_species` cannot be combined with `reducer="none"`, and a `must_species` naming an element no feed supplies is rejected.
+`must_species` accepts a high-temperature condensed product such as graphite `"C(gr)"` (add it to keep soot in a rich slate); it rejects an ion or a feed-only condensed species such as a liquid fuel, which never appears as an equilibrium product.
+The same five settings exist on the case file (`speciesReducer`, `speciesReduceThreshold`, `speciesReduceAbove`, `speciesMax`, `speciesMust`).
 
 **Advanced: pin the species and the closures.**
 The automatic slate can evolve as the reduction policy improves, so pin it when you need a reproducible species set or a fixed per-edge closure.
@@ -353,6 +365,25 @@ Addresses are resolved and validated *before* any write, so a mistyped address l
 Composite elements are rebuilt through their factory on a write, never patched.
 Address forms: `"element.field"`, `"edge.area"`, and for a single-port or constant-area element `"element.area"` fans out to its incident edges; bare `"p_ref"`, `"T_ref"` (and advanced `"mdot_ref"`, `"h_ref"`) address the network references.
 
+**Build once; vary with addresses.**
+Construct the `Network` once, then change lengths, areas, feeds, dynamic-source knobs, and perturbation BCs with `with_params` / `set` / `set_perturbation_bc`.
+Do not wrap construction in a parameterized `build(Lm=..., drive=...)` just to pass knobs — that is what the parameter API is for.
+A second construction (or a custom `build(p)` for continuation) is warranted only when the change is structural: topology, element *kind*, or gas/species set (those reshape the problem and are outside this API).
+
+**Nested addresses.** An object attached to an element can expose its own scalar knobs (the scalar-parameter protocol): an attached flame response exposes its gain and lag, a constant reflection/impedance boundary condition its magnitude and phase, an identified impulse response an overall `gain` and bulk `delay`.
+These join the same address space and every write path:
+
+```python
+net.parameters(layer="perturbation")  # only the acoustic-layer rows (see below)
+net.get("flame.dynamic_source.tau")  # a single-term source promotes its term's knobs
+net.with_params({"flame.dynamic_source.gain": 0.5,  # blend the FTF halfway toward passive
+                 "inlet.perturbation_bc.magnitude": 0.7})
+# a multi-term source indexes its terms: "flame.dynamic_source.terms[1].gain"
+```
+
+**Layer tags.** Every inventory row carries `layer`: `"mean"` (reshapes the mean flow — feed conditions, lengths, areas) or `"perturbation"` (enters only the acoustic operator — storage volumes, inertance lengths, source and boundary knobs; the mean state is invariant to them by construction).
+`net.parameters(layer=...)` filters on it, and the eigenvalue sensitivities use it to skip the mean-flow chain term where it vanishes identically.
+
 ---
 
 ## 6. Parameter studies (sweeps)
@@ -390,7 +421,8 @@ grid = nefes.parameter_study(
 grid.probes["dp"].shape  # (8, 12)
 ```
 
-For the stability continuation drivers (next section), `net.builder("address")` gives the `build(p) -> Network` closure they expect.
+For stability continuation, prefer `net.eigenvalue_trajectory("address", params, ...)` (or `net.nyquist_stability_map`); it uses `with_params` internally.
+Reach for `net.builder("address")` or a hand-written `build(p)` only when the free drivers need a closure and the change is not a single address.
 
 ---
 
@@ -467,6 +499,23 @@ resp.plot_transfer_matrix(0, 2).show()
 
 Use `multiport_scattering_matrix()` when terminals straddle branches; `transfer_matrix(a, b)` assumes a serial path (check `resp.transfer_residual(a, b) ~ 0`).
 
+**Freezing terminals to fold in closed branches.**
+By default `perturbation_response` neutralizes every 1-port terminal into a measurement port.
+Pass `freeze=[node, ...]` to instead hold the listed terminals at their *declared* boundary condition and fold them into the operator, so an interior branch terminated by a wall — a closed tuning stub, a side resonator, a Helmholtz neck — drops out of the port list and the network reduces to its genuine open ports.
+A frozen terminal keeps whatever closure it carries: a `wall` is rigid (`R=+1`) by default, or the explicit `PerturbationBC` set on it.
+This is how a muffler with tuning stubs reads out as a clean inlet→outlet two-port, and it is also how a *lossy* branch enters — an absorptive or yielding end wall is just a wall whose declared reflection is `R<1`, frozen like any other, with no manual condensation of the multiport matrix.
+
+```python
+# closed tuning stubs terminated by walls -> clean inlet->outlet two-port
+resp = sol.perturbation_response(freqs, freeze=[wall_a, wall_b])
+S = resp.acoustic_scattering_matrix(inlet_edge, outlet_edge)  # (n_freq, 2, 2)
+
+# an absorptive end wall: declare the loss on the wall (at build, or before solve), then freeze it
+wall_a = net.add(cat.wall(perturbation_bc=PerturbationBC.reflection(0.8)))
+```
+
+The declared closure is read from the network at solve time, so set the wall's `PerturbationBC` at construction or with `net.set_perturbation_bc(node, bc)` *before* `net.solve()`; changing it on an already-solved network does not take effect.
+
 ### 7c. Eigenmodes — linear stability
 
 Free oscillations are the roots of `det A(omega)=0`, found by contour integration with a completeness certificate.
@@ -485,10 +534,42 @@ modes.animate_mode(0).show()  # animated over one cycle
 modes.boundary_power(0)  # where energy enters/leaves for mode 0
 ```
 
+**Convected-wave controls.** `isentropic=True` removes *both* convected families (entropy and composition) at once; `convected=` removes them one at a time, so a mode's damping or drive can be attributed to its carrier — temperature spots versus mixture-ratio spots:
+
+```python
+sol.eigenmodes(freq_band=..., convected="all")  # full operator (default)
+sol.eigenmodes(freq_band=..., convected="entropy")  # entropy convects, composition frozen
+sol.eigenmodes(freq_band=..., convected="composition")  # composition convects, entropy pinned
+sol.eigenmodes(freq_band=..., convected="none")  # identical to isentropic=True
+sol.nyquist_stability(freqs, convected="entropy")  # same knob on the real-frequency driver
+```
+
 Always check `modes.certified`: `True` means the number found matched the argument-principle count (a completeness guarantee); `False` means the count could not be confirmed and the solver **warns why** — it never silently returns a partial spectrum.
 The common uncertified cases are a mode sitting on the search-region boundary (shift/widen `freq_band` or `growth_band`) and near-degenerate (repeated) modes.
 One genuine limit: at **very low mean-flow Mach** the entropy characteristic ill-conditions the operator, so a choked or near-quiescent mean flow may yield an uncertified or empty result with a warning.
 There the acoustic modes are still well-defined — recover them with `sol.eigenmodes(..., isentropic=True)` (drops the entropy wave, whose coupling is negligible at low Mach), or read the resonances off `sol.forced_response(freqs)` peaks.
+
+### 7c-bis. Eigenvalue sensitivities — what moves each mode
+
+Differentiate every found mode against the network's parameter inventory in one pass (one left eigenvector per mode, one operator re-assembly per parameter — no re-solve, no re-search).
+Both routes are captured: the parameter's direct appearance in the operator and the mean-flow shift it causes.
+
+```python
+sens = modes.sensitivities()  # every scalar parameter; assembly settings carried over
+sens = modes.sensitivities(include="*.length", exclude="*.mdot")  # glob narrowing
+sens = modes.sensitivities(params=["Duct3.length", "plenum.volume"])  # explicit list
+sens = modes.sensitivities(layer="perturbation")  # only acoustic-layer knobs (FTF gain/lag, BCs, volumes)
+sens  # ranked table: growth-rate change per +1% of each parameter (positive = destabilizing)
+sens["Duct3.length"]  # d omega / d p column for one address, one entry per mode
+sens.dgrowth_dp, sens.dfreq_dp  # (n_modes, n_params) derivative matrices, per parameter unit
+sens.top(5)  # most influential addresses
+sens.failed  # parameters that could not be probed, with reasons
+sens.plot().show()  # ranked bar chart (nefes.plotting.plot_sensitivities)
+```
+
+A zero-valued parameter (an unset `volume` or `end_correction`) is probed with a small absolute step and ranked by that step's effect, so untapped geometric features still show their leverage.
+The derivatives are local slopes: confirm a finite design change with a trajectory (7d).
+A near-degenerate pair warns — such modes respond to a parameter by splitting, and their individual slopes are ill-conditioned.
 
 ### 7d. Continuation of the spectrum in a parameter
 
@@ -501,7 +582,8 @@ traj.branches  # list of TrajectoryBranch; each has .freqs, .growth, .omega
 traj.plot_vs_param().show()
 ```
 
-`net.eigenvalue_trajectory` builds each swept point from a pristine copy (via `net.builder`) and labels the sweep by the address; the free `eigenvalue_trajectory(build, ...)` remains for a custom `build(p)` closure.
+`net.eigenvalue_trajectory` builds each swept point from a pristine copy (via `net.builder`) and labels the sweep by the address.
+The free `eigenvalue_trajectory(build, ...)` accepts a custom `build(p)` only for structural changes that `with_params` cannot express (see §5).
 
 ### 7e. Nyquist stability map
 
@@ -716,6 +798,7 @@ High-pressure reacting cold-starts now converge on their own (the seed reads the
 | Found in notebooks | Use instead | Why |
 | :-- | :-- | :-- |
 | `from nefes.shell import build_problem` | `nefes.Network(gas, nodes, edges)` | the one-shot constructor supersedes it |
+| parameterized `def build(Lm=..., drive=...)` around construction | build once; `with_params` / `set` / `eigenvalue_trajectory("address", ...)` | scalar and nested knobs (including perturbation-layer) are already addressable; reserve a custom `build(p)` for topology / element-kind / gas changes (§5) |
 | `from nefes.solver import solve; solve(prob)` | `net.solve()` | Solution auto-verifies and gives named access |
 | `from nefes.solver.report import states_table` + `ES_M`/`ES_P` indexing | `sol.field("M")`, `sol.edge(i)`, `sol.print_states()` | `ES_*` are internal state indices |
 | `from nefes.perturbation.operator.boundary_bc import PerturbationBC` | `from nefes.perturbation import PerturbationBC` | it is re-exported one level up |

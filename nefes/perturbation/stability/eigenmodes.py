@@ -111,6 +111,13 @@ _MAX_REFINE_ROUNDS = 3
 # det-phase or passes very close to an eigenvalue; the count is then not trusted as a rank.
 _WINDING_ROUND_TOL = 0.05
 
+# The argument-principle count certifies completeness only if the det-phase advances less than this
+# fraction of pi between adjacent counting nodes.  Above it the winding sum aliases: the true per-step
+# rotation may exceed pi (a mode grazing the region boundary, or -- at low mean-flow Mach -- a dense
+# convected/entropy spectrum rotating the phase too fast) and wraps to the wrong branch, so the integer
+# it lands on cannot be trusted even when it comes out clean (a spurious zero is the common outcome).
+_COUNT_MAX_JUMP_FRAC = 0.9
+
 # Relative step of the central difference that forms the eigen-Newton derivative A'(omega) x
 # (h = _NEWTON_FD_REL * (|omega| + 1)).  Shared with the continuation corrector in trajectory.py.
 _NEWTON_FD_REL = 1e-6
@@ -145,7 +152,7 @@ class EigenmodeWarning(UserWarning):
     """Diagnostic from the eigenmode search (no frequency dependence, saturated probes, ...)."""
 
 
-def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False):
+def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False, convected=None):
     """Assemble the frozen perturbation operator ``A(omega)`` about a mean state.
 
     The returned ``A_of`` is the *same* boundary-stamped operator that :func:`eigenmodes`
@@ -165,7 +172,11 @@ def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentrop
         is additionally raised to ``_ENTROPY_DECOUPLE_MACH * max(c)`` so the convected entropy
         phase never overflows on a near-stagnant duct (exact for the acoustic spectrum).
     isentropic : bool, optional
-        Pin the convected entropy wave to zero on every edge (acoustic-only), default False.
+        Pin the convected entropy wave to zero on every edge and freeze the composition
+        scalars (acoustic-only), default False.
+    convected : str, optional
+        Which convected wave families remain live: ``"all"`` / ``"entropy"`` /
+        ``"composition"`` / ``"none"`` (see :func:`operator.resolve_convected`).
 
     Returns
     -------
@@ -183,7 +194,9 @@ def build_operator(prob, x_bar, *, eps=None, eps_fb=1e-6, u_floor=1e-8, isentrop
     # decouple the entropy wave on near-stagnant ducts (tau_0 -> inf would overflow at
     # complex omega); never affects the acoustic spectrum.
     u_floor = max(u_floor, _ENTROPY_DECOUPLE_MACH * float(np.max(est[ES_C])))
-    blocks = build_acoustic_blocks(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    blocks = build_acoustic_blocks(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
 
     def A_of(omega):
         return assemble_acoustic(omega, blocks, with_boundaries=True)
@@ -507,6 +520,30 @@ def _dedup(omegas, modes, residuals, rtol=1e-4):
     return kept
 
 
+def _winding_certifiable(cert_info) -> bool:
+    """Whether an argument-principle winding is resolved finely enough to certify completeness.
+
+    The winding is a sum of per-step det-phase increments, each wrapped into ``(-pi, pi]``.  Once
+    the true rotation between two adjacent counting nodes reaches ``pi`` the wrap picks the wrong
+    branch and the sum aliases -- landing on a spurious integer (often zero), *cleanly*, so the
+    distance-to-integer test (``round_error``) cannot flag it.  The only tell is a per-step jump
+    near ``pi``: above :data:`_COUNT_MAX_JUMP_FRAC` of it the count is untrustworthy and may not
+    certify.  A dense convected/entropy spectrum at low mean-flow Mach is where this bites.
+
+    Parameters
+    ----------
+    cert_info : dict
+        The diagnostics from :func:`contour.winding_count` (uses ``"max_jump"``).
+
+    Returns
+    -------
+    bool
+        ``True`` if the largest per-step phase increment stays safely below ``pi``.
+    """
+    max_jump = cert_info.get("max_jump")
+    return max_jump is not None and np.isfinite(max_jump) and max_jump <= _COUNT_MAX_JUMP_FRAC * np.pi
+
+
 @accepts_solution
 def eigenmodes(
     prob,
@@ -520,6 +557,7 @@ def eigenmodes(
     eps_fb=1e-6,
     u_floor=1e-8,
     isentropic=False,
+    convected=None,
     svd_tol=1e-10,
     residual_tol=_RESIDUAL_TOL,
     refine=True,
@@ -588,6 +626,13 @@ def eigenmodes(
         is the standard acoustic-stability assumption -- it drops entropy/convective modes
         from the spectrum and removes the near-stagnant entropy-phase overflow entirely --
         and uses the *same* solver, contour, and certificate machinery (no reconfiguration).
+    convected : str, optional
+        Fine-grained wave control, overriding the all-or-nothing ``isentropic``: which
+        convected families remain live -- ``"all"`` (default), ``"entropy"`` (entropy
+        convects, composition frozen), ``"composition"`` (composition convects, entropy
+        pinned), ``"none"`` (identical to ``isentropic=True``).  Separating the two
+        carriers attributes a mode's damping or drive to temperature spots versus
+        mixture-ratio spots.
     svd_tol : float, optional
         Relative singular-value cutoff for the Beyn rank (mode count). Default 1e-10.
         Consulted only on a sub-contour whose winding count could not be trusted; the
@@ -646,8 +691,12 @@ def eigenmodes(
     The completeness certificate (``certify``) counts *algebraic* multiplicity, so a
     genuine repeated root contributes more than one to :attr:`EigenmodeResult.expected`
     while the de-duplicated mode list holds it once; such (non-generic) exact
-    degeneracies therefore read as uncertified.  A large ``round_error`` or a mode on
-    the region boundary likewise leaves the count ambiguous and is warned about.
+    degeneracies therefore read as uncertified.  The count is likewise withheld (and
+    warned about) when the counting contour does not resolve the determinant phase --
+    a per-step phase jump near ``pi``, whether from a mode grazing the region boundary
+    or, at low mean-flow Mach, a convected/entropy spectrum too dense for the contour,
+    which aliases the winding onto a spurious (often zero) count.  The acoustic modes
+    are then recovered with ``isentropic=True``.
 
     See also
     --------
@@ -656,7 +705,9 @@ def eigenmodes(
     nyquist.open_loop_response : robust real-frequency stability count for the convected regime.
     eigenvalue_trajectory : track this spectrum as a setup parameter is varied.
     """
-    A_of, blocks, est, L = build_operator(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    A_of, blocks, est, L = build_operator(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
     terminals = find_terminals(prob, x_bar)
     n = int(blocks.J_alg.shape[0])
 
@@ -692,8 +743,10 @@ def eigenmodes(
     # Completeness certificate: count the eigenvalues actually inside the region from the
     # winding of det A (argument principle) -- independent of what Beyn's probe resolves.
     # The counting contour *is* the region the tiles cover and the acceptance test uses, so
-    # "counted inside" and "kept inside" agree; it is resolved with enough nodes that the
-    # det-phase rotates well under pi per step even at the full mode count.
+    # "counted inside" and "kept inside" agree.  The node count is sized from the acoustic mode
+    # spacing; a spectrum that is denser than that (a low-Mach convected/entropy spectrum) rotates
+    # the det-phase faster than the contour resolves, and the winding then aliases -- caught below
+    # by the per-step jump, which withholds the certificate rather than trusting an aliased integer.
     expected = None
     if certify:
         est_region = max(1, _estimate_mode_count(blocks, bound.center.real - bound.rx, bound.center.real + bound.rx))
@@ -708,10 +761,20 @@ def eigenmodes(
                 EigenmodeWarning,
                 stacklevel=2,
             )
-        elif cert_info["max_jump"] > 0.9 * np.pi:
+        elif not _winding_certifiable(cert_info):
+            # The det-phase advances by nearly pi between adjacent counting nodes, so the winding
+            # sum aliases and its integer -- even a clean one -- cannot certify completeness.  This
+            # is a single mode grazing the region boundary, or, at low mean-flow Mach, a dense
+            # convected/entropy spectrum that the acoustic-sized contour cannot resolve (the winding
+            # then aliases to a spurious value, typically zero).  Withhold the certificate.
+            expected = None
             warnings.warn(
-                "a mode lies very close to the search-region boundary (rapid det-phase rotation on the "
-                "counting contour); its membership is ambiguous -- shift freq_band/growth_band to resolve it.",
+                "completeness uncertified: the determinant phase rotates too fast between adjacent "
+                "counting nodes to trust the argument-principle mode count. A mode may sit on the "
+                "search-region boundary (shift/narrow freq_band or growth_band), or -- at low mean-flow "
+                "Mach -- a dense convected/entropy spectrum aliases the count. Raise n_nodes for a "
+                "sparse spectrum, or pass isentropic=True to drop the convected modes (or read the "
+                "acoustic resonances off forced_response peaks).",
                 EigenmodeWarning,
                 stacklevel=2,
             )
@@ -850,6 +913,7 @@ def eigenmodes(
         expected=expected,
         geometry=build_geometry(prob),
         storage=storage_stamps_from_est(prob, est),
+        _assembly=dict(eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=bool(isentropic), convected=convected),
     )
 
 
@@ -907,6 +971,10 @@ class EigenmodeResult:
     geometry: Optional[NetworkGeometry] = None
     # per-element storage stamps (stamps.storage_stamps_from_est) for the lumped-storage energy ledger
     storage: Optional[list] = None
+    # provenance for sensitivities(): the assembly settings this spectrum was built with, and
+    # (when searched through Solution.eigenmodes) the solution itself
+    _assembly: Optional[dict] = field(default=None, repr=False, compare=False)
+    _solution: Optional[object] = field(default=None, repr=False, compare=False)
 
     def __len__(self) -> int:
         return int(self.omega.size)
@@ -1126,6 +1194,51 @@ class EigenmodeResult:
             }
             for i in range(self.n_modes)
         ]
+
+    def sensitivities(self, solution=None, **kwargs):
+        """Differentiate every mode of this spectrum with respect to the network's parameters.
+
+        A bound form of :func:`sensitivity.eigenvalue_sensitivities`: the assembly settings
+        this spectrum was searched with (``isentropic``, regularizers) are re-supplied
+        automatically, and the solution is taken from the :meth:`nefes.Solution.eigenmodes`
+        call that produced this result.  One left eigenvector per mode turns each parameter
+        into a single operator re-assembly, so probing the full parameter inventory costs a
+        fraction of the original search.
+
+        Parameters
+        ----------
+        solution : Solution, optional
+            The solved network this spectrum belongs to.  Only needed when the result was
+            obtained through the low-level ``eigenmodes(problem, x_bar, ...)`` call, which
+            carries no network reference.
+        **kwargs
+            Forwarded to :func:`sensitivity.eigenvalue_sensitivities` (e.g. ``include``,
+            ``exclude``, ``params``, ``chain``, ``scheme``).
+
+        Returns
+        -------
+        EigenmodeSensitivityResult
+
+        Examples
+        --------
+        >>> eigs = sol.eigenmodes(freq_band=(100, 600), isentropic=True)
+        >>> eigs.sensitivities(include="*.length")  # doctest: +SKIP
+
+        See Also
+        --------
+        sensitivity.eigenvalue_sensitivities : the underlying routine and its full knob set.
+        """
+        from .sensitivity import eigenvalue_sensitivities
+
+        sol = solution if solution is not None else self._solution
+        if sol is None:
+            raise ValueError(
+                "this result carries no solution reference: search through Solution.eigenmodes, "
+                "or pass the solved Solution here as sensitivities(solution=...)"
+            )
+        opts = dict(self._assembly or {})
+        opts.update(kwargs)
+        return eigenvalue_sensitivities(sol, self, **opts)
 
     def plot_spectrum(self, **kwargs):
         """Plot the spectrum: growth rate vs modal frequency, with the stability boundary.

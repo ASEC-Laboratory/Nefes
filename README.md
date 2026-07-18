@@ -1,6 +1,11 @@
-# Nefes — network solver for reacting compressible flows and thermoacoustics
-
 <div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img src="assets/logo-light.svg" alt="Nefes" width="321">
+</picture>
+
+**NEtwork solver for Flow, Eigenmodes, and Stability**
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.11-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3110/)
@@ -15,7 +20,7 @@
 
 </div>
 
-Nefes models a fluid system as a directed graph of lumped elements.
+Nefes — Turkish for *breath* — models a fluid system as a directed graph of lumped elements.
 It solves the steady mean flow and the linear perturbations about that mean (acoustics, entropy, and composition) without resolving the full three-dimensional field.
 The perturbation layer is the linearization of the same mean-flow residual, so the two stay consistent by construction.
 

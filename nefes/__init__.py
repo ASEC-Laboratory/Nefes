@@ -1,4 +1,4 @@
-"""Nefes -- Network solver for reacting compressible flows and thermoacoustics.
+"""Nefes -- NEtwork solver for Flow, Eigenmodes, and Stability.
 
 Nefes (Turkish for "breath") models a fluid system as a directed graph and solves
 for the steady mean flow and the linear perturbation behavior around it (two

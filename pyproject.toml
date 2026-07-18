@@ -6,9 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "nefes"
 authors = [
     { name = "Cetin Alanyalioglu" },
+    { name = "Hendrik Nicolai" },
 ]
 version = "0.1.0"
-description = "Network solver for reacting compressible flows and thermoacoustics"
+description = "NEtwork solver for Flow, Eigenmodes, and Stability"
 requires-python = ">=3.11"
 classifiers = [
     "License :: OSI Approved :: BSD License",

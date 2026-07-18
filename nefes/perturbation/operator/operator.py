@@ -40,6 +40,29 @@ from .terminals import find_terminals
 # Generic non-zero frequency used to capture the (omega-independent) sparsity pattern.
 _PLAN_OMEGA = 1.0
 
+# Admissible values of the ``convected`` control: which convected wave families remain live.
+CONVECTED_CHOICES = ("all", "entropy", "composition", "none")
+
+
+def resolve_convected(isentropic, convected):
+    """Resolve the wave controls to ``(pin_entropy, freeze_composition)``.
+
+    ``convected`` names the convected families that remain **live**: ``"all"`` (both, the
+    full operator), ``"entropy"`` (entropy convects, composition frozen), ``"composition"``
+    (composition convects, entropy pinned), ``"none"`` (both removed -- identical to
+    ``isentropic=True``).  ``isentropic=True`` is the established shorthand for ``"none"``
+    and may not be combined with a conflicting ``convected``.
+    """
+    if convected is None:
+        return bool(isentropic), bool(isentropic)
+    if convected not in CONVECTED_CHOICES:
+        raise ValueError(f"convected must be one of {CONVECTED_CHOICES}; got {convected!r}")
+    if isentropic and convected != "none":
+        raise ValueError(
+            f"isentropic=True already removes every convected wave; it conflicts with convected={convected!r}"
+        )
+    return convected in ("composition", "none"), convected in ("entropy", "none")
+
 
 @dataclass
 class AcousticBlocks:
@@ -63,12 +86,23 @@ class AcousticBlocks:
     # on every edge (stamps.stamp_isentropic).  Reduces the 3-wave system to the two
     # acoustic waves -- standard acoustic analysis -- with no change in operator size.
     isentropic: bool = False
+    # freeze the composition scalars' convection (their transport keeps the steady, delay-free
+    # relation): the other half of the classic "isentropic" reduction, controlled independently
+    # so entropy and composition waves can be kept or removed one at a time (resolve_convected).
+    freeze_composition: bool = False
     # cached fixed-pattern assemblers keyed by with_boundaries (lazy; see _build_plan)
     _plans: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __repr__(self) -> str:
         """Concise operator summary: dimension, duct count, wave model, and any dynamic sources."""
-        kind = "isentropic (2-wave)" if self.isentropic else "full (3-wave)"
+        if self.isentropic and self.freeze_composition:
+            kind = "isentropic (2-wave)"
+        elif self.isentropic:
+            kind = "entropy pinned, composition convecting"
+        elif self.freeze_composition:
+            kind = "entropy convecting, composition frozen"
+        else:
+            kind = "full (3-wave)"
         src = f", {len(self.source_stamps)} dynamic source(s)" if self.source_stamps else ""
         return f"AcousticBlocks: operator dim {self.n}, {len(self.duct_stamps)} duct(s), {kind}{src}"
 
@@ -78,7 +112,7 @@ class AcousticBlocks:
         return bool(self.source_stamps)
 
 
-def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False):
+def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8, isentropic=False, convected=None):
     """Build the frozen blocks at the mean state ``x_bar``.
 
     ``J_alg`` is assembled with the regularizations turned down (``kappa = 0``).  ``M``
@@ -96,15 +130,24 @@ def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8, isen
     u_floor : float, optional
         Speed below which a station is treated as quiescent.
     isentropic : bool, optional
-        Pin the entropy characteristic to zero on every edge (``rho' = p'/c^2``),
-        reducing the operator to the two acoustic waves without changing its size (see
-        :func:`stamps.stamp_isentropic`).  Default False.
+        Pin the entropy characteristic to zero on every edge (``rho' = p'/c^2``) **and**
+        freeze the composition scalars' convection, reducing the operator to the two
+        acoustic waves without changing its size (see :func:`stamps.stamp_isentropic`).
+        Default False.  The shorthand for ``convected="none"``.
+    convected : str, optional
+        Fine-grained control over which convected wave families remain live: ``"all"``
+        (default, the full operator), ``"entropy"`` (entropy convects, composition
+        frozen), ``"composition"`` (composition convects, entropy pinned), ``"none"``
+        (identical to ``isentropic=True``).  Lets entropy and composition waves be
+        removed one at a time to attribute a mode's damping or drive to its carrier.
 
     Returns
     -------
     AcousticBlocks
         The frozen operator blocks.
     """
+    pin_entropy, freeze_composition = resolve_convected(isentropic, convected)
+    isentropic = pin_entropy
     if eps is None:
         eps = 1e-4 * prob.var_scale[0]
     x_bar = np.ascontiguousarray(x_bar)
@@ -130,6 +173,7 @@ def build_acoustic_blocks(prob, x_bar, eps=None, eps_fb=1e-6, u_floor=1e-8, isen
         n=n,
         u_floor=u_floor,
         isentropic=bool(isentropic),
+        freeze_composition=bool(freeze_composition),
         source_stamps=source_stamps,
         flame_edges=flame_edges,
         tm_stamps=tm_stamps,
@@ -166,7 +210,14 @@ def _assemble_reference(omega, blocks: AcousticBlocks, with_boundaries=True, wit
     """
     storage = with_storage and blocks.M.nnz
     A = (blocks.J_alg + 1j * omega * blocks.M).tolil() if storage else blocks.J_alg.tolil()
-    stamp_propagation(A, omega, blocks.duct_stamps, blocks.u_floor, skip_entropy=blocks.isentropic)
+    stamp_propagation(
+        A,
+        omega,
+        blocks.duct_stamps,
+        blocks.u_floor,
+        skip_entropy=blocks.isentropic,
+        skip_composition=blocks.freeze_composition,
+    )
     # transfer-matrix elements overwrite their own acoustic rows (like the duct phase); a
     # different row set than the source, so it commutes with the source stamp below.
     stamp_transfer_matrix(A, omega, blocks.tm_stamps, blocks.u_floor, skip_entropy=blocks.isentropic)
@@ -330,9 +381,9 @@ def _build_plan(blocks: AcousticBlocks, with_boundaries):
             if flowing and not blocks.isentropic and st.L0[2, j] != 0.0:
                 duct_entries.append((st.row_h, st.cols0[j], -st.L0[2, j], st.tau_0))
         # composition phase: xi(head) - P0 xi(tail) = 0.  The tail entry -P0 = -e^{-i w tau_0}
-        # is omega-dependent (coeff -1); the head +1 is constant (folded into base).  Like the
-        # entropy phase it is decoupled under isentropic mode and dropped on a quiescent duct.
-        if flowing and not blocks.isentropic:
+        # is omega-dependent (coeff -1); the head +1 is constant (folded into base).  Dropped
+        # when the composition convection is frozen, and on a quiescent duct.
+        if flowing and not blocks.freeze_composition:
             for row, c0 in zip(st.comp_rows, st.comp_cols0):
                 duct_entries.append((row, c0, -1.0, st.tau_0))
 

@@ -167,6 +167,7 @@ def open_loop_response(
     freqs,
     *,
     isentropic=False,
+    convected=None,
     eps=None,
     eps_fb=1e-6,
     u_floor=1e-8,
@@ -223,7 +224,9 @@ def open_loop_response(
     if freqs[0] > 0.0:
         freqs = np.insert(freqs, 0, 0.0)  # the locus must reach DC to close across omega = 0
 
-    blocks = build_acoustic_blocks(prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic)
+    blocks = build_acoustic_blocks(
+        prob, x_bar, eps=eps, eps_fb=eps_fb, u_floor=u_floor, isentropic=isentropic, convected=convected
+    )
     if not blocks.has_sources:
         raise ValueError(
             "Nyquist open-loop stability needs at least one dynamic source (a flame FTF or a "
@@ -301,7 +304,7 @@ def _refine_locus(fgrid, Ls, Ds, evaluate):
 
 
 @accepts_solution
-def nyquist_stability(prob, x_bar, freqs, *, isentropic=False, **kwargs):
+def nyquist_stability(prob, x_bar, freqs, *, isentropic=False, convected=None, **kwargs):
     """Number of unstable modes of the network from the real-frequency Nyquist sweep.
 
     Convenience wrapper over :func:`open_loop_response`: it computes the return ratio and
@@ -317,7 +320,7 @@ def nyquist_stability(prob, x_bar, freqs, *, isentropic=False, **kwargs):
         (:meth:`~NyquistResponse.crossings`) and the stability margin
         (:attr:`~NyquistResponse.margin`).
     """
-    return open_loop_response(prob, x_bar, freqs, isentropic=isentropic, **kwargs)
+    return open_loop_response(prob, x_bar, freqs, isentropic=isentropic, convected=convected, **kwargs)
 
 
 @dataclass
@@ -949,6 +952,7 @@ def nyquist_stability_map(
     freqs,
     *,
     isentropic=False,
+    convected=None,
     eps=None,
     eps_fb=1e-6,
     u_floor=1e-8,
@@ -1022,7 +1026,15 @@ def nyquist_stability_map(
         prob, x = _solved_state(build(float(p)), x_warm, warm_start)
         x_warm = x
         resp = open_loop_response(
-            prob, x, freqs, isentropic=isentropic, eps=eps, eps_fb=eps_fb, u_floor=u_floor, refine=refine
+            prob,
+            x,
+            freqs,
+            isentropic=isentropic,
+            convected=convected,
+            eps=eps,
+            eps_fb=eps_fb,
+            u_floor=u_floor,
+            refine=refine,
         )
         n_unstable[k] = resp._quiet_count()
         margin[k] = resp.margin

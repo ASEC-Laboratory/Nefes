@@ -772,3 +772,79 @@ def test_low_mach_choked_nozzle_warns_not_crashes():
     iso = sol.eigenmodes(freq_band=(50.0, 2000.0), isentropic=True)
     assert iso.n_modes >= 4 and iso.certified
     assert np.all(np.array(iso.freqs) > 300.0)
+
+
+def test_winding_certifiable_rejects_aliased_clean_integer():
+    """The certificate is withheld when the det-phase rotates near ``pi`` per counting step.
+
+    The winding sum wraps each per-step increment into ``(-pi, pi]``, so once the true rotation
+    between adjacent nodes reaches ``pi`` the sum aliases and lands on a *clean* wrong integer that
+    the distance-to-integer test cannot flag.  ``_winding_certifiable`` keys on the per-step jump,
+    the only diagnostic that separates a resolved winding from an aliased one.
+    """
+    from nefes.perturbation.stability.eigenmodes import _COUNT_MAX_JUMP_FRAC, _winding_certifiable
+
+    # A resolved winding (small jump) certifies; a near-pi jump does not, even with a clean count.
+    assert _winding_certifiable({"winding": 3.0, "round_error": 0.0, "max_jump": 0.3 * np.pi})
+    assert not _winding_certifiable({"winding": 0.0, "round_error": 0.0, "max_jump": 0.99 * np.pi})
+    assert not _winding_certifiable({"max_jump": _COUNT_MAX_JUMP_FRAC * np.pi + 1e-9})
+    # Missing or non-finite diagnostics are never certifiable.
+    assert not _winding_certifiable({})
+    assert not _winding_certifiable({"max_jump": float("nan")})
+
+
+def test_low_mach_dense_spectrum_is_not_falsely_certified():
+    """A low-Mach chamber must never certify "no modes" when its counting contour aliases.
+
+    At low mean-flow Mach the convected/entropy spectrum is far denser than the acoustic one that
+    sizes the counting contour, so the region winding aliases -- here to a *clean* zero that the
+    round-off guard passes and that would read as a certified empty spectrum.  Only the per-step
+    det-phase jump reveals it.  The honest outcome is an uncertified result that warns, while the
+    real acoustic modes are recovered by ``isentropic=True``.  This is the pattern a low-Mach
+    reacting network (a combustor with a choked exit) exhibits.
+    """
+    import scipy.sparse.linalg as spla
+
+    from nefes.perturbation.stability.eigenmodes import (
+        _COUNT_MAX_JUMP_FRAC,
+        _WINDING_ROUND_TOL,
+        _band_subcontours,
+        _winding_certifiable,
+        build_operator,
+    )
+
+    band = (50.0, 2000.0)
+    sol = Network(
+        nodes=[
+            cat.mass_flow_inlet(2.0, 300.0, perturbation_bc=PerturbationBC.hard_wall()),
+            cat.duct(LDUCT),
+            cat.choked_nozzle_outlet(1e-3, name="throat"),
+        ],
+        edges=[(0, 1, 0.02), (1, 2, 0.02)],
+    ).solve()
+    assert sol.edge(0)["M"] < 0.05  # genuinely low Mach
+
+    # The region counting contour the driver builds, at its default node budget, aliases to a
+    # clean integer: round_error passes the round-off guard, and only the per-step jump exposes it.
+    A_of, blocks, _, _ = build_operator(sol.problem, sol.x, isentropic=False)
+    _, bound, _, _ = _band_subcontours(band, None, 128, blocks, None)
+    count_contour = ellipse_contour(bound.center, bound.rx, bound.ry, 128)
+
+    def det_phase(z):
+        return lu_logdet_phase(spla.splu(A_of(complex(z)).tocsc()))
+
+    _, info = winding_count(det_phase, count_contour)
+    assert info["round_error"] < _WINDING_ROUND_TOL  # a clean integer -- the round-off guard is blind to it
+    assert info["max_jump"] > _COUNT_MAX_JUMP_FRAC * np.pi  # the aliasing signature
+    assert not _winding_certifiable(info)
+
+    # The driver must therefore withhold the certificate and explain itself, never certify "no modes".
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        res = sol.eigenmodes(freq_band=band)
+    assert res.certified is False
+    assert any(isinstance(w.message, EigenmodeWarning) for w in caught)
+
+    # The acoustic modes are real: the isentropic path recovers them, certified.
+    iso = sol.eigenmodes(freq_band=band, isentropic=True)
+    assert iso.n_modes >= 4 and iso.certified

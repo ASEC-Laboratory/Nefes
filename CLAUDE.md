@@ -1,4 +1,4 @@
-# Nefes — Network solver for reacting compressible flows and thermoacoustics
+# Nefes — NEtwork solver for Flow, Eigenmodes, and Stability
 
 Nefes is a compressible-flow **network** analysis tool: it models a fluid system as a
 directed graph and solves for the steady mean flow (and, by design, the acoustic

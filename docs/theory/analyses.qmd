@@ -63,6 +63,12 @@ The search region is covered by overlapping elliptical sub-contours; on each, $N
 The same count over the region as a whole then certifies the mode set as *complete* rather than merely "some modes found", and the driver re-tiles and re-searches until the two agree.
 The sub-contours must genuinely cover the region they certify: ellipses laid side by side pinch at their seams, and a strongly damped mode sitting in such a gap would be counted yet never found.
 
+The winding is trustworthy only where the counting contour resolves it: the phase is accumulated increment by increment, and each per-step rotation of $\arg\det\mathbf{A}$ must remain below $\pi$ for it to unwrap onto the correct branch.
+A spectrum denser than the contour can resolve folds the phase by more than $\pi$ between neighbouring nodes, and the winding then aliases onto a spurious integer cleanly enough that its distance to the nearest integer betrays nothing; only the largest per-step rotation, as it approaches $\pi$, reveals the aliasing.
+This is the regime of a low-Mach flowing network, whose convected entropy and composition modes are spaced by the long transit time $\tau_u = L/\overline{u}$ rather than the acoustic $\tau_\pm = L/(\overline{c}\pm\overline{u})$, and so crowd the region far more densely than the acoustic count that sizes the contour anticipates.
+There the completeness certificate is withheld rather than asserted from an aliased count, and the acoustic spectrum is recovered instead under the isentropic reduction, which pins the convected wave to zero (tests: `test_low_mach_dense_spectrum_is_not_falsely_certified`, `test_low_mach_choked_nozzle_warns_not_crashes`).
+The two convected families the reduction removes — the entropy wave and the composition (mixture-ratio) wave — are also removable one at a time (`convected="entropy"` / `"composition"` / `"none"`), so the contribution of each carrier to a mode's damping or drive can be isolated on an unchanged mean state (tests: `test_nonreacting_spectral_invariants`, `test_controls_touch_exactly_their_own_rows`).
+
 Membership must also be decided on a scale-invariant footing.
 A network operator assembles rows in incompatible units — pressure, velocity, mass flow — so $\operatorname{cond}\mathbf{A}$ routinely reaches $10^{12}$ at *every* frequency, and a residual normalised by $\max|\mathbf{A}|$ is satisfied by a near-null vector wherever one cares to look.
 Modes are accepted on the residual of the equilibrated operator $\mathbf{A}_s = \mathbf{D}_r\mathbf{A}\mathbf{D}_c$, whose diagonal scalings are frozen once at the band centre; the Newton polish that precedes the test converges on $|\Delta\omega|$, which needs no scale at all.
@@ -136,6 +142,30 @@ fig.add_annotation(x=470, y=12, text="unstable ↑", showarrow=False, font=dict(
 fig.update_layout(xaxis_title="modal frequency  f = ω_r / 2π  [Hz]", yaxis_title="growth rate  σ = −Im(ω)  [1/s]")
 fig
 ```
+
+## Eigenvalue sensitivities {#sec-analyses-eigenvalue-sensitivities}
+
+Once a spectrum is in hand, the question shifts from *where the modes are* to *what moves them*: which duct length, area, or feed condition pulls a mode toward or away from the stability boundary.
+Differentiating the eigenproblem $\mathbf{A}(\omega; p)\,\mathbf{x} = \mathbf{0}$ with respect to a setup parameter $p$ and projecting onto the left eigenvector $\mathbf{y}$ (the adjoint mode, $\mathbf{y}^{\mathrm{H}}\mathbf{A} = \mathbf{0}$) eliminates the unknown eigenvector shift and leaves a closed expression, given as:
+
+$$
+\frac{\mathrm{d}\omega}{\mathrm{d}p}
+\;=\;
+-\,\frac{\mathbf{y}^{\mathrm{H}}\,\dfrac{\mathrm{d}\mathbf{A}}{\mathrm{d}p}\,\mathbf{x}}
+        {\mathbf{y}^{\mathrm{H}}\,\dfrac{\partial\mathbf{A}}{\partial\omega}\,\mathbf{x}},
+$$
+
+where the left eigenvector comes from the already-factorized operator at the eigenvalue (a transpose-conjugate solve), so every mode needs one extra triangular solve and nothing else.
+
+The parameter enters the operator along two routes, and both must be in $\mathrm{d}\mathbf{A}/\mathrm{d}p$: directly (a duct length in the phase term $e^{-\mathrm{i}\omega\tau}$, a volume in the storage block) and through the mean flow the parameter reshapes.
+The mean route needs no re-solve: the converged mean state obeys $\mathbf{R}(\overline{\mathbf{x}}; p) = \mathbf{0}$, so its shift is $\mathrm{d}\overline{\mathbf{x}}/\mathrm{d}p = -\overline{\mathbf{J}}^{-1}\,\partial\mathbf{R}/\partial p$ — one back-substitution against the mean Jacobian that the complex-step machinery already provides exactly.
+The operator derivative is then a finite difference of the re-assembled operator along the combined path $(p, \overline{\mathbf{x}}(p))$; every quantity along that path is smooth by the smoothness contract, so a small step sits at the difference-roundoff floor rather than on a kink.
+Probing a parameter therefore costs one operator re-assembly (plus one residual evaluation for its mean shift), and the full parameter inventory of a network is differentiated for a fraction of the cost of the eigenvalue search itself — against roughly one mean re-solve *and* re-search per parameter for the brute-force alternative.
+A parameter that enters only the perturbation operator — a storage volume, an inertance length, a flame-response gain or lag, a boundary reflection — leaves the mean state invariant by construction, so its chain term vanishes identically and its probe skips the residual evaluation altogether; the parameter inventory records this distinction as a per-parameter layer tag (tests: `test_perturbation_layer_rows_leave_the_mean_residual_invariant`, `test_sensitivities_over_source_knobs_match_brute_force`).
+
+Two caveats bound the method's reach.
+The expression is the first term of a perturbation series: it ranks levers and gives local slopes, and a finite design change should be confirmed by continuation (`eigenvalue_trajectory`) along the chosen parameter.
+And a nearly repeated eigenvalue — a symmetric pair, an accidental degeneracy — makes the normalization $\mathbf{y}^{\mathrm{H}}(\partial\mathbf{A}/\partial\omega)\,\mathbf{x}$ small: such a pair responds to a parameter by splitting, not by moving independently, and the implementation warns rather than reporting the ill-conditioned individual slopes (tests: `test_matches_brute_force_and_analytic_laws`, `test_mean_flow_route_is_the_chain_term`, `test_zero_valued_parameter_is_probed_one_sided`).
 
 ## Open-loop stability on the real axis {#sec-analyses-open-loop-stability}
 

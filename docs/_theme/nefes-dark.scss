@@ -1,0 +1,59 @@
+/*
+  Nefes documentation theme — dark.
+
+  Layered on top of nefes-light.scss: only the semantic tokens and the few dark-only
+  rules live here.  The scale keeps the cool, slightly blue cast of the ink palette;
+  the ember accent brightens two steps so links and markers hold their contrast.
+*/
+
+/*-- scss:defaults --*/
+
+// Semantic tokens (literal values only: this file is compiled before the light one)
+$nefes-text-2: #9aa5b1 !default;
+$nefes-text-3: #7b8794 !default;
+$nefes-surface: #171d25 !default;
+$nefes-border: #2a333e !default;
+$nefes-rule-strong: #4a5560 !default;
+$nefes-ember: #fb923c !default;
+$nefes-ember-deep: #fb923c !default;
+$nefes-ember-deeper: #fdba74 !default;
+$nefes-wave: "%23fb923c" !default;
+
+// Page colors
+$body-bg: #151a21 !default;
+$body-color: #dbe1e8 !default;
+$headings-color: #f5f7fa !default;
+$text-muted: #9aa5b1 !default;
+$link-color: #fb923c !default;
+$link-hover-color: #fdba74 !default;
+$border-color: #2a333e !default;
+
+// Code
+$code-color: #cdd6df !default;
+$code-bg: #242c37 !default;
+$code-block-bg: #1b222b !default;
+
+// Chrome
+$navbar-bg: #0f141b !default;
+$navbar-fg: #e4e7eb !default;
+$navbar-hl: #fdba74 !default;
+$sidebar-bg: #171d25 !default;
+$sidebar-fg: #a7b1bc !default;
+$sidebar-hl: #fb923c !default;
+$footer-bg: #151a21 !default;
+$footer-fg: #9aa5b1 !default;
+$toc-color: #9aa5b1 !default;
+$toc-active-border: #fb923c !default;
+$toc-inactive-border: #2a333e !default;
+
+/*-- scss:rules --*/
+
+// Live Plotly figures are re-skinned by _theme/theme-runtime.html; static images keep
+// their white paper, so present those as deliberate plates instead of glaring rectangles.
+.cell-output-display > img,
+.quarto-figure img {
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  padding: 6px;
+}
+
