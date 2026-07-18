@@ -129,6 +129,12 @@ Each notebook opens with its network topology drawn by the **Nemo** UI, then bui
 - **`rijke_tube.ipynb`** — the fundamental thermoacoustic oscillator: a duct with a heat
   source that, under the right conditions, feeds energy into a duct mode and drives a
   **self-excited instability** (an `n-τ` active element in the acoustic field).
+- **`eigenvalue_sensitivity.ipynb`** — **what moves each mode**: on the same self-excited
+  Rijke tube, `modes.sensitivities()` ranks every setup parameter by how it shifts each
+  mode's growth rate (cold-duct length stabilizes the fundamental; flame `n`/`τ`
+  destabilize it; the second mode answers to different knobs). Uses the dedicated
+  `sens.plot()` bar chart and confirms the top stabilizer with an
+  `eigenvalue_trajectory` whose tangent matches the local slope.
 - **`ita_and_cavity_modes.ipynb`** — the same tube, tuned so its spectrum carries **both
   families**: three **cavity** resonances set by the geometry and three **intrinsic
   thermoacoustic (ITA)** modes set by the flame lag alone. Separates them three ways —
@@ -141,6 +147,14 @@ Each notebook opens with its network topology drawn by the **Nemo** UI, then bui
   chamber fluctuation modulates the **fuel flow rate** → local **equivalence ratio** → a
   mixture fluctuation that convects to the flame and burns into unsteady heat release, with
   the injector-to-flame time lag.
+- **`fuel_transport_instability.ipynb`** — the same convective chain with **no dynamic
+  source anywhere**: a *steady* fuel injector, a mixing duct, and a *static* equilibrium
+  flame self-excite through the **passive** operator alone. The air-side fluctuation dilutes
+  the mixture at the injector (exact relation `ξ' = −ξ̄·ṁ'/ṁ̄`, verified in-notebook), the
+  equivalence-ratio wave convects silently to the flame, and the burnt hot spot converts to
+  sound at the **choked outlet**. Certified unstable modes; per-family `convected=` surgery
+  attributes the loop to the composition wave; boundary-power budget locates the energy
+  entry at the nozzle; the growth rate bands in the transport lag.
 - **`indirect_noise_instability.ipynb`** — an **entropy-driven** thermoacoustic instability:
   a compact flame in a duct ending in a **choked nozzle** goes unstable through the entropy
   spot that convects down the hot duct and is partly converted **back into sound** at the
