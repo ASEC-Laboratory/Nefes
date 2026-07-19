@@ -6,11 +6,11 @@ The algebraic balances derived here are more than the mean-flow model: different
 
 ## Standing assumptions {#sec-govern-assumptions}
 
-The equations below are posed under the [overview](overview.md) assumptions, of which three are load-bearing here:
+The equations below are posed under the [overview](overview.qmd) assumptions, of which three are load-bearing here:
 
 1. **Inviscid dynamics at the component scale.** The gas obeys the Euler equations over a component; viscous and turbulent losses enter only through lumped constitutive terms, not a resolved shear field.
 2. **A steady operating point is sought.** The transient term vanishes because $\partial/\partial t \equiv 0$ at the operating point, independently of any element's internal volume.
-3. **Port quantities are section averages.** Each port flux is formed from the single representative edge state, exact for a uniform profile and corrected otherwise by a profile-shape factor (see [framework](framework.md#sec-framework-averages)).
+3. **Port quantities are section averages.** Each port flux is formed from the single representative edge state; the profile-shape factor and the single-state flux closure are [edge-state closure](#sec-govern-edge-closure).
 
 ## Integral conservation laws {#sec-govern-integral-laws}
 
@@ -37,15 +37,24 @@ $$
 where $\varrho$ is the density, $u$ the velocity, $p$ the static pressure, $e_t$ the total energy per unit mass, $u_n$ the velocity component along the outward normal, $n$ the corresponding component of the surface normal, and $h_t = h + \tfrac{1}{2}u^2$ the *total enthalpy* — the sum of the static enthalpy $h = c_p T$ and the specific kinetic energy.
 Intuitively, $h_t$ is the energy currency of a steady stream: it is exactly conserved along an adiabatic flow no matter how the gas accelerates, decelerates, or loses pressure, which is precisely why it, and not the temperature, is the quantity transported across the network (see [transport](transport.qmd)).
 
-The surface integral over a port is a section average of the flux, in the sense of the [framework](framework.md#sec-framework-averages): the boundary term $\oint_{\mathcal{S}} \mathbf{f}_n\,\mathrm{d}\mathcal{S}$ evaluated over a port of area $A$ is $A\,\langle \mathbf{f}_n\rangle$, and the single-state closure of the final section is exactly the statement that this average is adequately represented by the flux formed from the edge state.
-Under that closure the *stochastic* contributions to the port flux, the turbulent departures $X''$ from the section-averaged profile, are taken to cancel on averaging wherever they are not already carried by the constitutive coefficients of the element relations, so the balances below are those of the averaged profile.
-The fluctuation that survives them, and on which the acoustic layer of [perturbation network](perturbation-network.md) is built, is the *organized* one, $X'$: the coherent, phase-resolved departure that a harmonic excitation of the network produces.
+The surface integral over a port is a section average of the flux, in the sense of the [network abstraction](abstraction.md#sec-abstraction-averages): the boundary term $\oint_{\mathcal{S}} \mathbf{f}_n\,\mathrm{d}\mathcal{S}$ evaluated over a port of area $A$ is $A\,\langle \mathbf{f}_n\rangle$, and the single-state closure of [edge-state closure](#sec-govern-edge-closure) is the statement that this average is adequately represented by the flux formed from the edge state.
+How turbulence sits relative to that closure — Reynolds stresses are not cancelled by averaging, but are also not resolved as a field — is stated in [turbulence](#sec-govern-turbulence).
+
+## Turbulence and the inviscid component-scale model {#sec-govern-turbulence}
+
+Reynolds averaging of the Navier–Stokes equations does *not* remove the cross terms: correlations such as $\overline{u''v''}$ survive as Reynolds stresses.
+$\textsf{Nefes}$ does not resolve those stresses as a field.
+At component scale the balances are the Euler equations on the section-averaged state; viscous and turbulent transport enter only as *lumped* constitutive contributions in the element closures (loss coefficients, mixing models, and the like), never as a resolved shear or Reynolds-stress field on the ports ([standing assumptions](#sec-govern-assumptions)).
+In that sense the port fluxes used by the network are those of the averaged profile, with any net turbulent effect already absorbed into the constitutive model rather than cancelled by averaging.
+
+The same split carries into the acoustic layer.
+A port fluctuation is decomposed into an organized (coherent, phase-resolved) part $X'$ and a stochastic turbulent part $X''$; only $X'$ enters the plane-wave perturbation network, while $X''$ remains closed by the constitutive models rather than propagated ([nomenclature](../nomenclature.md); [perturbation network](perturbation-network.md)).
 
 ## The steady balance and jump conditions {#sec-govern-steady-balance}
 
 We seek a steady operating point, so the time-derivative term vanishes and the integral law reduces to a balance of surface fluxes against the source.
 This reduction requires only steadiness: at the operating point the stored mass, momentum, and energy do not change in time, and the transient term is zero for an element of *any* internal volume.
-Under the linear-acoustics assumption of the [overview](overview.md) the steady operating point coincides with the temporal mean of the unsteady flow: averaging the exact balances returns the steady equations together with correlation sources $\overline{\varrho' u'}$, $\overline{p' u'}$, and their kin, every one of which is of second order in the organized fluctuation and is therefore discarded at the same stroke as the nonlinear acoustics.
+Under the linear-acoustics assumption of the [overview](overview.qmd) the steady operating point coincides with the temporal mean of the unsteady flow: averaging the exact balances returns the steady equations together with correlation sources $\overline{\varrho' u'}$, $\overline{p' u'}$, and their kin, every one of which is of second order in the organized fluctuation and is therefore discarded at the same stroke as the nonlinear acoustics.
 The two part company once that fluctuation is no longer infinitesimal, since the correlation sources then bias the mean state by an amount growing with the square of the amplitude, most sharply across the elements whose losses are quadratic in the velocity (see [limitations](limitations.md)).
 
 The correlations of the two fluctuating fields are thus removed from the mean balances by arguments that must not be conflated.
@@ -60,7 +69,7 @@ $$
 \mathbf{F}_i \;=\; \sigma_{P,e_i}\,\mathbf{f}_i\, A_i,
 $$
 
-where $\mathbf{f}_i$ is the flux evaluated at the representative state of port $i$, $A_i$ is the port area, $\sigma_{P,e_i} \in \{+1,-1\}$ is the orientation factor (see [framework](framework.md#sec-framework-orientation)) that aligns each edge's arbitrary arrow with the outward normal of $P$, and $\dot{\boldsymbol{\Omega}}_P$ is the *net source* of $P$ — the integral of the volumetric source density $\dot{\boldsymbol{\omega}}$ over the element volume:
+where $\mathbf{f}_i$ is the flux evaluated at the representative state of port $i$, $A_i$ is the port area, $\sigma_{P,e_i} \in \{+1,-1\}$ is the orientation factor (see [network abstraction](abstraction.md#sec-abstraction-orientation)) that aligns each edge's arbitrary arrow with the outward normal of $P$, and $\dot{\boldsymbol{\Omega}}_P$ is the *net source* of $P$ — the integral of the volumetric source density $\dot{\boldsymbol{\omega}}$ over the element volume:
 
 $$
 \dot{\boldsymbol{\Omega}}_P \;=\; \int_{\mathcal{V}_P} \dot{\boldsymbol{\omega}}\,\mathrm{d}\mathcal{V}.
@@ -104,18 +113,35 @@ Taking an element to the zero-volume limit therefore has a consequence beyond dr
 
 ## Edge-state closure {#sec-govern-edge-closure}
 
-The steady balance references the flux $\mathbf{f}_i$ at each port, which is a section average over that port surface (see [framework](framework.md#sec-framework-averages)).
-We model this average by evaluating the flux formulas at the single representative state carried on the edge — the same closure a finite-volume method makes at a coarser scale, in which one cell-face state stands for the average over the face.
-For a convected quantity $\psi$ this replaces the true port flux $A\,\langle m\,\psi\rangle$ by $\dot m\,\psi_e$, and the leading correction is the profile-shape factor:
+The steady balance references the flux $\mathbf{f}_i$ at each port, which is a section average over that port surface (see [network abstraction](abstraction.md#sec-abstraction-averages)).
+A convected flux of a specific quantity $\psi$ (for example total enthalpy) is the integral of the product of mass-flux density and $\psi$ over the port,
+
+$$
+\int_A m\,\psi\,\mathrm{d}A = A\,\langle m\,\psi\rangle,
+\qquad m = \varrho u,
+$$
+
+not the product of separate section averages.
+The network, however, carries only one state per edge, so it forms that flux as $\dot m\,\psi_e$ with $\dot m = A\,\langle m\rangle$.
+Those two expressions agree when
+
+$$
+\langle m\,\psi\rangle = \langle m\rangle\,\psi_e,
+$$
+
+which holds exactly for a uniform profile, and more generally when $m$ and $\psi$ are uncorrelated across the section; the matching edge value is then the mass-flux-weighted average $\psi_e = \langle m\,\psi\rangle/\langle m\rangle$.
+This is the same single-face closure used in one-dimensional gas dynamics and in finite-volume schemes that store one state per face: the model is not restricted to flat profiles, but it *does* replace the true section integral by a product built from that one state.
+
+Where the difference matters, it is absorbed by a *profile-shape factor*
 
 $$
 A\,\langle m\,\psi\rangle \;=\; \beta_\psi\,\dot m\,\psi_e,
 \qquad
-\beta_\psi = \frac{\langle m\,\psi\rangle}{\langle m\rangle\,\psi_e},
+\beta_\psi \equiv \frac{\langle m\,\psi\rangle}{\langle m\rangle\,\psi_e},
 $$
 
-where $\beta_\psi = 1$ for a uniform profile.
-The present work takes $\beta_\psi = 1$ throughout, so the port flux is a function of the edge's own state alone; the element balances then couple only to the states of their incident edges, and the network's sparsity mirrors its connectivity.
-A less obvious benefit of writing the correction explicitly is that it names the route to a wider validity: supplying a measured or modeled $\beta_\psi$ per element — a developed-profile kinetic-energy coefficient, say — restores the exact section flux without touching the equation structure, so the single-state closure can be extended to non-uniform profiles as an element-level refinement rather than a change of framework.
+so that $\beta_\psi = 1$ for a uniform profile and departs from unity with profile non-uniformity, in the manner of the kinetic-energy and momentum coefficients of classical hydraulics.
+The present work takes $\beta_\psi = 1$ throughout (an approximation for non-uniform ports), so the port flux is a function of the edge's own state alone; the element balances then couple only to the states of their incident edges, and the network's sparsity mirrors its connectivity.
+Supplying a measured or modeled $\beta_\psi$ per element — a developed-profile kinetic-energy coefficient, say — would restore the exact section flux without touching the equation structure, as an element-level refinement rather than a change of framework.
 
 The choice of the variables that carry each edge's state, on which the solver's robustness turns, is [state and recovery](state-and-recovery.qmd).

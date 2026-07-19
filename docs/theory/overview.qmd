@@ -1,0 +1,81 @@
+# Overview
+
+$\textsf{Nefes}$ represents a compressible, reacting fluid system as a directed graph of *elements* joined at *ports*.
+It solves the steady mean flow on that graph, then the linear waves about that flow (acoustic, entropy, and compositional), without resolving the three-dimensional field inside each component.
+The mean flow and the waves are two evaluations of one residual operator: the acoustic description cannot drift from the flow it is based on.
+
+```{mermaid}
+%%| label: fig-overview-workflow
+%%| fig-cap: "From network definition to mean flow and linear analyses."
+flowchart LR
+  A("Network topology, boundary conditions, thermochemistry model") --> B("Mean-flow<br>solve")
+  B --> C("Converged state<br>and Jacobian")
+  C --> D("Linear operator<br/>$$\mathbf{A}(\omega)$$")
+  D --> E("Modes, forced<br/>response, identification, sensitivity analysis")
+```
+
+## What the method computes {#sec-overview-what-computes}
+
+Given connectivity, element parameters, and boundary data, a mean-flow solve returns how mass divides among branches, the pressure, temperature, and Mach number on each connection, and whether a throat chokes — in a fraction of the cost of a full field simulation.
+
+A compressible network carries mass, momentum, and energy together, so density can vary along a path, streams can mix and burn, and mass flow can saturate at a sonic throat ([choking](choking.qmd)).
+Because every steady element relation is algebraic, its linearization about the converged point is the corresponding jump condition for small waves.
+On that linear network the tool computes forced response and scattering, eigenmodes and growth rates, compact dynamic sources (for example a flame), and — inverting the forced problem — identification of an unknown element's response ([analyses](analyses.qmd), [identification](identification.md)).
+
+What it does *not* compute is the spatial field inside a component.
+An element is a lumped relation between port states; interior flow, boundary layers, and turbulence enter only through constitutive models.
+
+## Standing assumptions and scope {#sec-overview-assumptions-scope}
+
+These hold for the mean-flow formulation; later pages restate them where they matter.
+
+| | Assumption | Notes |
+|---|---|---|
+| 1 | **Ideal gas** | $p = \varrho R T$ with $R = R_u/W$; calorically perfect when non-reacting, thermal equation of state only under chemical equilibrium ([thermochemistry](thermochemistry.md)). |
+| 2 | **Inviscid at component scale** | The governing equations are the Euler equations; viscous and turbulent losses are lumped in element closures. |
+| 3 | **Normal flow across port cross-sections** | Flow crosses each port perpendicularly; a single signed normal velocity carries the kinetic energy. |
+| 4 | **Subsonic regime** | Flowing or quiescent; a throat may reach $M = 1$, but supersonic branches and shocks are not supported yet ([limitations](limitations.md)). |
+| 5 | **Linear acoustics** | Perturbations small enough that second-order terms are neglected; the converged steady state is then the temporal mean of the unsteady flow to that order ([governing equations](governing-equations.md)). |
+
+Symbols and sign conventions are collected in the [nomenclature](../nomenclature.md).
+
+## The four modeling decisions {#sec-overview-modeling-decisions}
+
+The framework is shaped so that mean flow and acoustics stay compatible on arbitrary topologies, and so that flow directions and choke points can emerge from a quiescent start rather than from a prescribed guess.
+
+![State on edges; elements contribute residuals only.](figures/sample-network.svg){#fig-overview-edge-state}
+
+1. **State on edges, not in elements.**
+   Edges carry the flow state; elements own only the physical relations among the edges that meet at them ([network abstraction](abstraction.md)).
+   That matches the usual acoustic-network reading in which a transfer matrix relates states across an element.
+
+2. **Solution state vector is $\mathbf{x} = (\dot m,\ p,\ h_t)$.**
+   Mass flow, static pressure, and total enthalpy recover the derived variables (e.g. density, velocity, temperature, Mach number) uniquely and smoothly in either flow direction ([state and recovery](state-and-recovery.qmd)).
+
+3. **A fixed bookkeeping rule keeps the system square.**
+   Each element contributes as many equations as it has ports, and each edge contributes one transport equation per transported scalar, independent of flow direction ([equation structure](equation-structure.md), [transport](transport.qmd)).
+
+4. **Residuals are smooth and complex-analytic.**
+   No branch, `abs`, `min`, or `max` on the flow state ([well-posedness](well-posedness.md), [smoothness contract](../design/smoothness-contract.md)).
+   Newton iteration can start from rest, and the Jacobian is obtained to machine precision by complex-step differentiation [@lyness_moler_1967; @squire_trapp_1998; @martins_2003] ([complex-step](../design/complex-step.qmd)).
+
+The fourth decision is what ties the acoustic layer to the mean flow.
+At convergence the same Jacobian $\overline{\mathbf{J}}$ supplies the algebraic content of the frequency-domain operator
+
+$$
+\mathbf{A}(\omega) = \overline{\mathbf{J}} + \mathrm{i}\omega\mathbf{M} + \mathbf{P}(\omega) + \mathbf{S}(\omega),
+$$
+
+where $\mathbf{M}$ restores finite-volume storage, $\mathbf{P}$ carries duct wave phases, and $\mathbf{S}$ any unsteady source, so that $\mathbf{A}(0) = \overline{\mathbf{J}}$ ([perturbation network](perturbation-network.md)).
+
+## Organization of this chapter {#sec-organization-of-this-chapter}
+
+The recommended reading order for **Theory** is:
+
+1. [Network abstraction](abstraction.md) — graph, ports, and solution state vector.
+2. [Governing equations](governing-equations.md) and [state and recovery](state-and-recovery.qmd) — balances and derived variables.
+3. [Equation structure](equation-structure.md), [transport](transport.qmd), [elements](elements.md) — assembly of the mean-flow residual.
+4. [Well-posedness](well-posedness.md), [characteristics](characteristics.md), [choking](choking.qmd) — solvability and sonic behaviour.
+5. [Thermochemistry](thermochemistry.md) — reacting closures.
+6. [Perturbation network](perturbation-network.md) through [analyses](analyses.qmd) and [identification](identification.md) — the linear layer.
+7. [Limitations](limitations.md) — what is not supported.

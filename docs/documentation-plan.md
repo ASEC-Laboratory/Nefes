@@ -21,8 +21,8 @@ The documentation must serve three readerships at once, from a single authoritat
    complex-step, smoothness contract) before touching it.
 
 Design constraint: **the docs are the substrate for the papers, not a rewrite of them.**
-A methods manuscript draws from the Theory track; a software paper (JOSS-style) draws from the
-Design track; the Validation track supplies the results. Writing the docs well once should make
+A methods manuscript draws from the Theory part; a software paper (JOSS-style) draws from the
+Design part; the Validation part supplies the results. Writing the docs well once should make
 the papers assembly, not authorship.
 
 Non-goal (for now): API reference. Names and signatures are unstable until the tagged release,
@@ -35,13 +35,13 @@ from where it lives (e.g. the smoothness primitives in `nefes/assembly/smooth.py
 
 Authoritative source stays **Markdown in-repo** (portable, diff-reviewable, math via `$…$`),
 under a small tree. The render target is **Quarto** (KaTeX math), layered over the same source
-without moving it (§6). Three tracks plus a thin supporting layer:
+without moving it (§6). Three parts plus a thin supporting layer:
 
 ```
 docs/
-  theory/         Track I  — the physics and mathematics (methods-paper substrate)
-  design/         Track II — numerical and architectural philosophy (software-paper substrate)
-  validation/     Track III— verification & validation evidence (results substrate)
+  theory/         Part I  — the physics and mathematics (methods-paper substrate)
+  design/         Part II — numerical and architectural philosophy (software-paper substrate)
+  validation/     Part III— verification & validation evidence (results substrate)
   reference/      element reference, modeling guide, examples index (user-facing; mostly exists)
   nomenclature.md single-source symbol & term table (loaded/linked by every doc)
   references.bib  single bibliography; every scientific claim cites or derives
@@ -50,12 +50,12 @@ docs/
 The existing `docs/atomic-elements.md`, `docs/composite-elements.md`, `docs/README.md` move
 under `reference/` and are cross-linked, not rewritten.
 
-### Track I — Theory
+### Part I — Theory
 
 | # | Document | Scope | Provenance |
 |---|----------|-------|------------|
-| T0 | `overview.md` | What the method computes, the four design decisions, scope boundaries (subsonic v1). | theory §1 (refresh) |
-| T1 | `framework.md` | Graph model, edges-own-state, orientation/sign convention, notation, perfect-gas closure. | theory §2 |
+| T0 | `overview.qmd` | What the method computes, the four design decisions, scope boundaries (subsonic v1). | theory §1 (refresh) |
+| T1 | `abstraction.md` | Graph model, edges-own-state, orientation/sign convention, notation, perfect-gas closure. | theory §2 |
 | T2 | `governing-equations.md` | Integral laws → steady balances / jump conditions (steadiness, not zero-volume, gives them); the zero-volume limit as a per-element convenience with the lumped source surviving; edge closure. | theory §3 |
 | T3 | `state-and-recovery.qmd` | Unknown set (ṁ, p, hₜ), the implicit density/enthalpy recovery, derived state, why not (pₜ, Tₜ); figures embedded as executable Quarto cells. | theory §4 |
 | T4 | `equation-structure.md` | Square-system bookkeeping (per-port rows, per-edge transport), the fixed split, direction discovery. | theory §5 |
@@ -71,7 +71,7 @@ under `reference/` and are cross-linked, not rewritten.
 | **T14** | `identification.md` | **NEW.** The inverse analysis: de-embedding an element's dynamic response from a measured network transfer/scattering matrix, given a Nefes model of the rest of the setup. Both unknowns enter the perturbation operator linearly as a low-rank update, so a single factorization of the known operator recovers, per frequency by least squares: a blackbox 2-port's **transfer matrix** (`identify_transfer_matrix`) or a flame/mass-source **transfer function** (`identify_transfer_function`, single- and multi-input). Covers the Woodbury de-embed, cascade vs branched topologies, the **isentropic** (acoustics-only, classic 2×2 acoustic TM) vs full acoustic+entropy workflows, the per-frequency **conditioning** as the identifiability diagnostic, and the rational continuation that drops the recovered response back into the element / dynamic source and the eigensolver. | code (`nefes/perturbation/identify`, `matrix.py`) + theory §12.7 |
 | T15 | `limitations.md` | Scope boundaries, the supersonic/shock fold problem, singular-point acoustics, honest open ends. | theory §15 |
 
-### Track II — Software design philosophy (not API)
+### Part II — Software design philosophy (not API)
 
 | # | Document | Scope |
 |---|----------|-------|
@@ -83,7 +83,7 @@ under `reference/` and are cross-linked, not rewritten.
 | D5 | `solver.md` | Nondimensionalization/scaling; Newton with Levenberg–Marquardt damping; the artificial-resistance continuation; warm-start caches. |
 | D6 | `reproducibility.md` | Determinism, pinned environments (the base suite plus the Cantera + numba oracle environment), provenance capture on I/O, and the testing philosophy (complex-step==FD, oracle comparisons, validation gating). |
 
-### Track III — Validation & verification
+### Part III — Validation & verification
 
 | # | Document | Scope |
 |---|----------|-------|
@@ -93,7 +93,7 @@ under `reference/` and are cross-linked, not rewritten.
 
 ### Supporting / reference (mostly exists)
 
-- `reference/atomic-elements.md`, `reference/composite-elements.md` — keep, cross-link to Track I.
+- `reference/atomic-elements.md`, `reference/composite-elements.md` — keep, cross-link to Part I.
 - `reference/modeling-guide.md` — mapping real components to network elements.
 - `reference/examples.md` — annotated index of `examples/*.ipynb`, each tagged with the theory
   sections and validation cases it demonstrates (including `flame_identification.ipynb` → T14).
@@ -159,16 +159,16 @@ points below are the project-specific conventions that layer on top of the skill
 ## 5. Sequencing
 
 1. **Foundation.** `nomenclature.md` (fix the symbol table — `\varrho`, `\overline`, the wave and
-   operator symbols), `references.bib` skeleton, `overview.md`. The voice and a worked exemplar are
+   operator symbols), `references.bib` skeleton, `overview.qmd`. The voice and a worked exemplar are
    already set by the `technical-author` skill and `scratch/demo-governing-equations-and-linearization.md`.
 2. **Theory core.** T1–T9 — refreshed and re-verified from `theory.md`; the mature, stable
    physics first.
 3. **Theory frontier.** T10–T14 — the reacting, acoustic, and identification material that
    outran the prototype docs; written against the code, not the old plan. T14 (identification)
    depends on T13's matrix descriptors and the D4 low-rank stamp view, so it is written after both.
-4. **Design track.** D0–D6 — the philosophy pieces; D2/D3 (complex-step + smoothness) are the
+4. **Design part.** D0–D6 — the philosophy pieces; D2/D3 (complex-step + smoothness) are the
    signature and go first.
-5. **Validation track.** V0–V2 — consolidate the scattered `(test:)` pointers into the master map.
+5. **Validation part.** V0–V2 — consolidate the scattered `(test:)` pointers into the master map.
 6. **Integration pass.** Cross-linking, figure regeneration, nomenclature reconciliation, a
    read-through for the assumptions-ledger and citation completeness.
 
@@ -178,8 +178,8 @@ points below are the project-specific conventions that layer on top of the skill
 
 - **Doc topology:** modular tree (§2), not a monolith — it scales with the codebase and maps
   cleanly onto paper sections.
-- **Publication targets:** one **software paper** (Design track) and one **scientific paper**
-  (Theory + Validation tracks). This planning document and anything paper-related are **internal
+- **Publication targets:** one **software paper** (Design part) and one **scientific paper**
+  (Theory + Validation parts). This planning document and anything paper-related are **internal
   documents**, not pushed to the repository.
 - **Render target:** **Quarto** (KaTeX math) over the in-repo Markdown source, adopted
   provisionally — kept only if it stays low-maintenance to manage; the Markdown remains the

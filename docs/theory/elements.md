@@ -1,6 +1,6 @@
 # Element constitutive relations
 
-An element is the network's unit of physics: a control volume on which the governing balances are applied, contributing the equations that tie the states on its incident edges together (see [framework](framework.md)).
+An element is the network's unit of physics: a control volume on which the governing balances are applied, contributing the equations that tie the states on its incident edges together (see [network abstraction](abstraction.md)).
 This document is the constitutive library — it derives, element class by element class, the residual rows each one writes into the system, and the reasoning that makes those rows smooth, direction-safe, and thermodynamically admissible.
 The same rows are more than a mean-flow model: differentiated at the operating point they *are* the acoustic element stamps (see [perturbation network](perturbation-network.md)), so the care taken here to keep every residual complex-analytic is what later lets one operator serve both problems.
 

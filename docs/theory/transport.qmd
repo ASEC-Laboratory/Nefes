@@ -16,9 +16,9 @@ Meeting that standard is what turns the plain statement "each edge inherits its 
 
 ## Standing assumptions {#sec-transport-assumptions}
 
-The relations below are posed at a steady operating point, under the [overview](overview.md#sec-overview-assumptions-scope) assumptions, of which two are load-bearing here.
+The relations below are posed at a steady operating point, under the [overview](overview.qmd#sec-overview-assumptions-scope) assumptions, of which two are load-bearing here.
 
-1. **Section-averaged edge scalars.** Each carried quantity takes a single representative value on an edge, the section average of the [framework](framework.md#sec-framework-averages); the true port flux of a convected scalar $\psi$ is $A\,\langle m\,\psi\rangle = \beta_\psi\,\dot m\,\psi_e$, and the transport relation is written for the edge value $\psi_e$ with the profile-shape factor $\beta_\psi$ absorbed into the closure.
+1. **Section-averaged edge scalars.** Each carried quantity takes a single representative value on an edge, the section average of the [network abstraction](abstraction.md#sec-abstraction-averages); the true port flux of a convected scalar $\psi$ is $A\,\langle m\,\psi\rangle = \beta_\psi\,\dot m\,\psi_e$, with the profile-shape factor $\beta_\psi$ as in [edge-state closure](governing-equations.md#sec-govern-edge-closure), and the transport relation is written for the edge value $\psi_e$.
 2. **Adiabatic elements unless a source is declared.** An element neither adds nor removes the carried scalar except through an explicit lumped source (a flame's heat release, an inline injector), so that in the absence of such a source the scalar is conserved through the element.
 
 Throughout, an edge $e$ carries the signed mass flow $\dot m_e$ along its reference arrow, and $\sigma_{P,e} = \pm 1$ orients that arrow at element $P$ ($+1$ if $P$ is the tail, $-1$ if the head), so that the mass leaving $P$ through $e$ is $\dot m^{\text{out}}_{P,e} = \sigma_{P,e}\dot m_e$ and the mass entering is $\dot m^{\text{in}}_{P,e} = -\sigma_{P,e}\dot m_e$.

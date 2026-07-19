@@ -14,7 +14,7 @@ This saturation is *choking*, the most consequential compressible-flow phenomeno
 In this framework choking is not switched on by a regime flag; it is *emergent*.
 The either/or of "subsonic and lossless" versus "sonic and capped" is encoded once, as a complementarity condition inside the area-change and outlet rows already written in [elements](elements.md), and the network then discovers by itself which passage chokes and caps the mass flow there, with no regime declaration and no branching logic.
 This document derives that mechanism and exhibits the operating map it produces, computed directly by the solver.
-It restricts itself, in keeping with the [overview](overview.md#sec-overview-assumptions-scope) scope, to subsonic operation up to a sonic throat; the supersonic and shock-bearing regimes are deferred, and the closing section states precisely which part of the physics that defers and why.
+It restricts itself, in keeping with the [overview](overview.qmd#sec-overview-assumptions-scope) scope, to subsonic operation up to a sonic throat; the supersonic and shock-bearing regimes are deferred, and the closing section states precisely which part of the physics that defers and why.
 
 ## The choking limit {#sec-choking-limit}
 
