@@ -1,0 +1,7 @@
+# Full-site profile (default). Regenerates the API reference and executes the
+# example-gallery notebooks before rendering. Use for CI and publish builds.
+
+project:
+  pre-render:
+    - quartodoc build --config _quarto.yml
+    - _scripts/build_examples.py

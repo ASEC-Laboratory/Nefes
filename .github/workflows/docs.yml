@@ -42,12 +42,13 @@ jobs:
       - name: Register the notebook kernel
         run: python -m ipykernel install --user --name python3
 
-      # QUARTO_PYTHON points Quarto's own execution at the same interpreter. The render
-      # runs the pre-render steps (quartodoc build, build_examples.py) and writes docs/_site.
+      # QUARTO_PYTHON points Quarto's own execution at the same interpreter. The `full`
+      # profile runs the pre-render steps (quartodoc build, build_examples.py) and
+      # writes docs/_site. (Local single-page authoring uses `--profile preview`.)
       - name: Render the site
         env:
           QUARTO_PYTHON: python
-        run: quarto render docs
+        run: quarto render docs --profile full
 
       - name: Upload the site as a Pages artifact
         uses: actions/upload-pages-artifact@v3

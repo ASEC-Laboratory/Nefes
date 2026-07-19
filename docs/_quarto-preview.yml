@@ -1,0 +1,10 @@
+# Fast authoring profile. Skips the expensive pre-render steps (quartodoc and
+# example-notebook execution) and reuses frozen computational results when the
+# page source is unchanged. Activate with `--profile preview` or via
+# `_scripts/preview_page`.
+
+# Intentionally no `project.pre-render`: Quarto merges profile arrays by
+# concatenation, so the heavy hooks live only in `_quarto-full.yml`.
+
+execute:
+  freeze: auto
