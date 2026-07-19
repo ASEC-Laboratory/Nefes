@@ -2,7 +2,7 @@
 
 import warnings
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -1233,6 +1233,8 @@ class Solution:
         Read a composite element's hidden interior (e.g. an orifice throat).
     species(e), mixture_fractions(e), marker(e)
         Per-edge chemistry: solved species, transported feed fractions, burnt marker.
+    heat_release()
+        Heating power [W] of every flame element (exact for the equilibrium flame).
     cuton_report()
         Per-duct plane-wave validity ceiling (higher-order-mode cut-on).
     eigenmodes(), forced_response(), perturbation_response(), nyquist_stability()
@@ -1671,6 +1673,46 @@ class Solution:
         moles, stream_Y = self._chemistry_caches()
         lib = self.network.gas.species_set
         return edge_species(self.problem, self.result.x, e, lib, basis=basis, moles=moles, stream_Y=stream_Y)
+
+    def heat_release(self) -> Dict[str, float]:
+        """Heat release rate [W] of every flame element, ``{name: Q}``.
+
+        Reads each flame's heating power off the converged mean flow as the sensible
+        total-enthalpy rise of its through-flow.  For the perfect-gas
+        :func:`~nefes.elements.catalog.heat_release_flame` this reproduces its ``Qdot``
+        parameter; for the reacting :func:`~nefes.elements.catalog.equilibrium_flame` --
+        whose power is an outcome of the equilibrium, not an input -- it is the exact
+        formation-enthalpy drop from frozen reactants to equilibrium products at the
+        converged composition, with no specific-heat approximation.  Positive heats the
+        flow.  Empty when the network carries no flame.
+
+        Returns
+        -------
+        dict
+            ``{flame_name: Q_watts}``, in node order.
+
+        Examples
+        --------
+        >>> sol.heat_release()  # doctest: +SKIP
+        {'flame': 1483205.7}
+
+        See Also
+        --------
+        nefes.chem.chemistry.node_heat_release : the per-element computation.
+        """
+        from ..chem.chemistry import node_heat_release, product_moles
+        from ..elements.ids import FLAME_EQUILIBRIUM, FLAME_HEAT_RELEASE
+
+        prob, x = self.problem, self.result.x
+        flames = [
+            n for n in range(int(prob.n_nodes)) if int(prob.node_rid[n]) in (FLAME_HEAT_RELEASE, FLAME_EQUILIBRIUM)
+        ]
+        if not flames:
+            return {}
+        est = self.table()
+        moles = product_moles(prob, x)
+        names = prob.node_names or tuple(f"node{n}" for n in range(int(prob.n_nodes)))
+        return {names[n]: node_heat_release(prob, x, n, est=est, moles=moles) for n in flames}
 
     # -- perturbation / acoustics (linear analyses on this converged mean flow) ----------------------------------------
 
