@@ -14,7 +14,7 @@ This saturation is *choking*, the most consequential compressible-flow phenomeno
 In this framework choking is not switched on by a regime flag; it is *emergent*.
 The either/or of "subsonic and lossless" versus "sonic and capped" is encoded once, as a complementarity condition inside the area-change and outlet rows already written in [elements](elements.md), and the network then discovers by itself which passage chokes and caps the mass flow there, with no regime declaration and no branching logic.
 This document derives that mechanism and exhibits the operating map it produces, computed directly by the solver.
-It restricts itself, in keeping with the [overview](overview.qmd#sec-overview-assumptions-scope) scope, to subsonic operation up to a sonic throat; the supersonic and shock-bearing regimes are deferred, and the closing section states precisely which part of the physics that defers and why.
+It restricts itself, in keeping with the [overview](overview.qmd#sec-overview-assumptions-scope) scope, to subsonic operation up to a sonic throat; a normal shock inside a compact diverging element is nonetheless carried in *lumped* form, with a stated validity window (@sec-choking-internal), while the *resolved* supersonic and shock-bearing regimes are deferred, and the document states precisely which part of the physics that defers and why.
 
 ## The choking limit {#sec-choking-limit}
 
@@ -133,8 +133,82 @@ The three regimes are all emergent from the one set of rows, and each matches th
 2. **At and below the critical ratio** — the throat edge reaches $M = 1$, the mass flow saturates at $\dot m^\ast$ and is never exceeded, and the saturation is continuous and monotone through the knee (`test_choked_nozzle_saturates_mass_flow`, `test_critical_pressure_ratio_is_the_knee`).
 3. **Converging exit below critical** — the exit behaves as a choked orifice: sonic at $M = 1$, mass flow at $\dot m^\ast$, and the exit static pressure detached upward to $p^\ast$, independent of the specified back pressure (`test_choked_nozzle_outlet_critical_mass_flux`).
 
-Beyond these lies the shock regime — a normal shock standing in a *diverging* passage downstream of a supersonic patch — which requires supersonic flow inside the domain and is outside the present subsonic scope.
-It is worth noting how it would be recovered: a normal shock conserves mass and total enthalpy, so the converged total-pressure loss determines it in post-processing, and the shock's Mach number and location are *deduced* from the Rankine–Hugoniot relations rather than imposed as unknowns — the location is an output, not an input.
+Beyond these lies the *resolved*-shock regime — a supersonic patch carried on the network's own edges, with the shock's position an unknown of the solve — which requires supersonic edge states and is outside the present subsonic scope.
+What *is* in scope is the lumped form of the same physics: a normal shock standing inside a single compact diverging element, absorbed into that element's admissible total-pressure drop.
+That case — choking at a truly *internal* throat — is the subject of the next section.
+
+## Internal choking: the lumped shock in the diverging element {#sec-choking-internal}
+
+The operating map above chokes at the network's exit; a throat in the interior — a converging element and a diverging element sharing the throat edge, with live network downstream — is the same mechanism seen from both sides, and it is worth stating plainly what the model then represents.
+The converging element, whose flow leaves through its small port, never activates its complementarity ($M^{\text{in}}_{\text{small}} < 0$) and remains isentropic up to the throat.
+The diverging element, whose flow *enters* through its small port, is the one that chokes: at $M = 1$ its row admits a total-pressure drop, and that drop is the lumped normal shock standing somewhere inside it.
+
+In simple words: **internal choking is represented faithfully exactly as long as a normal shock stands *inside* the diverging element.**
+The network converges the loss that matches the downstream pressure, which is what the physical shock does by choosing its position; the shock's strength and location are therefore outputs, recovered from the converged loss by inverting the Rankine–Hugoniot total-pressure ratio (a normal shock conserves mass and total enthalpy, so the loss determines it completely).
+The strongest shock the element can host stands at its exit plane, where the hypothetical supersonic branch reaches its largest Mach number; once the back pressure falls below what that shock can meet, the physical flow leaves the divergent supersonic — the out-of-scope regime — and the returned subsonic root is no longer physical.
+The solver says so: a post-solve check (`CHECK_LUMPED_SHOCK`, on by default) inverts the Rankine–Hugoniot ratio on every choked area change and warns when the implied shock exceeds the exit-plane Mach, naming both numbers (`Solution.unrealizable_lumped_shocks` returns the full inspection, including the realizable cases).
+
+```{python}
+#|label: fig-internal-choke
+#|fig-cap: "Internal choking of a converging–diverging pair (areas $0.020 \\to 0.010 \\to 0.016\\,\\mathrm{m}^2$, reservoir at 2 bar) as the back pressure is lowered, every point an independent solve. Above the first critical ratio (right dashed line) the pair is a subsonic venturi and no shock is implied. Below it the throat pins at $M = 1$, the mass flow caps, and the diverging element's converged total-pressure loss implies a normal shock (markers) that strengthens as the back pressure falls — remaining below the strongest shock the divergent can host, a shock at the exit plane (horizontal line), throughout the shock-in-nozzle window. Below the window's lower edge (left dashed line) the implied shock exceeds that bound: the physical flow would leave the divergent supersonic, the regime is out of scope, and the solve warns."
+from scipy.optimize import brentq
+
+PT_CD, TT_CD = 2.0e5, 300.0
+A_IN, A_THROAT, A_EXIT = 0.020, 0.010, 0.016
+
+
+def area_ratio(M):
+    return (1.0 / M) * ((2.0 + (GAMMA - 1.0) * M * M) / (GAMMA + 1.0)) ** ((GAMMA + 1.0) / (2.0 * (GAMMA - 1.0)))
+
+
+def pt_ratio_shock(M1):
+    a = ((GAMMA + 1.0) * M1 * M1 / (2.0 + (GAMMA - 1.0) * M1 * M1)) ** (GAMMA / (GAMMA - 1.0))
+    b = ((GAMMA + 1.0) / (2.0 * GAMMA * M1 * M1 - (GAMMA - 1.0))) ** (1.0 / (GAMMA - 1.0))
+    return a * b
+
+
+M_exit_sub = brentq(lambda M: area_ratio(M) - A_EXIT / A_THROAT, 1e-6, 1.0 - 1e-9)
+M_exit_sup = brentq(lambda M: area_ratio(M) - A_EXIT / A_THROAT, 1.0 + 1e-9, 30.0)
+pb_first = (1.0 + 0.5 * (GAMMA - 1.0) * M_exit_sub**2) ** (-GAMMA / (GAMMA - 1.0))
+
+
+def solve_cd(pr):
+    net = nefes.Network(
+        nefes.perfect_gas(R_AIR, GAMMA),
+        nodes=[cat.total_pressure_inlet(PT_CD, TT_CD), cat.isentropic_area_change(),
+               cat.isentropic_area_change(), cat.pressure_outlet(pr * PT_CD, Tt_backflow=TT_CD)],
+        edges=[(0, 1, A_IN), (1, 2, A_THROAT), (2, 3, A_EXIT)],
+    )
+    sol = net.solve()
+    ptr = sol.edge(2)["p_t"] / sol.edge(1)["p_t"]
+    Ms = brentq(lambda M: pt_ratio_shock(M) - ptr, 1.0 + 1e-9, 30.0) if ptr < 1.0 - 1e-3 else np.nan
+    return sol.edge(1)["M"], Ms
+
+
+prs = np.linspace(0.95, 0.40, 23)
+M_thr, Ms = np.array([solve_cd(pr) for pr in prs]).T
+pb_low = float(prs[np.nanargmin(np.abs(Ms - M_exit_sup))])  # window's lower edge
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=prs, y=Ms, mode="lines+markers", line=dict(color=COLORWAY[0]),
+                         marker=dict(size=5), name="implied shock Mach (RH inversion)"))
+fig.add_trace(go.Scatter(x=prs, y=M_thr, mode="lines+markers", line=dict(color=COLORWAY[1]),
+                         marker=dict(size=5), name="throat Mach"))
+fig.add_hline(y=M_exit_sup, line=dict(color="#888888", width=1))
+fig.add_annotation(x=0.52, y=M_exit_sup + 0.08, text="strongest hostable shock (exit plane)",
+                   showarrow=False, font=dict(size=12, color="#888888"))
+fig.add_vline(x=pb_first, line=dict(color="#888888", dash="dash", width=1))
+fig.add_vline(x=pb_low, line=dict(color="#888888", dash="dash", width=1))
+fig.update_layout(xaxis_title="back-pressure ratio  p_b / p_t", yaxis_title="Mach number")
+fig.update_xaxes(autorange="reversed")
+fig
+```
+
+Every claim in the figure is pinned by tests: the sonic throat and capped mass flow (`test_internal_choke_pins_throat_and_caps_mass_flow`), the isentropic converging side and the monotone, Rankine–Hugoniot-realizable loss across the window (`test_lumped_shock_is_realizable_through_the_shock_window`), the warning below it (`test_supersonic_exit_regime_warns`), and the silent subsonic venturi above first critical (`test_subsonic_venturi_reports_no_lumped_shock`).
+
+A practical configuration that lives in exactly this window is the **critical-flow venturi** in a feed line: reservoir → converging–diverging venturi → injector → chamber.
+Metering venturis are run choked on purpose — the mass flow is then fixed by the upstream stagnation state alone, independent of whatever the chamber pressure does — and they operate with a weak shock in the diffuser and high pressure recovery, squarely inside the faithful window.
+The network reproduces both halves of the device's purpose at once: the mean solve caps and meters the flow through the sonic throat, and the perturbation operator, linearized at that state, inherits the acoustic decoupling — the choked throat acts as the feed line's upstream termination without any boundary condition being selected, the injector-side counterpart of the emergent choked-exit reflection.
 
 One subtlety follows from the complementarity being written on the total-pressure loss rather than on the Mach number directly: the lossless branch is satisfied by the *supersonic* isentropic state ($M > 1$, no loss) as well as the subsonic one, so a purely isentropic supersonic branch is also a root of the steady rows.
 That branch is non-physical within the subsonic scope — a lossless duct cannot carry a supersonic edge into a subsonic one at equal total pressure — but a cold start can occasionally land on it, since the two branches share the same stagnation state.

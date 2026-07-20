@@ -12,7 +12,7 @@ from ..assembly.recover import ES_AREA, ES_C, ES_CP, ES_HT, ES_M, ES_MDOT, ES_P,
 from ..elements import catalog as cat
 from ..elements.catalog import ElementSpec
 from ..elements.composite import CompositeView, expand_composites, is_composite
-from ..elements.ids import CHOKED_NOZZLE_OUTLET, ELEMENT_TYPE_NAMES
+from ..elements.ids import CHOKED_NOZZLE_OUTLET, ELEMENT_TYPE_NAMES, ISEN_AREA_CHANGE
 from ..graph.connectivity import build_connectivity
 from ..solver import solve as _solve
 from ..solver.control import initial_guess
@@ -1580,16 +1580,103 @@ class Solution:
                 )
         return out
 
+    def unrealizable_lumped_shocks(self) -> list:
+        """Choked area changes whose lumped total-pressure drop exceeds any realizable shock.
+
+        When an :func:`~nefes.elements.catalog.isentropic_area_change` chokes -- its small port
+        sonic with the flow entering there -- the total-pressure drop its complementarity row
+        admits is the *lumped normal shock* standing somewhere in the diverging side (see the
+        choking theory document).  That representation is faithful exactly while a normal shock
+        inside the divergent can produce the converged loss: the strongest candidate stands at
+        the exit plane, where the (hypothetical) supersonic branch reaches its largest Mach
+        number.  Inverting the Rankine--Hugoniot total-pressure ratio on the converged loss
+        yields the implied shock Mach; when it exceeds the exit-plane supersonic Mach, no shock
+        position inside the element can host it -- the back pressure lies in the supersonic-exit
+        regime, outside the subsonic scope, and the converged subsonic root is not physical.
+        Evaluated on the compiled (composite-expanded) elements, so area changes inside
+        composites are covered.  One of the checks :meth:`verify` runs after a solve; call it
+        directly to inspect, including the implied shock Mach of the *realizable* cases.
+
+        Returns
+        -------
+        list of dict
+            One entry per choked area change taking a resolvable drop: ``{"node", "name",
+            "edge_small", "edge_large", "pt_ratio", "implied_shock_mach", "max_shock_mach",
+            "realizable"}``.  Filter on ``realizable`` for the offending ones.
+        """
+        prob = self.problem
+        pt, c, W, T, M = (self.field(k) for k in ("p_t", "c", "W", "T", "M"))
+        mdot, area = self.field("mdot"), self.field("area")
+
+        def _bisect(f, lo, hi, n=80):
+            flo = f(lo)
+            for _ in range(n):
+                mid = 0.5 * (lo + hi)
+                if (f(mid) > 0.0) == (flo > 0.0):
+                    lo = mid
+                else:
+                    hi = mid
+            return 0.5 * (lo + hi)
+
+        out = []
+        for node in range(prob.n_nodes):
+            if int(prob.node_rid[node]) != ISEN_AREA_CHANGE:
+                continue
+            ports = range(int(prob.row_ptr[node]), int(prob.row_ptr[node + 1]))
+            edges = [int(prob.col_edge[p]) for p in ports]
+            orients = [float(prob.orient[p]) for p in ports]
+            if len(edges) != 2 or area[edges[0]] == area[edges[1]]:
+                continue
+            (e_s, o_s), (e_l, o_l) = sorted(zip(edges, orients), key=lambda eo: area[eo[0]])
+            # choked-diverging operation: flow *enters* through the small port at M = 1
+            if -o_s * mdot[e_s] <= 0.0 or M[e_s] < 0.995:
+                continue
+            ptr = float(pt[e_l] / pt[e_s])
+            if ptr > 1.0 - 1e-3:  # within the complementarity smoothing bias: no lumped shock
+                continue
+            g = float(c[e_s]) ** 2 * float(W[e_s]) / (R_UNIVERSAL * float(T[e_s]))
+            ar = float(area[e_l] / area[e_s])
+
+            def _area_ratio(Ma):
+                return (1.0 / Ma) * ((2.0 + (g - 1.0) * Ma * Ma) / (g + 1.0)) ** ((g + 1.0) / (2.0 * (g - 1.0)))
+
+            def _pt_shock(Ma):
+                a = ((g + 1.0) * Ma * Ma / (2.0 + (g - 1.0) * Ma * Ma)) ** (g / (g - 1.0))
+                b = ((g + 1.0) / (2.0 * g * Ma * Ma - (g - 1.0))) ** (1.0 / (g - 1.0))
+                return a * b
+
+            m_exit = _bisect(lambda Ma: _area_ratio(Ma) - ar, 1.0 + 1e-12, 50.0)
+            m_shock = _bisect(lambda Ma: _pt_shock(Ma) - ptr, 1.0 + 1e-12, 50.0)
+            name = ""
+            cmap = getattr(prob, "composite_map", None)
+            if cmap is None:
+                name = getattr(self.network._elements[node], "name", "")
+            out.append(
+                {
+                    "node": node,
+                    "name": name,
+                    "edge_small": e_s,
+                    "edge_large": e_l,
+                    "pt_ratio": ptr,
+                    "implied_shock_mach": m_shock,
+                    "max_shock_mach": m_exit,
+                    "realizable": m_shock <= m_exit * (1.0 + 1e-3),
+                }
+            )
+        return out
+
     def verify(self) -> list:
         """Run the post-solve model-validity checks and return one message per issue found.
 
         The single home for checks that can only be evaluated once the mean flow is converged
         (as opposed to the structural checks :func:`nefes.shell.build.validate_network` runs at
         compile time).  Each check is gated by its ``CHECK_*`` toggle in
-        :mod:`nefes.shell.checks`; currently this is the choked-nozzle back-pressure check
-        (:meth:`unchoked_nozzles`, gated by ``CHECK_CHOKED_NOZZLE``).  :meth:`Network.solve`
-        calls this on a converged solution and re-emits each message as a warning; call it
-        directly to collect them without the warnings machinery.
+        :mod:`nefes.shell.checks`; currently these are the choked-nozzle back-pressure check
+        (:meth:`unchoked_nozzles`, gated by ``CHECK_CHOKED_NOZZLE``) and the lumped-shock
+        realizability check (:meth:`unrealizable_lumped_shocks`, gated by
+        ``CHECK_LUMPED_SHOCK``).  :meth:`Network.solve` calls this on a converged solution and
+        re-emits each message as a warning; call it directly to collect them without the
+        warnings machinery.
 
         Returns
         -------
@@ -1605,6 +1692,19 @@ class Solution:
                     f"{nz['critical_pressure']:.4g} Pa, so the nozzle would not choke -- the compact choked-nozzle "
                     f"model does not apply here; use a pressure_outlet, which handles the choked/unchoked "
                     f"transition against a back pressure."
+                )
+        if checks.CHECK_LUMPED_SHOCK:
+            for sh in self.unrealizable_lumped_shocks():
+                if sh["realizable"]:
+                    continue
+                label = f" {sh['name']!r}" if sh["name"] else ""
+                messages.append(
+                    f"isentropic_area_change{label} (node {sh['node']}, edges {sh['edge_small']}->"
+                    f"{sh['edge_large']}): the choked total-pressure ratio {sh['pt_ratio']:.4f} implies a "
+                    f"normal shock at Mach {sh['implied_shock_mach']:.3f}, stronger than any the diverging "
+                    f"side can host (shock at the exit plane: Mach {sh['max_shock_mach']:.3f}). The back "
+                    f"pressure lies in the supersonic-exit regime, outside the subsonic scope, so the "
+                    f"converged subsonic root is not physical here."
                 )
         return messages
 
