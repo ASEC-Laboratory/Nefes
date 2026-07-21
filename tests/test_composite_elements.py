@@ -15,7 +15,7 @@ import pytest
 from nefes.assembly.recover import ES_AREA, ES_M, ES_P, ES_PT, ES_RHO, ES_U
 from nefes.elements import catalog as cat
 from nefes.elements.composite import CompositeElementSpec, expand_composites, is_composite, validate_composite
-from nefes.perturbation import perturbation_response
+from nefes.perturbation import perturbation_response, transmission_loss
 from nefes.shell import Network
 from nefes.shell.build import build_problem
 from nefes.solver import solve
@@ -166,8 +166,7 @@ def _hr_peak(build, freqs):
     resp = perturbation_response(sol.problem, sol.x, freqs)
     with warnings.catch_warnings():  # inlet/outlet straddle the tee branch point (expected)
         warnings.simplefilter("ignore")
-        tau = resp.acoustic_scattering_matrix(0, 3)[:, 1, 0]
-    tl = -20.0 * np.log10(np.abs(tau))
+        tl = transmission_loss(resp, 0, 3)
     return float(freqs[int(np.argmax(tl))]), float(np.max(tl)), sol
 
 

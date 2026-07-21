@@ -200,6 +200,12 @@ Each notebook opens with its network topology drawn by the **Nemo** UI, then bui
   exhaust muffler. The Nefes network reproduces the classical transfer-matrix transmission
   loss to machine precision, with the measured field data overlaid, and additionally solves
   the mean flow the reference assumes.
+- **`webster_horn.ipynb`** — validates the **tapered-duct composite** against an independent
+  numerical solution of the classical horn (Webster) equations, for a 4:1 exponential horn.
+  Establishes that the segment chain converges on the *true* horn rather than merely on itself,
+  at the documented first-order rate in `1/N`, then shows the `grid_refine` / `auto_refine`
+  helpers choosing `N` for a target tolerance — with their self-convergence estimate checked
+  against the true error this reference makes measurable.
 
 ## Running the notebooks
 
@@ -243,7 +249,7 @@ The pre-render step `docs/_scripts/build_examples.py` walks every notebook, read
 generates the gallery. To promote a notebook from a listed link to a rendered page, flip its `render`
 flag to `full`; to add a notebook, just drop it in with a `metadata.nefes` block. The sources stay
 **output-free** on disk — the doc build executes copies, never the originals — so all plots must be
-Plotly with the Nefes theme (`use_nefes_theme()`); matplotlib is not rendered.
+Plotly with the Nefes theme, which the `nefes.plotting` figures carry by default and which `set_theme("light" | "dark")` switches; matplotlib is not rendered.
 
 Or solve a UI case in two lines:
 
