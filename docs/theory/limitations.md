@@ -8,7 +8,8 @@ None is a hidden assumption: the intent here is to draw the honest edge of the t
 
 The mean-flow model is restricted to subsonic operation, flowing or quiescent, up to a sonic throat.
 Choking to $M = 1$ at a narrowest section is fully in scope and emerges from the element rows (see [choking](choking.qmd)); what is deferred is *supersonic flow inside the domain* and the structures that accompany it.
-A normal shock standing in a diverging passage, and a declared supersonic exit, require an internal shock-position degree of freedom (the dual of the self-vacating row a supersonic inlet would carry), which is designed but not built.
+A *resolved* normal shock standing in a diverging passage, and a declared supersonic exit, require an internal shock-position degree of freedom (the dual of the self-vacating row a supersonic inlet would carry), which is designed but not built.
+A normal shock inside a single *compact* diverging element is, however, carried in lumped form: the element's choked total-pressure drop stands in for it, the implied shock strength follows from the Rankine–Hugoniot relations in post-processing, and a post-solve check warns when the converged loss exceeds what any interior shock could produce — the supersonic-exit regime (see [choking](choking.qmd#sec-choking-internal)).
 It should be noted that an emergent supersonic converging–diverging nozzle is not impossible in principle; it is deferred because it needs that additional unknown, not because the formulation forbids it, and the same enrichment is what finite-frequency acoustics of shocked nozzles will require.
 
 A second, milder bound is that the sudden-contraction and Borda-expansion pressure heads use the incompressible reduction of the momentum balance, accurate to $\mathcal{O}(M^2)$ (see [elements](elements.md#sec-elements-sudden-area)).
@@ -53,4 +54,4 @@ The isentropic and choking rows reproduce the classical compressible-flow relati
 The characteristic maps that turn the base Jacobian into the acoustic operator are the exact linearization of the state definitions, invertible at every physical state (see [characteristics](characteristics.md)).
 
 The honest summary is therefore that the subsonic, equilibrium-reacting mean flow and the acoustics linearized about it form a complete and internally exact core, ringed by a small set of named, bounded approximations — each with a designed path to removal — and two firm scope boundaries: supersonic internal flow, and the finite-amplitude response beyond the linear one.
-The validation track collects the evidence that the core performs as claimed.
+The validation part collects the evidence that the core performs as claimed.

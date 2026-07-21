@@ -24,7 +24,7 @@ import warnings
 import numpy as np
 import pytest
 
-from nefes.assembly.recover import ES_C, ES_P, ES_RHO, ES_T, ES_U
+from nefes.assembly.recover import ES_C, ES_HT, ES_P, ES_RHO, ES_T, ES_U
 from nefes.elements import catalog as cat
 from nefes.elements.dynamic_source import n_tau_flame
 from nefes.perturbation import eigenmodes
@@ -226,13 +226,6 @@ def _reacting_rijke(n, tau, mdot=0.02, Tin=300.0, p=1.0e5):
 # --------------------------------------------------------------------------
 
 
-def _cp_eff(est_col):
-    """Effective cp = gamma R/(gamma-1) from a mean edge state (sound-speed consistent)."""
-    rho, c, p, T = est_col[ES_RHO], est_col[ES_C], est_col[ES_P], est_col[ES_T]
-    gamma = rho * c * c / p
-    return gamma * (p / (rho * T)) / (gamma - 1.0)
-
-
 def _reacting_caloric(prob, x, est, e):
     """(a, b) = ((dh/drho)_p, (dh/dp)_rho) at edge ``e`` via a complex step of the closure."""
     mid = int(prob.edge_model[e])
@@ -260,7 +253,15 @@ def _reacting_ref(prob, x):
     )
     cal1 = _reacting_caloric(prob, x, est, 1)
     cal2 = _reacting_caloric(prob, x, est, 2)
-    delta = 0.5 * (_cp_eff(est[:, 1]) + _cp_eff(est[:, 2])) * (est[ES_T, 2] - est[ES_T, 1])
+    # mean sensible heat release per kg: the flame conserves the absolute total enthalpy, so
+    # the sensible jump equals the formation-enthalpy drop from frozen reactants to the
+    # equilibrium products at 298.15 K -- evaluated through the Thermo backend, independent
+    # of the operator's own de-normalization
+    gas, Y, _Z = _h2_air()
+    h_static = est[ES_HT, 2] - 0.5 * est[ES_U, 2] ** 2
+    eq = gas.equilibrate_HP(gas.elemental_mass_fractions(Y), h_static, est[ES_P, 2])
+    assert eq.converged
+    delta = gas.enthalpy_mass(Y, 298.15) - gas.enthalpy_mass(eq.Y, 298.15)
     return m, cal1, cal2, delta
 
 

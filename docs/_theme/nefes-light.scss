@@ -81,6 +81,19 @@ $toc-color: $nefes-text-2 !default;
 $toc-active-border: $nefes-ember !default;
 $toc-inactive-border: $nefes-border !default;
 
+// Mermaid (Quarto injects these as --mermaid-* and re-skins with the active light/dark
+// bundle — same contract as Plotly: bake structure in the page, appearance from the theme).
+$mermaid-bg-color: $body-bg !default;
+$mermaid-edge-color: $nefes-text-3 !default;
+$mermaid-fg-color: $body-color !default;
+$mermaid-fg-color--lighter: $nefes-rule-strong !default;
+$mermaid-fg-color--lightest: $nefes-surface !default;
+$mermaid-font-family: $font-family-sans-serif !default;
+$mermaid-label-bg-color: $body-bg !default;
+$mermaid-label-fg-color: $body-color !default;
+$mermaid-node-bg-color: $nefes-surface !default;
+$mermaid-node-fg-color: $nefes-rule-strong !default;
+
 /*-- scss:rules --*/
 
 // ---------- Headings and the title wave ----------
@@ -255,6 +268,24 @@ td code:not(.sourceCode) {
   background-color: $code-bg;
   padding: 0.12em 0.35em;
   border-radius: 0.3rem;
+}
+
+// ---------- Mermaid ----------
+// Fill/stroke/text come from $mermaid-* above; rounding is not a Quarto token.
+// KaTeX/MathML inside nodes does not inherit .nodeLabel color across theme toggles
+// (it stays at the UA default), so pin it to the same token as plain labels.
+
+.mermaid svg .node rect,
+svg.mermaid-js .node rect {
+  rx: 6px;
+  ry: 6px;
+}
+
+.mermaid svg .katex,
+.mermaid svg math,
+svg.mermaid-js .katex,
+svg.mermaid-js math {
+  color: var(--mermaid-label-fg-color) !important;
 }
 
 // ---------- Tables, figures, callouts ----------

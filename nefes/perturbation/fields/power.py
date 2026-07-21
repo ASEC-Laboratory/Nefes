@@ -598,6 +598,52 @@ def intensity_along_network(geometry, chars_of_edge, est, omega, *, energy_densi
     return [PathField(name=f.name, x=f.x, values=np.real(f.values), markers=f.markers) for f in fields]
 
 
+def transmission_loss(resp, e_in, e_out):
+    """Anechoic transmission loss in dB between an inlet and an outlet edge.
+
+    Transmission loss is a ratio of incident to transmitted *power*, evaluated with a
+    reflection-free outlet.  The scattering matrix supplies the transmitted wave
+    amplitude with ``r_out = 0`` built in, but an amplitude ratio is not a power ratio:
+    the Myers flux carried by a downstream wave is
+    ``W+ = 1/2 rho c (1+M)^2 |f|^2 A``, so the two ports' areas, characteristic
+    impedances and Mach numbers all enter, given as
+
+    .. math::
+
+        \\mathrm{TL} = -20\\log_{10}|\\tau|
+                     + 10\\log_{10}\\frac{\\varrho_{in} c_{in} (1+M_{in})^2 A_{in}}
+                                          {\\varrho_{out} c_{out} (1+M_{out})^2 A_{out}}
+
+    where :math:`\\tau` is the forward transmission coefficient.  The correction term is
+    the ``C_TL`` of Dokumaci (*Duct Acoustics*, CUP 2021, Eq. 5.4) and vanishes
+    identically when the two ports match -- which every case shipped in this repository
+    happens to satisfy.  It does **not** vanish in general: a bare ``-20 log10|tau|``
+    overstates the loss of an expansion by ``10 log10(A_out/A_in)`` and can even return a
+    negative transmission loss for a contraction, which is impossible for a lossless
+    passive element.
+
+    Parameters
+    ----------
+    resp : PerturbationResponse
+        A solved response over a frequency sweep (carries the frozen mean state).
+    e_in, e_out : int
+        Inlet and outlet edge indices.
+
+    Returns
+    -------
+    ndarray
+        Transmission loss in dB, shape ``(n_freq,)``.
+    """
+    tau = resp.acoustic_scattering_matrix(e_in, e_out)[:, 1, 0]
+    est = resp.est
+
+    def _wplus(e):
+        e = int(e)
+        return float(est[ES_RHO, e]) * float(est[ES_C, e]) * (1.0 + float(est[ES_M, e])) ** 2 * float(est[ES_AREA, e])
+
+    return -20.0 * np.log10(np.abs(tau)) + 10.0 * np.log10(_wplus(e_in) / _wplus(e_out))
+
+
 def duct_energy_spectrum(fr, ducts, *, n_x: int = 120):
     """Acoustic energy stored in the duct volumes at each forced frequency.
 

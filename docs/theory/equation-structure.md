@@ -9,7 +9,7 @@ A Newton solver iterating from a cold start must be free to reverse the flow on 
 
 ## Standing assumptions {#sec-eqstruct-assumptions}
 
-This document inherits the [overview](overview.md) assumptions and adds none of its own; it is a counting argument over the graph of [framework](framework.md#sec-framework-graph), valid for any thermodynamic closure and any flow direction.
+This document inherits the [overview](overview.qmd) assumptions and adds none of its own; it is a counting argument over the graph of [network abstraction](abstraction.md#sec-abstraction-graph), valid for any thermodynamic closure and any flow direction.
 
 ## The unknown count {#sec-eqstruct-unknown-count}
 

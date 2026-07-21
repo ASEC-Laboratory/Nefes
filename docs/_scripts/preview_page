@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Live-preview one docs page without regenerating the API or executing gallery notebooks.
+#
+# Usage:
+#   docs/_scripts/preview_page theory/overview.qmd
+#   docs/_scripts/preview_page docs/theory/choking.qmd --port 4444
+#
+# Extra arguments after the page path are forwarded to `quarto preview`.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DOCS="$ROOT/docs"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <page> [quarto preview args...]" >&2
+  echo "  e.g. $0 theory/overview.qmd" >&2
+  echo "       $0 docs/design/complex-step.qmd --port 4444" >&2
+  exit 2
+fi
+
+PAGE=$1
+shift
+
+resolve_page() {
+  local candidate=$1
+  if [[ -f $candidate ]]; then
+    # absolute or cwd-relative path that already exists
+    realpath "$candidate"
+    return
+  fi
+  if [[ -f $DOCS/$candidate ]]; then
+    realpath "$DOCS/$candidate"
+    return
+  fi
+  if [[ -f $ROOT/$candidate ]]; then
+    realpath "$ROOT/$candidate"
+    return
+  fi
+  echo "error: page not found: $1" >&2
+  exit 1
+}
+
+PAGE_PATH=$(resolve_page "$PAGE")
+
+# Keep Quarto's Python execution on the active interpreter when one is set.
+if [[ -z ${QUARTO_PYTHON:-} ]] && command -v python >/dev/null 2>&1; then
+  export QUARTO_PYTHON
+  QUARTO_PYTHON=$(command -v python)
+fi
+
+exec quarto preview "$PAGE_PATH" --profile preview "$@"

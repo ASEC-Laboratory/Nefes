@@ -1,5 +1,7 @@
 <script>
 // Nefes theme runtime: dark/light persistence without a server, and Plotly adaptation.
+// Mermaid does not need a JS pass: Quarto's $mermaid-* / --mermaid-* tokens ride the
+// light and dark SCSS bundles (see nefes-light.scss).
 (function () {
   var SENTINEL = "quarto-color-scheme";
   var isDark = function () {

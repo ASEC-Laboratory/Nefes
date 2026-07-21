@@ -15,7 +15,12 @@ import pytest
 
 from nefes.assembly.recover import ES_C, ES_MDOT
 from nefes.elements import catalog as cat
-from nefes.perturbation import assemble_acoustic, build_acoustic_blocks, perturbation_response
+from nefes.perturbation import (
+    assemble_acoustic,
+    build_acoustic_blocks,
+    perturbation_response,
+    transmission_loss,
+)
 from nefes.perturbation.operator.operator import _assemble_reference
 from nefes.shell.build import build_problem
 from nefes.solver import solve
@@ -124,8 +129,7 @@ def _side_branch_hr(volume, neck_area, l_neck, main_area=3.0e-3, l_main=0.05):
 
 def _tl_peak_frequency(prob, x, freqs):
     resp = perturbation_response(prob, x, freqs)
-    tau = resp.acoustic_scattering_matrix(0, 3)[:, 1, 0]  # transmission inlet(e0) -> outlet(e3)
-    tl = -20.0 * np.log10(np.abs(tau))
+    tl = transmission_loss(resp, 0, 3)  # transmission inlet(e0) -> outlet(e3)
     return float(freqs[int(np.argmax(tl))]), float(np.max(tl))
 
 

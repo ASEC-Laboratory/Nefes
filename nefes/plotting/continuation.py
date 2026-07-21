@@ -17,12 +17,13 @@ import numpy as np
 
 from ._deps import go, make_subplots
 from .labels import tex
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
+from .theme import NEFES_TEMPLATE_NAME, palette, rgba
 
-_DATA_COLOR = COLORWAY[1]  # orange markers for the tabulated samples
-_FIT_COLOR = COLORWAY[0]  # blue line for the continued curve
-_POLE_COLOR = COLORWAY[4]  # red x for poles
-_ZERO_COLOR = COLORWAY[0]  # blue o for zeros
+# Series roles as positions in the active colorway, so both theme modes stay consistent.
+_DATA = 1  # ember markers for the tabulated samples
+_FIT = 0  # blue line for the continued curve
+_POLE = 4  # red x for poles
+_ZERO = 0  # blue o for zeros
 
 
 def plot_fit(
@@ -91,9 +92,10 @@ def plot_fit(
         a = np.angle(z)
         return np.unwrap(a) if unwrap else a
 
+    _p = palette()
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
     fig.add_trace(
-        go.Scatter(x=freqs, y=np.abs(curve), name="continuation", legendgroup="fit", line_color=_FIT_COLOR),
+        go.Scatter(x=freqs, y=np.abs(curve), name="continuation", legendgroup="fit", line_color=_p.colorway[_FIT]),
         row=1,
         col=1,
     )
@@ -104,13 +106,15 @@ def plot_fit(
             name="continuation",
             legendgroup="fit",
             showlegend=False,
-            line_color=_FIT_COLOR,
+            line_color=_p.colorway[_FIT],
         ),
         row=2,
         col=1,
     )
     if have_data:
-        marker = dict(size=6, color=_DATA_COLOR, symbol="circle-open", line=dict(width=1.4, color=_DATA_COLOR))
+        marker = dict(
+            size=6, color=_p.colorway[_DATA], symbol="circle-open", line=dict(width=1.4, color=_p.colorway[_DATA])
+        )
         fig.add_trace(
             go.Scatter(x=fd, y=np.abs(vd), name="tabulated data", legendgroup="data", mode="markers", marker=marker),
             row=1,
@@ -217,6 +221,7 @@ def plot_pole_map(
             m = 0.12 * (hi - lo + 1.0)
             growth_range = (lo - m, hi + m)
 
+    _p = palette()
     fig = go.Figure()
 
     # shaded search window (drawn first, behind the markers)
@@ -230,8 +235,8 @@ def plot_pole_map(
             x1=freq_band[1],
             y0=g_lo,
             y1=g_hi,
-            fillcolor="rgba(37,99,235,0.08)",
-            line=dict(color="#9aa5b1", width=1.2, dash="dot"),
+            fillcolor=rgba(_p.colorway[_FIT], 0.08),
+            line=dict(color=_p.rule, width=1.2, dash="dot"),
             layer="below",
         )
         fig.add_annotation(
@@ -239,7 +244,7 @@ def plot_pole_map(
             y=g_hi,
             text="search window",
             showarrow=False,
-            font=dict(size=11, color="#52606d"),
+            font=dict(size=11, color=_p.muted),
             xanchor="right",
             yanchor="bottom",
         )
@@ -251,7 +256,12 @@ def plot_pole_map(
                 y=zg,
                 mode="markers",
                 name="zeros",
-                marker=dict(size=10, color=_ZERO_COLOR, symbol="circle-open", line=dict(width=1.6, color=_ZERO_COLOR)),
+                marker=dict(
+                    size=10,
+                    color=_p.colorway[_ZERO],
+                    symbol="circle-open",
+                    line=dict(width=1.6, color=_p.colorway[_ZERO]),
+                ),
                 hovertemplate="zero<br>f = %{x:.4g} " + freq_unit + "<br>growth = %{y:.4g} 1/s<extra></extra>",
             )
         )
@@ -261,11 +271,13 @@ def plot_pole_map(
             y=pg,
             mode="markers",
             name="poles",
-            marker=dict(size=11, color=_POLE_COLOR, symbol="x-thin", line=dict(width=2.4, color=_POLE_COLOR)),
+            marker=dict(
+                size=11, color=_p.colorway[_POLE], symbol="x-thin", line=dict(width=2.4, color=_p.colorway[_POLE])
+            ),
             hovertemplate="pole<br>f = %{x:.4g} " + freq_unit + "<br>growth = %{y:.4g} 1/s<extra></extra>",
         )
     )
-    fig.add_hline(y=0.0, line_dash="dash", line_color="#9aa5b1", line_width=1.4)
+    fig.add_hline(y=0.0, line_dash="dash", line_color=_p.rule, line_width=1.4)
 
     # note any markers pushed off-view by the focused range (a delay-dominated fit has far ones)
     if freq_range is not None and growth_range is not None:
@@ -284,7 +296,7 @@ def plot_pole_map(
                 yref="paper",
                 text=f"{n_off} far-field pole/zero(s) off view",
                 showarrow=False,
-                font=dict(size=10, color="#9aa5b1"),
+                font=dict(size=10, color=_p.faint),
                 xanchor="right",
                 yanchor="bottom",
             )

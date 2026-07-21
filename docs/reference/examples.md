@@ -25,7 +25,7 @@ They live in subfolders by the layer they exercise (`getting-started/`, `flow/`,
 |---|---|---|
 | `combustion/reacting_flame.ipynb` | An equilibrium flame: frozen reactants in, burnt products out | [thermochemistry](../theory/thermochemistry.md) |
 | `combustion/burnt_marker.ipynb` | The marker-gated frozen/equilibrium closure switch | [thermochemistry](../theory/thermochemistry.md#sec-thermo-marker-closures) |
-| `combustion/gas_turbine_combustor.ipynb` | A representative combustor network end to end | [framework](../theory/framework.md) |
+| `combustion/gas_turbine_combustor.ipynb` | A representative combustor network end to end | [network abstraction](../theory/abstraction.md) |
 | `combustion/rql_combustor.ipynb` | A staged rich-quench-lean combustor with the sticky burnt marker | [thermochemistry](../theory/thermochemistry.md) |
 | `combustion/multiple_fuels.ipynb`, `combustion/multiple_fuel_manifold.ipynb` | Transported mixture fractions with several feed streams | [thermochemistry](../theory/thermochemistry.md#sec-thermo-mixture-fractions) |
 

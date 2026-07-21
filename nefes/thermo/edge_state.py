@@ -155,6 +155,31 @@ def _product_blocks(tf, ti):
 
 
 @njit(cache=True)
+def _feed_blocks(tf, ti):
+    """Slice the feed subset ``(Nfeed, feed_coeffs, feed_Tint)`` from a bundle.
+
+    ``Nfeed`` is ``(K, Nf)``: the species moles per kg of each of the ``K`` feed
+    streams over the ``Nf`` feed-species union.  The unburnt composition of a frozen
+    edge is the forward blend ``n_feed = xi @ Nfeed`` of its transported mixture
+    fractions -- the reconstruction :func:`eq_frozen_state` runs.
+    """
+    Ne = ti[0]
+    Ns = ti[1]
+    MI = ti[2]
+    MIm1 = ti[3]
+    Nf = ti[4]
+    K = ti[5]
+    # feed blocks sit after the full coeffs/Tint/A/element-weight/Zfeed blocks
+    o = _OFF_BLOCKS + Ns * MI * 9 + Ns * MIm1 + Ne * Ns + Ne + K * Ne
+    Nfeed = tf[o : o + K * Nf].reshape((K, Nf))
+    o += K * Nf
+    feed_coeffs = tf[o : o + Nf * MI * 9].reshape((Nf, MI, 9))
+    o += Nf * MI * 9
+    feed_Tint = tf[o : o + Nf * MIm1].reshape((Nf, MIm1))
+    return Nfeed, feed_coeffs, feed_Tint
+
+
+@njit(cache=True)
 def eq_kernel_state_from_Z(tf, ti, Z_el, h, p):
     """HP-equilibrium state ``(T, rho, c_eq, W)`` for an explicit elemental ``Z_el``.
 
@@ -273,24 +298,10 @@ def eq_frozen_state(tf, ti, xi, h, p):
     The unburnt species moles are the forward blend ``n_feed = xi @ Nfeed`` of the
     feed streams (no element inversion); the temperature follows from ``h``.
     """
-    Ne = ti[0]
-    Ns = ti[1]
-    MI = ti[2]
-    MIm1 = ti[3]
     Nf = ti[4]
     K = ti[5]
     T_init_fr = tf[2]
-    o = _OFF_BLOCKS
-    o += Ns * MI * 9  # skip full coeffs
-    o += Ns * MIm1  # skip full Tint
-    o += Ne * Ns  # skip A
-    o += Ne  # skip element_weights
-    o += K * Ne  # skip Zfeed
-    Nfeed = tf[o : o + K * Nf].reshape((K, Nf))
-    o += K * Nf
-    feed_coeffs = tf[o : o + Nf * MI * 9].reshape((Nf, MI, 9))
-    o += Nf * MI * 9
-    feed_Tint = tf[o : o + Nf * MIm1].reshape((Nf, MIm1))
+    Nfeed, feed_coeffs, feed_Tint = _feed_blocks(tf, ti)
 
     n_feed = np.zeros(Nf, dtype=xi.dtype)
     for f in range(Nf):

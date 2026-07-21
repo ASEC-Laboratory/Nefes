@@ -1,12 +1,14 @@
 """Plotly presentation layer for Nefes.
 
-A single home for everything Plotly-related: a custom, modern theme (registered
-as the ``"nefes"`` template) plus a small colour palette so every figure across the
-examples and notebooks shares one consistent look.  Import side effects register
-the template; call :func:`use_nefes_theme` to make it the process-wide default.
+A single home for everything Plotly-related: a light and a dark theme matching the
+documentation and the Nemo interface, so every figure across the examples and notebooks
+shares one consistent look.  The routines here draw with the Nefes theme already; call
+:func:`set_theme` to switch modes, which also makes the theme Plotly's default so
+hand-built figures match::
 
-    from nefes.plotting import use_nefes_theme
-    use_nefes_theme()        # all subsequent figures adopt the Nefes look
+    from nefes.plotting import set_theme, palette
+    set_theme("dark")        # every subsequent figure, shipped or hand-built, turns dark
+    palette().accent         # the ember accent of the active mode
 
 It also hosts the complex-matrix viewers used to read transfer / scattering
 matrices in a notebook (magnitude over phase, with presets for the 2x2 acoustic
@@ -35,7 +37,20 @@ from .labels import detex, latex_enabled, mathify, tex, tex_text, use_latex
 from .modeshape import AnimSeries, animate_mode_shape
 from .sensitivity import plot_sensitivities
 from .spectrum import plot_mode_shape, plot_spectrum
-from .theme import COLORWAY, FONT_FAMILY, NEFES_TEMPLATE_NAME, nefes_template, use_nefes_theme
+from .theme import (
+    COLORWAY,
+    DARK,
+    FONT_FAMILY,
+    LIGHT,
+    NEFES_TEMPLATE_NAME,
+    Palette,
+    colorway,
+    nefes_template,
+    palette,
+    set_theme,
+    theme_mode,
+    use_nefes_theme,
+)
 from .topology import plot_network_topology
 from .transfer_function import plot_transfer_function
 
@@ -43,6 +58,13 @@ __all__ = [
     "COLORWAY",
     "FONT_FAMILY",
     "NEFES_TEMPLATE_NAME",
+    "Palette",
+    "LIGHT",
+    "DARK",
+    "set_theme",
+    "theme_mode",
+    "palette",
+    "colorway",
     "nefes_template",
     "use_nefes_theme",
     "use_latex",

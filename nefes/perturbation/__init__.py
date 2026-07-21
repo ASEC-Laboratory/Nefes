@@ -53,6 +53,7 @@ from .fields.power import (
     intensity_along_network,
     modal_energy_balance,
     passive_reflection_bound,
+    transmission_loss,
 )
 from .identify import (
     TransferFunctionIdentification,
@@ -198,6 +199,7 @@ __all__ = [
     "ForcedPowerBalance",
     "modal_energy_balance",
     "ModalEnergyBalance",
+    "transmission_loss",
     # stability / eigenmodes (nonlinear eigenproblem det A(omega) = 0)
     "eigenmodes",
     "EigenmodeResult",

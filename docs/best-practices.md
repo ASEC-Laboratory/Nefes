@@ -327,7 +327,11 @@ Reacting reads:
 sol.species(1)  # {species: fraction} — equilibrium products on a burnt edge (basis="mole" | "mass")
 sol.mixture_fractions(1)  # {stream_label: xi} — transported feed-stream fractions
 sol.marker(1)  # burnt marker 0 (fresh) -> 1 (burnt); meaningful under automatic gating
+sol.heat_release()  # {flame_name: Q_watts} — each flame's heating power off the converged state
 ```
+
+`heat_release()` reproduces the `Qdot` parameter of a `heat_release_flame` and, for an `equilibrium_flame` (whose power is an outcome of the equilibrium, not an input), evaluates the exact formation-enthalpy drop from frozen reactants to equilibrium products.
+The same number de-normalizes an attached flame transfer function when its `q_mean` is not given explicitly.
 
 Structural / diagnostic reads: `sol.composite(name)` (hidden interior of a composite), `sol.composites`, `sol.unchoked_nozzles()`, `sol.cuton_report()` (plane-wave validity ceiling), `sol.verify()`.
 
@@ -706,13 +710,17 @@ report = auto_refine(build=lambda N: my_network(N), n_start=4, probe=lambda sol:
 
 ## 12. Plotting
 
-Plotly only, with the bundled Nefes theme.
-Call `use_nefes_theme()` once; it makes `"nefes"` the default template.
+Plotly only, with the bundled Nefes theme, which comes in a light mode (on white) and a dark mode matching the documentation pages and the Nemo interface.
+Every figure built by `nefes.plotting` carries the theme already, so nothing has to be called for a themed plot.
+Switch modes with `set_theme`, which also makes the theme Plotly's default template, so figures assembled by hand match:
 
 ```python
-from nefes.plotting import use_nefes_theme, COLORWAY
-use_nefes_theme()
+from nefes.plotting import set_theme, palette
+set_theme("dark")  # or "light" (the default)
 ```
+
+For hand-built traces, `palette()` returns the colours of the active mode: `palette().colorway` (the categorical series colours, in draw order), `.accent`, `.ink`, `.muted`, `.rule`.
+`COLORWAY` remains the light-mode series list for code that wants a fixed palette.
 
 The analysis objects carry their own plotters (`modes.plot_spectrum()`, `resp.plot_transfer_matrix(a, b)`, `fr.plot_response()`, `traj.plot_vs_param()`, `fit.plot_fit()`).
 The standalone helpers in `nefes.plotting` take raw arrays when you want a custom figure:

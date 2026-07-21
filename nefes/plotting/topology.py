@@ -13,7 +13,7 @@ import numpy as np
 
 from ..shell.network import _EDGE_FIELDS
 from ._deps import go, sample_colorscale
-from .theme import NEFES_TEMPLATE_NAME
+from .theme import NEFES_TEMPLATE_NAME, palette, rgba
 
 # Per-edge solved field -> (display label, unit, value format) for the overlay
 # colorbar / labels / hover.  Keyed to match :data:`nefes.shell.network._EDGE_FIELDS`
@@ -43,21 +43,26 @@ if set(_FIELD_INFO) != set(_EDGE_FIELDS):
 
 # Semantic node colours by element role (matched on the residual-type name).  A
 # role keyword -> fill colour; anything unmatched is an interior element.
+# Semantic node colours by element role, given as positions in the active colorway so
+# both theme modes stay legible.  A role keyword -> colorway index; anything unmatched is
+# an interior element.
 _ROLE_COLORS = (
-    ("Inlet", "#10b981"),  # sources of flow: green
-    ("Source", "#8b5cf6"),  # mass source: violet
-    ("Outlet", "#ef4444"),  # sinks: red
-    ("Flame", "#f97316"),  # heat release: orange
-    ("Wall", "#6b7280"),  # dead end: grey
+    ("Inlet", 2),  # sources of flow: emerald
+    ("Source", 3),  # mass source: violet
+    ("Outlet", 4),  # sinks: red
+    ("Flame", 1),  # heat release: ember
 )
-_INTERIOR_COLOR = "#2563eb"  # ducts, junctions, area changes, ...: blue
+_INTERIOR_ROLE = 0  # ducts, junctions, area changes, ...: blue
 
 
 def _role_color(type_name):
-    for key, color in _ROLE_COLORS:
+    p = palette()
+    if "Wall" in type_name:  # dead end: grey, off the categorical scale
+        return p.faint, "wall"
+    for key, index in _ROLE_COLORS:
         if key in type_name:
-            return color, key.lower()
-    return _INTERIOR_COLOR, "interior"
+            return p.colorway[index], key.lower()
+    return p.colorway[_INTERIOR_ROLE], "interior"
 
 
 def _layers(n, edges):
@@ -223,6 +228,7 @@ def plot_network_topology(
         edge_widths = [1.0 + 6.0 * (m / wmax) for m in mag]  # 1..7 px, scaled by magnitude
     sol_field = solution.field if solution is not None else None
 
+    _p = palette()
     fig = go.Figure()
 
     # -- edges: an arrow per directed edge, plus a midpoint marker for hover/label
@@ -243,7 +249,7 @@ def plot_network_topology(
                 arrowhead=2,
                 arrowsize=1.2,
                 arrowwidth=edge_widths[i] if edge_widths is not None else 1.4,
-                arrowcolor=edge_colors[i] if edge_colors is not None else "#9aa5b1",
+                arrowcolor=edge_colors[i] if edge_colors is not None else _p.rule,
                 standoff=14,  # stop short of the head marker
                 startstandoff=14,  # start past the tail marker
                 opacity=0.9,
@@ -283,7 +289,7 @@ def plot_network_topology(
                 line=dict(width=0),
             )
         else:
-            marker = dict(size=14, color="rgba(255,255,255,0.85)", line=dict(width=0))
+            marker = dict(size=14, color=rgba(_p.plot, 0.85), line=dict(width=0))
         fig.add_trace(
             go.Scatter(
                 x=mids_x,
@@ -291,7 +297,7 @@ def plot_network_topology(
                 mode="markers+text" if show_edge_labels else "markers",
                 text=mid_text if show_edge_labels else None,
                 textposition="middle center" if cvals is None else "top center",
-                textfont=dict(size=10, color="#52606d"),
+                textfont=dict(size=10, color=_p.muted),
                 marker=marker,
                 hovertext=mid_hover,
                 hoverinfo="text",
@@ -314,8 +320,8 @@ def plot_network_topology(
                 mode="markers+text",
                 text=[f"{i}: {network._node_label(i)}" for i in idxs],
                 textposition="bottom center",
-                textfont=dict(size=11, color="#1f2933"),
-                marker=dict(size=22, color=color, line=dict(width=1.5, color="#ffffff")),
+                textfont=dict(size=11, color=_p.ink),
+                marker=dict(size=22, color=color, line=dict(width=1.5, color=_p.marker_edge)),
                 hovertext=[f"{i}: {network._node_label(i)} ({network._type_name(elements[i])})" for i in idxs],
                 hoverinfo="text",
                 name=role,

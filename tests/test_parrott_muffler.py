@@ -29,7 +29,7 @@ import numpy as np
 import pytest
 
 from nefes.elements import catalog as cat
-from nefes.perturbation import PerturbationBC
+from nefes.perturbation import PerturbationBC, transmission_loss
 from nefes.shell.network import Network
 from nefes.thermo.configure import perfect_gas
 
@@ -57,9 +57,11 @@ def _gas():
 
 
 def _tl_two_port(sol, freqs, e_in, e_out, freeze):
+    # transmission_loss carries the port correction (Dokumaci's C_TL); it is identically
+    # zero here since inlet and outlet share area, impedance and Mach, but going through
+    # the library keeps the helper right if a case ever has unequal ports.
     resp = sol.perturbation_response(freqs, freeze=freeze)
-    tau = resp.acoustic_scattering_matrix(e_in, e_out)[:, 1, 0]
-    return -20.0 * np.log10(np.abs(tau))
+    return transmission_loss(resp, e_in, e_out)
 
 
 def _add_chamber(net, node_in, Lch, Lin, Lout, walls, wall_reflection):

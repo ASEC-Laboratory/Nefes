@@ -36,7 +36,8 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.sparse as sp
 
-from ...assembly.recover import ES_AREA, ES_C, ES_HT, ES_MDOT, ES_P, ES_RHO, ES_T, ES_U
+from ...assembly.recover import ES_AREA, ES_C, ES_HT, ES_MDOT, ES_P, ES_RHO, ES_U
+from ...chem.chemistry import node_heat_release
 from ...elements.ids import (
     CAVITY,
     FLAME_HEAT_RELEASE,
@@ -334,9 +335,8 @@ def build_source_stamps(prob, x_bar, u_floor=1e-8):
                     "direction (one inflow, one outflow edge) at the mean state"
                 )
             e_out, s_out = outs[0]
-            e_in, _s_in = ins[0]
             mdot_mag = s_out * float(est[ES_MDOT, e_out])  # > 0
-            q_mean = _mean_heat_release(prob, n, pb, mdot_mag, est, e_in, e_out, desc.q_mean)
+            q_mean = _mean_heat_release(prob, x_bar, n, pb, est, desc.q_mean)
             delta = q_mean / mdot_mag  # specific enthalpy rise [J/kg]
             rows = (tr0 + e_out,)  # downstream total-enthalpy (energy) transport row
             factors = np.array([-delta], dtype=float)  # residual: h_t - H_donor - q'/mdot
@@ -395,40 +395,21 @@ def build_source_stamps(prob, x_bar, u_floor=1e-8):
     return stamps, frozenset(flame_edges)
 
 
-def _cp_from_state(est_col):
-    """Effective specific heat ``cp`` [J/(kg K)] from one mean edge state.
-
-    From the sound speed: the effective isentropic exponent is ``gamma = rho c^2 / p``
-    and ``R = p / (rho T)``, so ``cp = gamma R / (gamma - 1)``.  Exact for a perfect
-    gas; for the reacting closure it is the cp consistent with the (equilibrium/frozen)
-    sound speed the acoustics already use -- and does not depend on the thermo ``tf``
-    layout, which is *not* ``[cp, R, ...]`` for the reacting backend.
-    """
-    rho = float(est_col[ES_RHO])
-    c = float(est_col[ES_C])
-    p = float(est_col[ES_P])
-    T = float(est_col[ES_T])
-    gamma = rho * c * c / p
-    Rgas = p / (rho * T)
-    return gamma * Rgas / (gamma - 1.0)
-
-
-def _mean_heat_release(prob, n, pb, mdot_mag, est, e_in, e_out, q_mean):
+def _mean_heat_release(prob, x_bar, n, pb, est, q_mean):
     """Mean heat release ``Q_bar`` [W] for the FTF de-normalization.
 
     Explicit ``q_mean`` wins.  Otherwise auto-derive from the converged mean flame:
     the perfect-gas heat-release flame carries its power as a parameter; any other
-    flame uses the sensible-enthalpy rise ``mdot * cp_bar * (T_out - T_in)`` with
-    ``cp_bar`` the mean of the per-edge effective ``cp`` (:func:`_cp_from_state`) -- a
-    low-Mach approximation; pass ``q_mean`` for an exact value.
+    element uses the sensible total-enthalpy rise of its through-flow
+    (:func:`~nefes.chem.chemistry.node_heat_release`), which is exact for the
+    reacting equilibrium flame -- the formation-enthalpy drop from frozen reactants
+    to equilibrium products -- with no specific-heat approximation.
     """
     if q_mean is not None:
         return float(q_mean)
     if int(prob.node_rid[n]) == FLAME_HEAT_RELEASE:
         return float(prob.npar_f[pb + 0])  # Qdot [W], the kernel's own source
-    cp_bar = 0.5 * (_cp_from_state(est[:, e_in]) + _cp_from_state(est[:, e_out]))
-    dT = float(est[ES_T, e_out]) - float(est[ES_T, e_in])
-    return mdot_mag * cp_bar * dT
+    return float(node_heat_release(prob, x_bar, n, est=est))
 
 
 def stamp_sources(A, omega, source_stamps):

@@ -48,7 +48,8 @@ $toc-inactive-border: #2a333e !default;
 
 /*-- scss:rules --*/
 
-// Live Plotly figures are re-skinned by _theme/theme-runtime.html; static images keep
+// Live Plotly figures are re-skinned by _theme/theme-runtime.html; Mermaid follows the
+// $mermaid-* tokens (set in nefes-light.scss from the semantic palette). Static images keep
 // their white paper, so present those as deliberate plates instead of glaring rectangles.
 .cell-output-display > img,
 .quarto-figure img {

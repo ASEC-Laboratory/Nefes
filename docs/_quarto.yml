@@ -1,30 +1,39 @@
 # Nefes documentation — Quarto render layer.
 #
 # The Markdown under docs/ stays the authoritative source; Quarto renders it to HTML,
-# without moving or rewriting anything. Two surfaces are generated at build time:
+# without moving or rewriting anything. Two surfaces are generated at build time under
+# the `full` profile (default for `quarto render`):
 #
 #   * reference/api/  — API pages built from docstrings by quartodoc (pre-render).
 #   * examples/       — the notebook gallery built by _scripts/build_examples.py (pre-render).
 #
-# Preview locally with `quarto preview docs`; the example pages execute notebooks, so point
-# Quarto at the project environment first, e.g. `QUARTO_PYTHON=$(which python) quarto render docs`.
+# Authoring a single page (live reload, no API/gallery rebuild):
+#
+#   docs/_scripts/preview_page theory/overview.qmd
+#   # or:  quarto preview docs/theory/overview.qmd --profile preview
+#
+# Full site (CI / publish). Point Quarto at the project environment first:
+#
+#   QUARTO_PYTHON=$(which python) quarto render docs --profile full
 #
 # Appearance lives in _theme/: a light/dark SCSS pair layered on cosmo (the dark file only
 # overrides the semantic color tokens), the web-font includes, staged copies of the logo
 # assets (source of truth: /assets — wordmark for the navbar, N mark for the favicon),
 # and a small runtime script (theme-runtime.html) that persists the
 # dark/light choice when the site is browsed over file:// and re-skins Plotly figures to the
-# active mode. The navbar hosts search plus the reader-mode and dark-mode toggles; note the
-# toggles rely on scripts that browsers block over file://, so prefer `quarto preview`.
+# active mode. Mermaid diagrams stay unstyled in the source; fill/stroke/text come from
+# $mermaid-* in nefes-light.scss (semantic tokens, so the dark bundle flips them). The
+# navbar hosts search plus the reader-mode and dark-mode toggles; note the toggles rely on
+# scripts that browsers block over file://, so prefer `quarto preview`.
+
+profile:
+  default: full
 
 project:
   type: website
   output-dir: _site
   resources:
     - _theme/nefes-logo-dark.svg  # runtime-swapped navbar logo; not referenced statically
-  pre-render:
-    - quartodoc build --config _quarto.yml
-    - _scripts/build_examples.py
   render:
     - "*.md"
     - "theory/*.md"
@@ -65,8 +74,8 @@ website:
         text: Conventions
       - section: "Theory"
         contents:
-          - theory/overview.md
-          - theory/framework.md
+          - theory/overview.qmd
+          - theory/abstraction.md
           - theory/governing-equations.md
           - theory/state-and-recovery.qmd
           - theory/equation-structure.md
@@ -193,8 +202,12 @@ quartodoc:
         - io.save_solution
         - io.dump_case
     - title: "Plotting"
-      desc: "The nefes plotly theme and the standard figure helpers."
+      desc: "The nefes plotly themes (light and dark) and the standard figure helpers."
       contents:
+        - plotting.set_theme
+        - plotting.theme_mode
+        - plotting.palette
+        - plotting.colorway
         - plotting.use_nefes_theme
         - plotting.use_latex
         - plotting.plot_complex_matrix

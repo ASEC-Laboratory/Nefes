@@ -5,21 +5,21 @@ Throughout the documentation we will casually refer to the whole set of these li
 Depending on the context, the reader should be aware that the set of perturbation variables may include entropy waves and scalar (composition) waves in addition to the regular upstream and downstream acoustic waves.
 This tree is the authoritative documentation: the physics and mathematics, the numerical and architectural philosophy, and the verification and validation evidence that backs every claim.
 
-The pages are Markdown with `$…$` math, organized into three tracks plus a supporting layer.
+The pages are Markdown with `$…$` math, organized into three parts plus a supporting layer.
 A single symbol table ([`nomenclature.md`](nomenclature.md)) and a single bibliography ([`references.bib`](references.bib)) are shared by every document.
 
 ## Where to start
 
-- **New to the method** — begin with the [theory overview](theory/overview.md): what Nefes computes, the four modeling decisions it rests on, and the scope of the current version.
+- **New to the method** — begin with the [theory overview](theory/overview.qmd): what Nefes computes, the four modeling decisions it rests on, and the scope of the current version.
 - **Building a network** — the [element reference](#reference) below, then the [modeling guide](reference/modeling-guide.md) and the [annotated example index](reference/examples.md).
-- **Contributing to the code** — the [design philosophy](design/philosophy.md) track, whose signature pieces are the complex-step derivative engine and the smoothness contract.
+- **Contributing to the code** — the [design philosophy](design/philosophy.md) part, whose signature pieces are the complex-step derivative engine and the smoothness contract.
 
-## Track I — Theory
+## Part I — Theory
 
 The physics and mathematics, each document opening with its assumptions ledger and citing or deriving every claim.
 
-- `theory/overview.md` — what the method computes, the four modeling decisions, the subsonic scope.
-- `theory/framework.md` … `theory/choking.md` — the mean-flow formulation: graph model, governing balances, state and recovery, transport, elements, well-posedness, characteristics, and emergent choking.
+- `theory/overview.qmd` — what the method computes, the four modeling decisions, the subsonic scope.
+- `theory/abstraction.md` … `theory/choking.md` — the mean-flow formulation: graph model, governing balances, state and recovery, transport, elements, well-posedness, characteristics, and emergent choking.
 - `theory/thermochemistry.md` — mixture thermodynamics, chemical equilibrium, and the reacting closures.
 - `theory/perturbation-network.md` — linearization about the mean flow into the frequency-domain acoustic operator.
 - `theory/dynamic-sources.md` — the flame response (flame transfer function / n–τ) and compositional noise.
@@ -27,13 +27,13 @@ The physics and mathematics, each document opening with its assumptions ledger a
 - `theory/identification.md` — the inverse analysis: de-embedding an element's dynamic response from a measured network transfer matrix.
 - `theory/limitations.md` — scope boundaries and honest open ends.
 
-## Track II — Design philosophy
+## Part II — Design philosophy
 
 Why the code is shaped the way it is (concepts and contracts, not the API, which is unstable until the tagged release).
 
 - `design/philosophy.md`, `design/kernel-architecture.md`, `design/complex-step.md`, `design/smoothness-contract.md`, `design/assembly.md`, `design/solver.md`, `design/reproducibility.md`.
 
-## Track III — Validation
+## Part III — Validation
 
 - `validation/validation-map.md` — every physical claim mapped to the case and test that checks it.
 - `validation/verification.md`, `validation/benchmarks.md` — internal consistency checks and named literature benchmarks.

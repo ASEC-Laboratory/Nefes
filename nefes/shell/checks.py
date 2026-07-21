@@ -27,6 +27,9 @@ CHECK_CONNECTED = True
 CHECK_CONNECTIONS = True
 # Post-solve: warn when a choked-nozzle outlet's back pressure is too high for it to choke.
 CHECK_CHOKED_NOZZLE = True
+# Post-solve: warn when a choked area change's lumped total-pressure drop implies a normal
+# shock stronger than any its diverging side can host (supersonic-exit regime, out of scope).
+CHECK_LUMPED_SHOCK = True
 
 
 def _label(elements, i: int) -> str:

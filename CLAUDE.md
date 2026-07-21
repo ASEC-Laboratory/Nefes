@@ -21,7 +21,7 @@ behavior around it) without resolving the full 3-D field.
 
 Source of truth lives under `docs/`; read it before designing, and sanity-check rather than assume it is current:
 
-- `docs/theory/` — framework, governing equations, elements, transport, choking, and the acoustic/perturbation network.
+- `docs/theory/` — network abstraction, governing equations, elements, transport, choking, and the acoustic/perturbation network.
 - `docs/design/` — implementation contracts: assembly, solver, complex-step, kernel architecture, smoothness.
 - `docs/reference/` — modeling guide mapping restrictions (orifices, valves, nozzles) to elements.
 - `docs/validation/` — validation map, verification checks, and literature benchmarks.

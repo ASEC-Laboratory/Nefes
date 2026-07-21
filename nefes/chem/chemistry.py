@@ -11,15 +11,25 @@ species per edge from a converged state, for diagnostics / output:
   species mass fractions are ``xi @ stream_Y`` over the network's distinct streams.
 
 A perfect-gas edge carries no chemical species (its scalars, if any, are passive).
+
+Beyond the compositions themselves, :func:`edge_formation_enthalpy` evaluates the
+chemical part of an edge's absolute-enthalpy datum, and :func:`node_heat_release` turns
+it into the heating power of a two-port element -- exact for the equilibrium flame,
+where the temperature jump rides on the composition change alone.
 """
 
 import numpy as np
 
-from ..assembly.recover import NS_EST, recover_all
+from ..assembly.recover import ES_HT, ES_MDOT, NS_EST, recover_all
 from ..elements.composite import is_composite
 from ..elements.ids import STREAM_INTRODUCING
+from ..solver.report import states_table
 from ..thermo.api import EQ_KERNEL, EQ_MARKER, PERFECT_GAS
+from ..thermo.edge_state import _feed_blocks, _product_blocks
+from ..thermo.kernel import RU, _mix_cp_h
 from .composition import build_streams
+
+T_REF = 298.15  # formation-enthalpy reference temperature [K], the NASA-polynomial datum
 
 
 def product_moles(prob, x):
@@ -182,3 +192,107 @@ def stream_mass_fractions_for(prob, x, species_set):  # pragma: no cover - conve
         Always -- the caller must supply ``stream_Y`` via ``Solution.species``.
     """
     raise ValueError("frozen-edge species need the network's stream compositions; query via Solution.species")
+
+
+def edge_formation_enthalpy(prob, x, e, *, moles=None):
+    """Mixture formation enthalpy [J/kg] of edge ``e`` at the 298.15 K reference.
+
+    The enthalpy the edge's composition would carry at the reference temperature -- the
+    chemical part of the absolute-enthalpy datum, so ``h_t - h_form`` is the sensible
+    (thermal + kinetic) content of the flow.  A burnt edge evaluates its converged
+    equilibrium products, a frozen / fresh edge the forward feed-stream blend, and a
+    perfect-gas edge (no chemical species) returns ``0.0``.  Works from the compiled
+    problem's packed thermo bundle alone -- no species set or network object needed.
+
+    Parameters
+    ----------
+    prob : CompiledProblem
+        The compiled network.
+    x : ndarray
+        Converged state, shape ``(n_solve, n_edges)``.
+    e : int
+        Edge id.
+    moles : ndarray, optional
+        Precomputed :func:`product_moles` (pass it when querying many edges).
+
+    Returns
+    -------
+    float
+        Formation enthalpy [J/kg] of the edge's mixture at 298.15 K.
+
+    See Also
+    --------
+    node_heat_release : the heating power this underpins.
+    """
+    model = int(prob.edge_model[e])
+    if model == PERFECT_GAS or prob.ti.shape[0] <= 6:
+        return 0.0
+    burnt = model == EQ_KERNEL
+    if model == EQ_MARKER:
+        # bimodal at convergence: equilibrium products past the marker-gate crossover,
+        # the frozen feed blend below it (the same rule edge_species applies)
+        marker_row = int(getattr(prob, "marker_row", -1))
+        burnt = marker_row >= 0 and float(x[marker_row, e]) >= 0.5
+    if burnt:
+        nj = (product_moles(prob, x) if moles is None else moles)[e]
+        coeffs, Tint, prod_A, ew = _product_blocks(prob.tf, prob.ti)
+        # molar masses from the element matrix; the converged moles carry the equilibrium
+        # solve's small mass-closure residual, so normalize to exactly one kg of mixture
+        mass = float(nj @ (np.asarray(prod_A).T @ np.asarray(ew)))
+    else:
+        Nfeed, coeffs, Tint = _feed_blocks(prob.tf, prob.ti)
+        xi = np.ascontiguousarray(x[3 : 3 + int(prob.n_elem), e], dtype=np.float64)
+        nj = xi @ Nfeed  # feed-species moles per kg, the frozen forward blend
+        # each packed stream is exactly one kg of mixture, so the blend's mass is sum(xi)
+        mass = float(np.sum(xi))
+    _cp, sum_nh = _mix_cp_h(np.ascontiguousarray(coeffs), np.ascontiguousarray(Tint), np.ascontiguousarray(nj), T_REF)
+    return float(RU * T_REF * sum_nh / mass)
+
+
+def node_heat_release(prob, x, n, *, est=None, moles=None):
+    """Heat release rate [W] of the two-port element ``n`` from its converged edge states.
+
+    The sensible total-enthalpy rise of the through-flow,
+    ``Q = mdot [ (h_t - h_form)_out - (h_t - h_form)_in ]``, with each edge's formation
+    enthalpy at the 298.15 K reference (:func:`edge_formation_enthalpy`).  For the
+    perfect-gas heat-addition flame this recovers its ``Qdot`` parameter from the
+    solution; for the reacting equilibrium flame -- which conserves the absolute total
+    enthalpy -- it equals the formation-enthalpy drop from frozen reactants to
+    equilibrium products, the exact heating power with no specific-heat approximation.
+    Positive heats the flow; an adiabatic element returns ``~ 0``.
+
+    Parameters
+    ----------
+    prob : CompiledProblem
+        The compiled network.
+    x : ndarray
+        Converged state, shape ``(n_solve, n_edges)``.
+    n : int
+        Node (element) index; must be a two-port element with a single through-flow
+        direction at the mean state.
+    est : ndarray, optional
+        Precomputed edge-state table (:func:`~nefes.solver.report.states_table`).
+    moles : ndarray, optional
+        Precomputed :func:`product_moles` (pass it when querying many elements).
+
+    Returns
+    -------
+    float
+        Heat release rate [W].
+    """
+    if est is None:
+        est = states_table(prob, np.asarray(x), caloric=False)
+    base = int(prob.row_ptr[n])
+    deg = int(prob.row_ptr[n + 1]) - base
+    if deg != 2:
+        raise ValueError(f"heat release is defined for a two-port element; node {n} has {deg} ports")
+    ports = [(int(prob.col_edge[base + i]), int(prob.orient[base + i])) for i in range(2)]
+    outs = [(e, s) for (e, s) in ports if s * float(est[ES_MDOT, e]) > 0.0]
+    ins = [(e, s) for (e, s) in ports if s * float(est[ES_MDOT, e]) <= 0.0]
+    if len(outs) != 1 or len(ins) != 1:
+        raise ValueError(f"node {n} needs a single through-flow direction (one inflow, one outflow edge)")
+    (e_out, s_out), e_in = outs[0], ins[0][0]
+    mdot = s_out * float(est[ES_MDOT, e_out])  # > 0
+    hs_out = float(est[ES_HT, e_out]) - edge_formation_enthalpy(prob, x, e_out, moles=moles)
+    hs_in = float(est[ES_HT, e_in]) - edge_formation_enthalpy(prob, x, e_in, moles=moles)
+    return mdot * (hs_out - hs_in)
