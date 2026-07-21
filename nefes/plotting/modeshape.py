@@ -23,7 +23,7 @@ import numpy as np
 
 from ._deps import go
 from .labels import mathify
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
+from .theme import NEFES_TEMPLATE_NAME, palette, rgba
 
 # Light fill for the +/- |psi| envelope band, keyed off the path's line colour.
 _ENVELOPE_ALPHA = 0.14
@@ -67,12 +67,6 @@ class AnimSeries:
     path_fields: List = field(default_factory=list)
     label: str = ""
     phase_ratio: float = 1.0
-
-
-def _hex_to_rgba(hex_color, alpha):
-    h = hex_color.lstrip("#")
-    r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
-    return f"rgba({r},{g},{b},{alpha})"
 
 
 def _normalize(path_fields):
@@ -178,12 +172,13 @@ def animate_mode_shape(
     traces, ymax = _flatten(series, normalize)
 
     thetas = np.linspace(0.0, 2.0 * np.pi, n_frames, endpoint=False)
+    _p = palette()
     fig = go.Figure()
     dynamic_idx = []  # trace indices the frames animate
     show_legend = len(traces) > 1
 
     for j, tr in enumerate(traces):
-        color = COLORWAY[j % len(COLORWAY)]
+        color = _p.colorway[j % len(_p.colorway)]
         x, v = tr["x"], tr["v"]
         if envelope and v.size:
             mag = np.abs(v)
@@ -197,7 +192,7 @@ def animate_mode_shape(
                     mode="lines",
                     line=dict(width=0),
                     fill="tonexty",
-                    fillcolor=_hex_to_rgba(color, _ENVELOPE_ALPHA),
+                    fillcolor=rgba(color, _ENVELOPE_ALPHA),
                     showlegend=False,
                     hoverinfo="skip",
                 )
@@ -232,7 +227,7 @@ def animate_mode_shape(
             x=x0,
             line_width=1,
             line_dash="dot",
-            line_color="#9aa5b1",
+            line_color=_p.rule,
             annotation_text=lab,
             annotation_font_size=10,
             annotation_position="top",

@@ -202,8 +202,12 @@ quartodoc:
         - io.save_solution
         - io.dump_case
     - title: "Plotting"
-      desc: "The nefes plotly theme and the standard figure helpers."
+      desc: "The nefes plotly themes (light and dark) and the standard figure helpers."
       contents:
+        - plotting.set_theme
+        - plotting.theme_mode
+        - plotting.palette
+        - plotting.colorway
         - plotting.use_nefes_theme
         - plotting.use_latex
         - plotting.plot_complex_matrix

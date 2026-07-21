@@ -710,13 +710,17 @@ report = auto_refine(build=lambda N: my_network(N), n_start=4, probe=lambda sol:
 
 ## 12. Plotting
 
-Plotly only, with the bundled Nefes theme.
-Call `use_nefes_theme()` once; it makes `"nefes"` the default template.
+Plotly only, with the bundled Nefes theme, which comes in a light mode (on white) and a dark mode matching the documentation pages and the Nemo interface.
+Every figure built by `nefes.plotting` carries the theme already, so nothing has to be called for a themed plot.
+Switch modes with `set_theme`, which also makes the theme Plotly's default template, so figures assembled by hand match:
 
 ```python
-from nefes.plotting import use_nefes_theme, COLORWAY
-use_nefes_theme()
+from nefes.plotting import set_theme, palette
+set_theme("dark")  # or "light" (the default)
 ```
+
+For hand-built traces, `palette()` returns the colours of the active mode: `palette().colorway` (the categorical series colours, in draw order), `.accent`, `.ink`, `.muted`, `.rule`.
+`COLORWAY` remains the light-mode series list for code that wants a fixed palette.
 
 The analysis objects carry their own plotters (`modes.plot_spectrum()`, `resp.plot_transfer_matrix(a, b)`, `fr.plot_response()`, `traj.plot_vs_param()`, `fit.plot_fit()`).
 The standalone helpers in `nefes.plotting` take raw arrays when you want a custom figure:

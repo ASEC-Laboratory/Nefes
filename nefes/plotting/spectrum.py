@@ -12,10 +12,7 @@ import numpy as np
 
 from ._deps import go, make_subplots
 from .labels import mathify
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
-
-_STABLE_COLOR = COLORWAY[0]  # blue
-_UNSTABLE_COLOR = COLORWAY[4]  # red
+from .theme import NEFES_TEMPLATE_NAME, palette
 
 
 def _contour_to_fg(c, n=181):
@@ -78,6 +75,7 @@ def plot_spectrum(
         r = np.asarray(residuals, dtype=float)[mask]
         return [f"residual = {v:.1e}" for v in r]
 
+    _p = palette()
     fig = go.Figure()
 
     # the search contour(s), drawn behind the eigenvalue markers
@@ -90,7 +88,7 @@ def plot_spectrum(
                     x=cx,
                     y=cy,
                     mode="lines",
-                    line=dict(color="#9aa5b1", width=1.4, dash="dot"),
+                    line=dict(color=_p.rule, width=1.4, dash="dot"),
                     name="search contour",
                     legendgroup="search contour",
                     showlegend=(k == 0),
@@ -99,8 +97,8 @@ def plot_spectrum(
             )
 
     for mask, name, color, symbol in (
-        (~unstable, "stable / decaying", _STABLE_COLOR, "circle"),
-        (unstable, "unstable (growing)", _UNSTABLE_COLOR, "diamond"),
+        (~unstable, "stable / decaying", _p.stable, "circle"),
+        (unstable, "unstable (growing)", _p.unstable, "diamond"),
     ):
         if not np.any(mask):
             continue
@@ -110,7 +108,7 @@ def plot_spectrum(
                 y=growth[mask],
                 mode="markers",
                 name=name,
-                marker=dict(size=11, color=color, symbol=symbol, line=dict(width=1, color="white")),
+                marker=dict(size=11, color=color, symbol=symbol, line=dict(width=1, color=_p.marker_edge)),
                 text=_hover(mask),
                 hovertemplate="f = %{x:.4g} "
                 + freq_unit
@@ -119,7 +117,7 @@ def plot_spectrum(
                 + "<extra></extra>",
             )
         )
-    fig.add_hline(y=0.0, line_dash="dash", line_color="#9aa5b1", line_width=1.4)
+    fig.add_hline(y=0.0, line_dash="dash", line_color=_p.rule, line_width=1.4)
     fig.update_layout(
         template=NEFES_TEMPLATE_NAME,
         title=title,
@@ -157,11 +155,12 @@ def plot_mode_shape(shape, *, labels=None, positions=None, title="Mode shape", *
     x = np.arange(n_edges) if positions is None else np.asarray(positions, dtype=float)
     syms = list(labels) if labels is not None else ["f", "g", "h"][:n_char]
 
+    _p = palette()
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08, subplot_titles=("magnitude", "phase [rad]")
     )
     for k in range(n_char):
-        color = COLORWAY[k % len(COLORWAY)]
+        color = _p.colorway[k % len(_p.colorway)]
         legend = mathify(syms[k]) if k < len(syms) else f"w{k}"
         fig.add_trace(
             go.Scatter(

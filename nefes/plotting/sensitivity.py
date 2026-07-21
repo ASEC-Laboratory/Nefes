@@ -9,10 +9,7 @@ One view over an :class:`nefes.perturbation.EigenmodeSensitivityResult`:
 import numpy as np
 
 from ._deps import go
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
-
-_STABILIZING_COLOR = COLORWAY[0]  # blue, matches the stable markers of plot_spectrum
-_DESTABILIZING_COLOR = COLORWAY[4]  # red, matches the unstable markers of plot_spectrum
+from .theme import NEFES_TEMPLATE_NAME, palette
 
 _DEFAULT_TOP = 15
 
@@ -67,10 +64,11 @@ def plot_sensitivities(sens, *, modes=None, top=_DEFAULT_TOP, title="Eigenvalue 
 
     labels = [sens.addresses[k] for k in order]
     single = len(mode_ids) == 1
+    _p = palette()
     fig = go.Figure()
     for j, i in enumerate(mode_ids):
         vals = g[i, order]
-        colors = np.where(vals > 0.0, _DESTABILIZING_COLOR, _STABILIZING_COLOR)
+        colors = np.where(vals > 0.0, _p.unstable, _p.stable)
         opacity = 1.0 if single else 0.45 + 0.55 * (j + 1) / len(mode_ids)
         fig.add_trace(
             go.Bar(
@@ -78,14 +76,14 @@ def plot_sensitivities(sens, *, modes=None, top=_DEFAULT_TOP, title="Eigenvalue 
                 y=labels,
                 orientation="h",
                 name=f"mode {i}: {sens.freqs[i]:.4g} Hz",
-                marker=dict(color=colors, opacity=opacity, line=dict(width=0.5, color="white")),
+                marker=dict(color=colors, opacity=opacity, line=dict(width=0.5, color=_p.marker_edge)),
                 customdata=np.stack([f[i, order], np.full(order.size, sens.freqs[i])], axis=-1),
                 hovertemplate="%{y}<br>Δgrowth = %{x:+.4g} 1/s"
                 "<br>Δf = %{customdata[0]:+.4g} Hz"
                 "<br>mode at %{customdata[1]:.4g} Hz<extra></extra>",
             )
         )
-    fig.add_vline(x=0.0, line_color="#9aa5b1", line_width=1.4)
+    fig.add_vline(x=0.0, line_color=_p.rule, line_width=1.4)
     fig.update_layout(
         template=NEFES_TEMPLATE_NAME,
         title=title,

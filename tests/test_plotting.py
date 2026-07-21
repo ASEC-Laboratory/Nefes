@@ -7,15 +7,32 @@ import pytest
 
 from nefes.plotting import (
     COLORWAY,
+    DARK,
     FONT_FAMILY,
+    LIGHT,
     NEFES_TEMPLATE_NAME,
     nefes_template,
+    palette,
     plot_complex_matrix,
     plot_scattering_matrix,
+    plot_spectrum,
     plot_transfer_matrix,
     scattering_axis_labels,
+    set_theme,
+    theme_mode,
     use_nefes_theme,
 )
+
+
+@pytest.fixture(autouse=True)
+def _restore_theme():
+    #  every test starts light and leaves the process as it found it
+    mode = theme_mode()
+    default = pio.templates.default
+    set_theme("light")
+    yield
+    set_theme(mode)
+    pio.templates.default = default
 
 
 def _rand_matrix(n_freq=16, n=3, seed=0):
@@ -48,6 +65,56 @@ def test_nefes_template_is_well_formed():
     assert tmpl.layout.xaxis.title.standoff == 6
 
 
+def test_both_modes_are_registered():
+    assert "nefes-light" in pio.templates
+    assert "nefes-dark" in pio.templates
+    assert pio.templates["nefes-light"].layout.paper_bgcolor == LIGHT.paper
+    assert pio.templates["nefes-dark"].layout.paper_bgcolor == DARK.paper
+
+
+def test_set_theme_switches_the_alias_and_the_default():
+    set_theme("dark")
+    assert theme_mode() == "dark"
+    assert palette() is DARK
+    assert pio.templates[NEFES_TEMPLATE_NAME].layout.paper_bgcolor == DARK.paper
+    assert pio.templates.default == NEFES_TEMPLATE_NAME
+    set_theme("light")
+    assert palette() is LIGHT
+    assert pio.templates[NEFES_TEMPLATE_NAME].layout.paper_bgcolor == "#ffffff"
+
+
+def test_light_mode_is_on_white():
+    assert LIGHT.paper == "#ffffff"
+    assert LIGHT.plot == "#ffffff"
+
+
+def test_set_theme_rejects_an_unknown_mode():
+    with pytest.raises(ValueError, match="unknown theme mode"):
+        set_theme("sepia")
+
+
+def test_shipped_figures_follow_the_mode_without_a_theme_call():
+    #  no use_nefes_theme(): the plotting routines carry the theme themselves
+    freqs, growth = np.array([100.0, 250.0]), np.array([-3.0, 2.0])
+    assert plot_spectrum(freqs, growth).layout.template.layout.paper_bgcolor == LIGHT.paper
+    set_theme("dark")
+    fig = plot_spectrum(freqs, growth)
+    assert fig.layout.template.layout.paper_bgcolor == DARK.paper
+    #  markers pick up the dark colorway, not the light one
+    assert fig.data[0].marker.color == DARK.stable
+
+
+def test_dark_mode_reads_on_its_background():
+    #  every categorical colour must be lighter than the dark plotting area
+    def _luma(hexstr):
+        h = hexstr.lstrip("#")
+        r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    assert all(_luma(c) > _luma(DARK.plot) + 60 for c in DARK.colorway)
+    assert all(_luma(c) < _luma(LIGHT.plot) - 60 for c in LIGHT.colorway)
+
+
 def test_use_nefes_theme_sets_default():
     prev = pio.templates.default
     try:
@@ -58,9 +125,11 @@ def test_use_nefes_theme_sets_default():
         pio.templates.default = prev
 
 
-def test_palette_entries_are_unique_hex():
-    assert len(COLORWAY) == len(set(COLORWAY))
-    assert all(c.startswith("#") and len(c) == 7 for c in COLORWAY)
+@pytest.mark.parametrize("p", [LIGHT, DARK])
+def test_palette_entries_are_unique_hex(p):
+    assert len(p.colorway) == len(set(p.colorway))
+    assert all(c.startswith("#") and len(c) == 7 for c in p.colorway)
+    assert len(p.colorway) == len(COLORWAY)
 
 
 # -- complex-matrix viewers -------------------------------------------------

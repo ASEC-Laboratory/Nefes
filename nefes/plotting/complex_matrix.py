@@ -21,7 +21,7 @@ import numpy as np
 
 from ._deps import go, make_subplots
 from .labels import mathify, tex
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
+from .theme import NEFES_TEMPLATE_NAME, colorway
 
 # default per-index symbols by matrix size (used when no explicit labels given)
 _DEFAULT_LABELS = {2: ("f", "g"), 3: ("f", "g", "h")}
@@ -241,7 +241,7 @@ def _flat_axes(entries, row_labels, col_labels, x_title, ph_title, height, width
 
 
 def _draw_flat(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegend, mag_range=None):
-    colors = cycle(COLORWAY)
+    colors = cycle(colorway())
     for M, fr, nm in zip(matrices, freqs, names):
         color = next(colors)
         for k, (i, j) in enumerate(entries):
@@ -292,7 +292,7 @@ def _grid_axes(nrow, ncol, entries, row_labels, col_labels, x_title, ph_title, h
 
 
 def _draw_grid(fig, matrices, freqs, names, entries, ph_scale, unwrap, showlegend, mag_range=None):
-    colors = cycle(COLORWAY)
+    colors = cycle(colorway())
     first = entries[0]
     for M, fr, nm in zip(matrices, freqs, names):
         color = next(colors)

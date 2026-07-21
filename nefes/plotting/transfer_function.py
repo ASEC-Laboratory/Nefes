@@ -17,7 +17,7 @@ import numpy as np
 
 from ._deps import go, make_subplots
 from .labels import tex
-from .theme import COLORWAY, NEFES_TEMPLATE_NAME
+from .theme import NEFES_TEMPLATE_NAME, colorway
 
 
 def _as_list(x):
@@ -120,7 +120,7 @@ def _draw_magphase(curves, freqs, names, phase, unwrap, mag_range, x_title, show
     ph_scale = 180.0 / np.pi if phase == "deg" else 1.0
     ph_title = r"$\angle\;(\mathrm{deg})$" if phase == "deg" else r"$\angle\;(\mathrm{rad})$"
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
-    colors = cycle(COLORWAY)
+    colors = cycle(colorway())
     peak = 0.0
     for F, nm in zip(curves, names):
         color = next(colors)
@@ -155,7 +155,7 @@ def _draw_magphase(curves, freqs, names, phase, unwrap, mag_range, x_title, show
 
 def _draw_nyquist(curves, freqs, names, showlegend, height, width):
     fig = go.Figure()
-    colors = cycle(COLORWAY)
+    colors = cycle(colorway())
     for F, nm in zip(curves, names):
         color = next(colors)
         fig.add_trace(
