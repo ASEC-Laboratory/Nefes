@@ -19,7 +19,7 @@ authors:
 affiliations:
 - name: Department of Mechanical Engineering, Simulation of Reactive Thermo-Fluid Systems, Technical University of Darmstadt
   index: 1
-- name: TBD
+- name: McGill University, Department of Mechanical Engineering, Montreal, Quebec H3A 0C3, Canada
   index: 2
 date: TBD
 bibliography: paper.bib
@@ -215,7 +215,7 @@ The perturbation layer, on the converged mean flow:
 Across both layers:
 
 - Deterministic numerics.
-- Cases that serialize to and from YAML.
+- YAML case files for network setup and complete save/load.
 - Documentation built from executable notebooks.
 - A test suite (88 files) with a claim-to-test validation map.
 - Interactive network building in [Nemo](https://github.com/cetinalanyalioglu/Nemo), a companion browser-based editor.
